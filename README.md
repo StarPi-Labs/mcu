@@ -1,6 +1,11 @@
+<div align="center">
+<img src="assets/logo_starpi.png" alt="Logo StarPi" width="256">
+
 # MCU
 
-Codice sorgente per il microcontrollore di bordo.
+**StarPi - Dipartimento di Avionaca**
+
+</div>
 
 ## Introduzione
 

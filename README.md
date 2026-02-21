@@ -22,3 +22,10 @@ e poi aggiornare una delle librerie di Python usate dal package dell'ESP32-S3
 seguendo [questa guida](https://community.platformio.org/t/debug-aborts-with-python-error/41139/3).
 
 Ambiente di sviluppo: [PlatformIO (VSCode)](https://platformio.org/platformio-ide).
+
+## Struttura
+
+Il progetto è strutturato in questo modo:
+
+* `esempi/`: cartella con esempi di codice per testare le funzionalità dell'MCU,
+e di altri componenti.

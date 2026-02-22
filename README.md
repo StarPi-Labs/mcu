@@ -27,5 +27,5 @@ Ambiente di sviluppo: [PlatformIO (VSCode)](https://platformio.org/platformio-id
 
 Il progetto è strutturato in questo modo:
 
-* `esempi/`: cartella con esempi di codice per testare le funzionalità dell'MCU,
+* `examples/`: cartella con esempi di codice per testare le funzionalità dell'MCU,
 e di altri componenti.

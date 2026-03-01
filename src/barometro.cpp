@@ -64,6 +64,10 @@ void vTaskBarometro(void *pvParameters) {
     TickType_t ultimoRisveglio = xTaskGetTickCount();
 
     DatiBarometro datiAttuali;
+    // Variabili per il filtro a media mobile
+    float altitudine_filtrata = 0.0;
+    const float alpha = 0.15; // Prova valori tra 0.1 e 0.3. 
+    bool prima_lettura = true;
 
     for (;;) {
         datiAttuali.timestamp = millis();
@@ -72,8 +76,21 @@ void vTaskBarometro(void *pvParameters) {
         if (datiAttuali.status_errore == 0) {
             datiAttuali.temperatura = baro.getTemperature();
             datiAttuali.pressione = baro.getPressure();
-            datiAttuali.altitudine = baro.getAltitude(pressioneAlSuolo_mbar);
             
+            // prende il dato grezzo
+        float altitudine_grezza = baro.getAltitude(pressioneAlSuolo_mbar);
+        // applica il filtro
+        if (prima_lettura) {
+            altitudine_filtrata = altitudine_grezza; // Inizializza il filtro
+            prima_lettura = false;
+        } else {
+            //formula filtro
+            altitudine_filtrata = (alpha * altitudine_grezza) + ((1.0 - alpha) * altitudine_filtrata);
+        }
+            
+        // 3. Salva nella struct SOLO il dato pulito!
+        datiAttuali.altitudine = altitudine_filtrata;
+
             // Invia i dati alla coda per farli leggere ad altri task
             // Se la coda è piena, non bloccare (0 ticks di attesa)
             if (codaBarometro != NULL) {

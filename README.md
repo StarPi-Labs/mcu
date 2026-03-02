@@ -29,3 +29,11 @@ Il progetto è strutturato in questo modo:
 
 * `examples/`: cartella con esempi di codice per testare le funzionalità dell'MCU,
 e di altri componenti.
+
+## Risorse utili
+
+Risorse utili per lo sviluppo:
+
+* [Simulatore Web ESP32](https://wokwi.com/): permette di simulare il comportamento dell'MCU
+e testare il codice senza doverlo caricare fisicamente sul dispositivo.
+* [QEMU ESP32-S3](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/api-guides/tools/qemu.html): un emulatore che permette di eseguire il codice dell'MCU su un computer, utile per il debug e lo sviluppo.

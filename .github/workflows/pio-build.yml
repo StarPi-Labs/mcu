@@ -20,5 +20,5 @@ jobs:
       - name: Install PlatformIO Core
         run: pip install --upgrade platformio
 
-      - name: Build PlatformIO Project
-        run: pio run -d $GITHUB_WORKSPACE/examples/blinker
+      - name: Build examples using pio
+        run: bash $GITHUB_WORKSPACE/scripts/pio-build-examples.sh

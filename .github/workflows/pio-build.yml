@@ -21,4 +21,13 @@ jobs:
         run: pip install --upgrade platformio
 
       - name: Build examples using pio
-        run: bash $GITHUB_WORKSPACE/scripts/pio-build-examples.sh
+        run: |
+          examples_dir="$GITHUB_WORKSPACE/examples"
+
+          for example in $(ls "$examples_dir"); do
+            echo "[Build workflow]: Building example: $example"
+            pio run -d "$examples_dir/$example" || {
+              echo "[Build workflow]: Build failed for example: $example"
+              exit 1
+            }
+          done

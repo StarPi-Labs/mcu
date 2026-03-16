@@ -4,10 +4,12 @@
 # ASSUMPTIONS: 
 #   - PlatformIO is installed and available in the PATH.
 
-examples=$(ls $GITHUB_WORKSPACE/examples);
+examples_dir="$GITHUB_WORKSPACE/examples"
 
-for example in $examples; do
-    echo "Building example: $example"
-    pio run -d $GITHUB_WORKSPACE/examples/$example || \
-        echo "Build failed for example: $example"; exit 1
+for example in $(ls "$examples_dir"); do
+    echo "[$0]: Building example: $example"
+    pio run -d "$examples_dir/$example" || {
+        echo "[$0]: Build failed for example: $example"
+        exit 1
+    }
 done

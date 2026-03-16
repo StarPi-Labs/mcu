@@ -41,16 +41,16 @@ jobs:
           examples_dir="$GITHUB_WORKSPACE/examples"
 
           for example in $(ls "$examples_dir"); do
-            echo -e "$YELLOW [Info]: Building example: $example $DONE"
+            echo -e "$YELLOW[Info]: Building example: $example$DONE"
             pio run -d "$examples_dir/$example" || {
-              echo -e "$RED [Error]: Build failed for example: $example $DONE"
+              echo -e "$RED[Error]: Build failed for example: $example$DONE"
               exit 1
             }
           done
-          echo -e "$GREEN [Success]: All examples built successfully! $DONE"
+          echo -e "$GREEN[Success]: All examples built successfully!$DONE"
 
       - name: "Build examples failure: comment on PR"
         if: ${{ failure() && github.event_name == 'pull_request' }}
-        run: gh pr comment $PR_NUMBER --body "Error, Build failed for one or more examples. Please check the logs for details."
+        run: gh pr comment $PR_NUMBER --body "Error, build failed for one or more examples. Please check the logs for details."
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

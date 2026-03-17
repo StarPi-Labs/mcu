@@ -20,6 +20,7 @@ jobs:
       DONE: '\033[0m'
 
     permissions:
+      contents: read
       pull-requests: write
 
     steps:

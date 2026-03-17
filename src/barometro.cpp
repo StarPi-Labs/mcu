@@ -66,7 +66,7 @@ void vTaskBarometro(void *pvParameters) {
     DatiBarometro datiAttuali;
     // Variabili per il filtro a media mobile
     float altitudine_filtrata = 0.0;
-    const float alpha = 0.15; // Prova valori tra 0.1 e 0.3. 
+    const float alpha = 0.15; //da provare valori tra 0.1 e 0.3. 
     bool prima_lettura = true;
 
     for (;;) {
@@ -88,7 +88,7 @@ void vTaskBarometro(void *pvParameters) {
             altitudine_filtrata = (alpha * altitudine_grezza) + ((1.0 - alpha) * altitudine_filtrata);
         }
             
-        // 3. Salva nella struct SOLO il dato pulito!
+        //Salva nella struct SOLO il dato pulito
         datiAttuali.altitudine = altitudine_filtrata;
 
             // Invia i dati alla coda per farli leggere ad altri task

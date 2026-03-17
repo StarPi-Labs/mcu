@@ -19,7 +19,7 @@ struct DatiBarometro {
 extern QueueHandle_t codaBarometro;
 
 //funzioni varie
-bool initBarometro();
-void vTaskBarometro(void *pvParameters);
+bool initBarometro(); // restituisce true(1) se va tutto bene o false(0) altrimenti
+void vTaskBarometro(void *pvParameters); //freertos per farla girare all'infinito
 
 #endif

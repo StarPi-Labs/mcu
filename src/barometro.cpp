@@ -30,7 +30,7 @@ QueueHandle_t codaBarometro = NULL; //gestione della coda per freertos
             3. Salva il valore di pressione sulla rampa di lancio;
             4. Ciclo infinito dove prende i valori e applica il filtro.
 
-miglioramenti se funziona e si vuole upgradare: 1.si può far una media di 30-40 letture per percepire la pressione al suolo, perche ora se ne fa solo 1;
+miglioramenti se funziona e si vuole upgradare:   1.si può far una media di 30-40 letture per percepire la pressione al suolo, perche ora se ne fa solo 1;
                                                   2.si aumentano il numero di elementi in coda;
                                                   3.si può aggiungere un ciclo di retry se restituisce false lo status.7
 

@@ -12,8 +12,6 @@ jobs:
 
     env:
       PR_NUMBER: ${{ github.event.number }}
-      SOURCE_BRANCH: ${{ github.head_ref }}
-      TARGET_BRANCH: ${{ github.base_ref }}
       GREEN: '\033[1;32m'
       YELLOW: '\033[1;33m'
       RED: '\033[1;31m'

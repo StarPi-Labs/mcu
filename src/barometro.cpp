@@ -2,8 +2,8 @@
 #include <Wire.h>
 #include "MS5611.h"
 
-#define I2C_SDA_PIN 24 
-#define I2C_SCL_PIN 22
+#define I2C_SDA_PIN 9
+#define I2C_SCL_PIN 23
 #define BARO_ADDRESS 0x77 //0x77 per due dei 4 altimetri, gli altri due vanno a 0x76
 
 MS5611 baro(BARO_ADDRESS);//istanza

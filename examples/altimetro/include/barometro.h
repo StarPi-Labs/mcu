@@ -15,11 +15,11 @@ struct DatiBarometro {
     int status_errore;
 };
 
-// Handle della coda: gli altri task useranno questa per leggere i tuoi dati
+// Handle della coda: gli altri task useranno questa per leggere i dati
 extern QueueHandle_t codaBarometro;
 
-// Funzioni pubbliche
-bool initBarometro();
-void vTaskBarometro(void *pvParameters);
+//funzioni varie
+bool initBarometro(); // restituisce true(1) se va tutto bene o false(0) altrimenti
+void vTaskBarometro(void *pvParameters); //freertos per farla girare all'infinito
 
 #endif

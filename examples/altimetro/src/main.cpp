@@ -16,7 +16,7 @@ void vTaskDatalogger(void *pvParameters) {
 }
 
 void setup() {
-    Serial.begin(115200);
+    Serial.begin(115200);// da settare baudrate del pc uguale
     Serial.println("Avvio Sistema Avionico...");
     
     // inizializzo modulo

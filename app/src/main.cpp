@@ -1,19 +1,6 @@
-#include <Arduino.h>
 #include "barometro.h"
+#include <Arduino.h>
 
-void vTaskDatalogger(void *pvParameters) {
-    DatiBarometro datiRicevuti;
-    for(;;) {
-        // Aspetta finché non arriva un nuovo dato dal barometro
-        if (xQueueReceive(codaBarometro, &datiRicevuti, portMAX_DELAY) == pdPASS) {
-            Serial.printf("T: %lu | Alt: %.2f m | Press: %.2f mbar | Temp: %.2f C\n", 
-                          datiRicevuti.timestamp, 
-                          datiRicevuti.altitudine, 
-                          datiRicevuti.pressione,
-                          datiRicevuti.temperatura);
-        }
-    }
-}
 
 void setup() {
     Serial.begin(115200);// da settare baudrate del pc uguale

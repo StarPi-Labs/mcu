@@ -6,6 +6,21 @@
 #define I2C_SCL_PIN 23
 #define BARO_ADDRESS 0x77 //0x77 per due dei 4 altimetri, gli altri due vanno a 0x76
 
+void vTaskDatalogger(void *pvParameters) {
+    DatiBarometro datiRicevuti;
+    for(;;) {
+        // Aspetta finché non arriva un nuovo dato dal barometro
+        if (xQueueReceive(codaBarometro, &datiRicevuti, portMAX_DELAY) == pdPASS) {
+            Serial.printf("T: %lu | Alt: %.2f m | Press: %.2f mbar | Temp: %.2f C\n", 
+                          datiRicevuti.timestamp, 
+                          datiRicevuti.altitudine, 
+                          datiRicevuti.pressione,
+                          datiRicevuti.temperatura);
+        }
+    }
+}
+
+
 MS5611 baro(BARO_ADDRESS);//istanza
 
 //https://github.com/RobTillaart/MS5611/blob/master/README.md 

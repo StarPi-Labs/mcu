@@ -21,5 +21,6 @@ extern QueueHandle_t codaBarometro;
 //funzioni varie
 bool initBarometro(); // restituisce true(1) se va tutto bene o false(0) altrimenti
 void vTaskBarometro(void *pvParameters); //freertos per farla girare all'infinito
+void vTaskDatalogger(void *pvParameters);
 
 #endif

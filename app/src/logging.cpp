@@ -1,76 +1,63 @@
 #include "logging.h"
 
+#include <Arduino.h>
 #include <cstdarg>
 #include <cstdio>
 #include <cstring>
 
-// Dimensione massima del buffer per i messaggi di log.
-// NOTA: Deve essere almeno grande quanto il prefisso più lungo.
-#define MAX_LOG_BUFFER_SIZE 1024
+#define MCU_LOG_FORMATTING_ERROR "[ERROR]: Error formatting log message.\n"
+#define MCU_LOG_TRUNCATION_SUFFIX " [TRUNCATED]\n"
 
-#define PREFIX_DEBUG "[DEBUG]: "
-#define PREFIX_INFO "[INFO]: "
-#define PREFIX_WARNING "[WARNING]: "
-#define PREFIX_ERROR "[ERROR]: "
-#define PREFIX_UNSUPPORTED "[UNSUPPORTED]: "
+static void inline handle_format_result(char buffer[], size_t prefix_length,
+                                        int written) {
+  if (written < 0) {
+    std::memcpy(buffer, MCU_LOG_FORMATTING_ERROR,
+                sizeof(MCU_LOG_FORMATTING_ERROR));
+    return;
+  }
 
-
-/**
- * @brief Funzione helper per ottenere il prefisso in base al livello di log.
- *
- * @param level Il livello di log.
- * @param out_buffer Il buffer in cui verrà scritto il prefisso.
- *
- * @return La lunghezza del prefisso scritto nel buffer (escluso il terminatore
- * '\0').
- */
-static size_t write_prefix(mcu::LogLevel level, char *out_buffer);
-
-void mcu::logf(mcu::LogLevel log_level, const char *format, ...) {
-  // Prealloca un buffer
-  char buffer[MAX_LOG_BUFFER_SIZE];
-
-  // Scrivi il prefisso nel buffer e ottieni la lunghezza del prefisso
-  size_t prefix_length = write_prefix(log_level, &buffer[0]);
-
-  // Formatta il messaggio dopo il prefisso
-  va_list args;
-  va_start(args, format);
-  // buffer[prefix_length - 1] è '\0' dopo write_prefix (sovrascrivibile).
-  size_t format_written =
-      std::vsnprintf(&buffer[prefix_length - 1],
-                     MAX_LOG_BUFFER_SIZE - prefix_length + 1, format, args);
-  va_end(args);
-
-  if (format_written < 0)
-    // Errore nella formattazione, scrivi un messaggio di errore
-    std::strncpy(&buffer[prefix_length - 1],
-                 "[LOGGING ERROR: Formattazione fallita]",
-                 MAX_LOG_BUFFER_SIZE - prefix_length + 1);
-
-  Serial.print(buffer);
+  
+  if (written > MCU_MAX_LOG_BUFFER_SIZE - prefix_length) {
+    // Se il messaggio viene troncato perché troppo lungo
+    //
+    //                                     |+-- MAX_LOG_BUFFER_SIZE
+    // e.g. "[INFO]: This is going to be a"
+    //                      ^
+    //                      |+-- MCU_MAX_LOG_BUFFER_SIZE - sizeof(" [TRUNCATED]\n")
+    //                      |
+    //                     " [TRUNCATED]\n"
+    //
+    std::memcpy(
+        buffer + MCU_MAX_LOG_BUFFER_SIZE - sizeof(MCU_LOG_TRUNCATION_SUFFIX),
+        MCU_LOG_TRUNCATION_SUFFIX,
+        sizeof(MCU_LOG_TRUNCATION_SUFFIX) - 1); // -1 perché c'è già '\0'
+  }
 }
 
-static size_t write_prefix(mcu::LogLevel level, char out_buffer[]) {
-  switch (level) {
-  case mcu::LogLevel::DEBUG:
-    std::strcpy(out_buffer, PREFIX_DEBUG);
-    return sizeof(PREFIX_DEBUG);
-    break;
-  case mcu::LogLevel::INFO:
-    std::strcpy(out_buffer, PREFIX_INFO);
-    return sizeof(PREFIX_INFO);
-    break;
-  case mcu::LogLevel::WARNING:
-    std::strcpy(out_buffer, PREFIX_WARNING);
-    return sizeof(PREFIX_WARNING);
-    break;
-  case mcu::LogLevel::ERROR:
-    std::strcpy(out_buffer, PREFIX_ERROR);
-    return sizeof(PREFIX_ERROR);
-    break;
-  default:
-    std::strcpy(out_buffer, PREFIX_UNSUPPORTED);
-    return sizeof(PREFIX_UNSUPPORTED);
-  }
+void mcu::logf(const char *prefix, size_t prefix_length, const char *format,
+               ...) {
+  // TODO: mcu_assert(prefix != nullptr, "[ERROR]: Log prefix cannot be null.");
+  // TODO: mcu_assert(prefix_length < MCU_MAX_LOG_BUFFER_SIZE,
+  // "[ERROR]: Log prefix length must be between 1 and
+  // MCU_MAX_LOG_BUFFER_SIZE.");
+  // TODO: mcu_assert(format != nullptr, "[ERROR]: Log format string cannot be
+  // null.");
+
+  // Uso un buffer statico per evitare di allocare memoria dinamicamente su
+  // stack/heap
+  thread_local static char buffer[MCU_MAX_LOG_BUFFER_SIZE];
+
+  std::memcpy(buffer, prefix, prefix_length);
+
+  // Formatta il messaggio
+  va_list args;
+  va_start(args, format);
+  int written =
+      std::vsnprintf(buffer + prefix_length - 1,
+                     MCU_MAX_LOG_BUFFER_SIZE - prefix_length + 1, format, args);
+  va_end(args);
+
+  handle_format_result(buffer, prefix_length, written);
+
+  Serial.print(buffer);
 }

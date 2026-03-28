@@ -3,13 +3,14 @@
 #include "float16.h"
 
 
-#define RADIO_CS_PIN A4 // NSS
-#define RADIO_IRQ_PIN A0 // DIO1
-#define RADIO_RST_PIN A1 // RST
-#define SCK_PIN A5
-#define SPI_MISO_PIN A6
-#define SPI_MOSI_PIN A7
-#define RADIO_BUSY_PIN A2
+// Same pin assignments as flight computer
+#define RADIO_CS_PIN 14 // NSS
+#define RADIO_IRQ_PIN 7 // DIO1
+#define RADIO_RST_PIN 6 // RST
+#define SCK_PIN 12
+#define SPI_MISO_PIN 13
+#define SPI_MOSI_PIN 11
+#define RADIO_BUSY_PIN 5
 
 #define LOCKUP(x) do{Serial.println(x);delay(1000);}while(true)
 

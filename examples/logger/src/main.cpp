@@ -13,10 +13,11 @@ void setup(void)
 	Serial.begin(9600);
 	delay(100);
 
-	INIT_STATIC_TASK(task1, "producer", NULL, tskIDLE_PRIORITY);
-	INIT_STATIC_TASK(task2, "consumer", NULL, tskIDLE_PRIORITY);
+	INIT_STATIC_TASK(task1, "producer", NULL, tskIDLE_PRIORITY, 0);
+	INIT_STATIC_TASK(task2, "consumer", NULL, tskIDLE_PRIORITY, 1);
 
-	if (thandle_task1 == NULL || thandle_task2 == NULL) {
+	//if (thandle_task1 == NULL || thandle_task2 == NULL) {
+	if (false) {
 		while (true) {
 			Serial.println("Error creating tasks");
 			delay(500);
@@ -31,12 +32,11 @@ void loop(void)
 }
 
 
-void task1(void* data)
+void task1(TaskDescriptor_t *self)
 {
 	// TASKS SHOULD NEVER RETURN
 	// TODO: Wrap tasks such that they can return
 	while(true) {
-		(void)data;
 		message_t msg = {
 			.timestamp = 1234,
 			.type = MSG_NONE,
@@ -48,13 +48,15 @@ void task1(void* data)
 }
 
 
-void task2(void *data)
+void task2(TaskDescriptor_t *self)
 {
+	self->last_wake = xTaskGetTickCount();
+
 	while(true) {
-		(void)data;
 		message_t recv;
 		message_queue_dequeue(&recv, 100);
 		Serial.println(recv.description);
-		vTaskDelay(20);
+
+		TASK_WAIT_HZ(self, 20);
 	}
 }

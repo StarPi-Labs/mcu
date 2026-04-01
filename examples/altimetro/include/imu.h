@@ -11,6 +11,9 @@ struct DatiIMU {
     float acc_x;
     float acc_y;
     float acc_z;
+    float vel_x;
+    float vel_y;
+    float vel_z;
     float gyro_x;
     float gyro_y;
     float gyro_z;

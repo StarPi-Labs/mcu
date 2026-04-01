@@ -5,6 +5,7 @@ StatoVolo statoAttuale = StatoVolo::PAD_IDLE;
 float altitudineMassima = 0.0;
 uint32_t tempoDecollo = 0;
 uint32_t tempoApogeo = 0;
+bool motore_ok = false;
 
 extern QueueHandle_t codaIMU;
 extern QueueHandle_t codaBarometro;
@@ -21,28 +22,35 @@ void initPara() {
 void valutaStato(DatiIMU imu, DatiBarometro baro) {
     switch (statoAttuale) {
         case StatoVolo::PAD_IDLE:
-            if (imu.acc_z > 15.0) {
+            if (imu.acc_z > 3.0) { 
                 statoAttuale = StatoVolo::BOOST;
                 tempoDecollo = millis();
             }
             break;
 
         case StatoVolo::BOOST:
-            if (imu.acc_z < 5.0) {
+            if (imu.acc_z >= 18.0) {
+                motore_ok = true;
+            }
+            
+            if (imu.acc_z < 2.0 && (millis() - tempoDecollo > 1000)) { 
                 statoAttuale = StatoVolo::COAST;
             }
             break;
 
         case StatoVolo::COAST:
-            if (baro.altitudine > altitudineMassima) {
-                altitudineMassima = baro.altitudine;
-            }
-            
-            if (baro.altitudine < (altitudineMassima - 5.0) && (millis() - tempoDecollo > 5000)) {
-                statoAttuale = StatoVolo::APOGEE_DEPLOY;
+            if (imu.vel_z <= 0.0 && (millis() - tempoDecollo > 4000)) {
+                
                 tempoApogeo = millis();
                 
                 digitalWrite(pinDrogueLS, HIGH); 
+
+                if (motore_ok == true || baro.altitudine > 450.0) {
+                    statoAttuale = StatoVolo::APOGEE_DEPLOY;
+                } else {
+                    digitalWrite(pinMainLS, HIGH);
+                    statoAttuale = StatoVolo::MAIN_DEPLOY; 
+                }
             }
             break;
 
@@ -51,21 +59,25 @@ void valutaStato(DatiIMU imu, DatiBarometro baro) {
                 digitalWrite(pinDrogueLS, LOW); 
             }
 
-            if (baro.altitudine < 450.0) {
-                statoAttuale = StatoVolo::MAIN_DEPLOY;
+            if (baro.altitudine <= 450.0) {
                 digitalWrite(pinMainLS, HIGH);
+                statoAttuale = StatoVolo::MAIN_DEPLOY;
             }
             break;
 
         case StatoVolo::MAIN_DEPLOY:
+            if (millis() - tempoApogeo > 2000) {
+                digitalWrite(pinMainLS, LOW); 
+            }
             
-            if (baro.altitudine < 10.0 || imu.acc_z > 20.0) {
+            if (baro.altitudine < 10.0 || imu.acc_z > 20.0) { 
                 statoAttuale = StatoVolo::TOUCHDOWN;
             }
             break;
 
         case StatoVolo::TOUCHDOWN:
             digitalWrite(pinMainLS, LOW);
+            digitalWrite(pinDrogueLS, LOW);
             break;
     }
 }

@@ -1,27 +1,15 @@
 #pragma once
-#include <Arduino.h>
-#include "barometro.h"
-#include "imu.h"
+#include "dati_volo.h"
 
-enum class StatoVolo {
-    PAD_IDLE,
-    BOOST,
-    COAST,
-    APOGEE_DEPLOY,
-    MAIN_DEPLOY,
-    TOUCHDOWN
-};
+constexpr int pinDrogueLS = 38;
+constexpr int pinDrogueHS = 39;
+constexpr int pinMainLS = 40;
+constexpr int pinMainHS = 41;
 
-class LogicaParacadute {
-private:
-    StatoVolo statoAttuale;
-    uint32_t tempoDecollo;
-    const int pinDrogue = 4;
-    const int pinMain = 2;
+extern StatoVolo statoAttuale;
+extern float altitudineMassima;
+extern uint32_t tempoDecollo;
 
-public:
-    LogicaParacadute(); 
-    void init();
-    void valutaStato(DatiBarometro baro, DatiIMU imu);
-    StatoVolo getStatoAttuale();
-};
+void initPara();
+void valutaStato(DatiIMU imu, DatiBarometro baro);
+void vTaskPara(void *pvParameters);

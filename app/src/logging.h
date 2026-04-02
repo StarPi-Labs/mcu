@@ -46,7 +46,9 @@
 namespace mcu {
 // Buffer di log
 inline struct {
+  // Dati del messaggio di log formattato, incluso il prefisso
   std::array<char, MCU_LOG_BUFFER_SIZE> data;
+  // Lunghezza attuale del messaggio nel buffer, escluso il terminatore di stringa
   std::size_t length = 0;
 } g_logBuffer;
 
@@ -80,8 +82,10 @@ logf(const std::string_view &logLevel,
      const std::format_string<std::type_identity_t<Args>...> &format,
      Args &&...args) {
   // Scrive il prefisso nel buffer
-  std::memcpy(&g_logBuffer.data, logLevel.data(),
-              g_logBuffer.length += logLevel.size());
+  std::memcpy(&array_access(g_logBuffer.data, g_logBuffer.length), logLevel.data(),
+              logLevel.size());
+
+  g_logBuffer.length += logLevel.size();
 
   // Formatta il messaggio nel buffer
   std::format_to_n_result formatResult =
@@ -89,6 +93,7 @@ logf(const std::string_view &logLevel,
                        g_logBuffer.data.size() - g_logBuffer.length - 1, format,
                        std::forward<Args>(args)...);
 
+  *formatResult.out = '\0'; // Aggiunge il terminatore di stringa
   g_logBuffer.length += formatResult.size;
 }
 
@@ -106,7 +111,7 @@ void vTaskLogger(void *pvParams);
 #if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_DEBUG
 #define mcu_log_debug(format, ...)                                             \
   mcu::logf(                                                                   \
-      std::string_view(MCU_LOG_PREFIX_DEBUG, sizeof(MCU_LOG_PREFIX_DEBUG)),    \
+      std::string_view(MCU_LOG_PREFIX_DEBUG, sizeof(MCU_LOG_PREFIX_DEBUG) - 1),    \
       format __VA_OPT__(, ) __VA_ARGS__)
 #else
 #define mcu_log_debug(format, ...)
@@ -115,7 +120,7 @@ void vTaskLogger(void *pvParams);
 #if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_INFO
 #define mcu_log_info(format, ...)                                              \
   mcu::logf(                                                                   \
-      std::string_view(MCU_LOG_PREFIX_INFO, sizeof(MCU_LOG_PREFIX_INFO)),      \
+      std::string_view(MCU_LOG_PREFIX_INFO, sizeof(MCU_LOG_PREFIX_INFO) - 1),      \
       format __VA_OPT__(, ) __VA_ARGS__)
 #else
 #define mcu_log_info(format, ...)
@@ -124,7 +129,7 @@ void vTaskLogger(void *pvParams);
 #if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_WARNING
 #define mcu_log_warning(format, ...)                                           \
   mcu::logf(std::string_view(MCU_LOG_PREFIX_WARNING,                           \
-                             sizeof(MCU_LOG_PREFIX_WARNING)),                  \
+                             sizeof(MCU_LOG_PREFIX_WARNING) - 1),                  \
             format __VA_OPT__(, ) __VA_ARGS__)
 #else
 #define mcu_log_warning(format, ...)
@@ -133,7 +138,7 @@ void vTaskLogger(void *pvParams);
 #if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_ERROR
 #define mcu_log_error(format, ...)                                             \
   mcu::logf(                                                                   \
-      std::string_view(MCU_LOG_PREFIX_ERROR, sizeof(MCU_LOG_PREFIX_ERROR)),    \
+      std::string_view(MCU_LOG_PREFIX_ERROR, sizeof(MCU_LOG_PREFIX_ERROR) - 1),    \
       format __VA_OPT__(, ) __VA_ARGS__)
 #else
 #define mcu_log_error(format, ...)
@@ -142,7 +147,7 @@ void vTaskLogger(void *pvParams);
 #if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_CRITICAL
 #define mcu_log_critical(format, ...)                                          \
   mcu::logf(std::string_view(MCU_LOG_PREFIX_CRITICAL,                          \
-                             sizeof(MCU_LOG_PREFIX_CRITICAL)),                 \
+                             sizeof(MCU_LOG_PREFIX_CRITICAL) - 1),                 \
             format __VA_OPT__(, ) __VA_ARGS__)
 #else
 #define mcu_log_critical(format, ...)

@@ -32,10 +32,8 @@ void loop(void)
 }
 
 
-void task1(TaskDescriptor_t *self)
+TASK task1(TaskDescriptor_t *self)
 {
-	// TASKS SHOULD NEVER RETURN
-	// TODO: Wrap tasks such that they can return
 	while(true) {
 		message_t msg = {
 			.timestamp = 1234,
@@ -48,7 +46,7 @@ void task1(TaskDescriptor_t *self)
 }
 
 
-void task2(TaskDescriptor_t *self)
+TASK task2(TaskDescriptor_t *self)
 {
 	self->last_wake = xTaskGetTickCount();
 

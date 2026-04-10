@@ -61,6 +61,9 @@ typedef struct _TaskDescriptor_t {
 	} while (0)
 
 
+#define TASK_IS_INITIALIZED(symbol) (symbol##_descriptor.handle != NULL)
+
+
 // Since tasks should never return, we can use the noreturn attribute to catch
 // bugs where a task accidentally returns. This will cause a compile error if a
 // task function returns.

@@ -16,8 +16,7 @@ void setup(void)
 	INIT_STATIC_TASK(task1, "producer", NULL, tskIDLE_PRIORITY, 0);
 	INIT_STATIC_TASK(task2, "consumer", NULL, tskIDLE_PRIORITY, 1);
 
-	//if (thandle_task1 == NULL || thandle_task2 == NULL) {
-	if (false) {
+	if (!TASK_IS_INITIALIZED(task1) || !TASK_IS_INITIALIZED(task2)) {
 		while (true) {
 			Serial.println("Error creating tasks");
 			delay(500);
@@ -35,11 +34,7 @@ void loop(void)
 TASK task1(TaskDescriptor_t *self)
 {
 	while(true) {
-		message_t msg = {
-			.timestamp = 1234,
-			.type = MSG_NONE,
-			.description = LOG_STR("Hello There!"),
-		};
+		message_t msg = MESSAGE(LOG_STR("Hello There!"), (uint32_t)(self->last_wake));
 		message_queue_enqueue(&msg, 100);
 		vTaskDelay(50);
 	}
@@ -52,8 +47,12 @@ TASK task2(TaskDescriptor_t *self)
 
 	while(true) {
 		message_t recv;
-		message_queue_dequeue(&recv, 100);
-		Serial.println(recv.description);
+		// no timeout since this task needs to run at a fixed frequency,
+		// if there is no message we just skip this iteration
+		message_queue_dequeue(&recv, 0);
+		static char buf[256];
+		format_message_to_string(&recv, buf, sizeof(buf));
+		Serial.println(buf);
 
 		TASK_WAIT_HZ(self, 20);
 	}

@@ -13,11 +13,15 @@ typedef enum {
 	MSG_DOUBLE,
 	MSG_STRING,
 	MSG_VEC3,
+	MSG_IVEC3,
 } message_type_t;
-
 
 struct vec3 {
 	float x, y, z;
+};
+
+struct ivec3 {
+	int32_t x, y, z;
 };
 
 // TODO: align or pack this struct
@@ -34,6 +38,7 @@ typedef struct {
 		double d;
 		const char *str;
 		struct vec3 v3;
+		struct ivec3 iv3;
 	} data;
 } message_t;
 
@@ -100,6 +105,13 @@ inline message_t create_msg_impl(const char* str, struct vec3 data) {
 	return msg;
 }
 
+inline message_t create_msg_impl(const char* str, struct ivec3 data) {
+	message_t msg = create_msg_impl(str);
+	msg.type = MSG_IVEC3;
+	msg.data.iv3 = data;
+	return msg;
+}
+
 // The unified C++ macro
 #define MESSAGE(...) create_msg_impl(__VA_ARGS__)
 
@@ -109,15 +121,16 @@ inline message_t create_msg_impl(const char* str, struct vec3 data) {
 #else
 
 #define MESSAGE_WITH_DATA(str, val) _Generic((val), \
-	int32_t:     (message_t){.timestamp = get_timestamp(), .type = MSG_INT32,  .description = (str), .data.i32 = (val)}, \
-	uint32_t:    (message_t){.timestamp = get_timestamp(), .type = MSG_UINT32, .description = (str), .data.u32 = (val)}, \
-	int64_t:     (message_t){.timestamp = get_timestamp(), .type = MSG_INT64,  .description = (str), .data.i64 = (val)}, \
-	uint64_t:    (message_t){.timestamp = get_timestamp(), .type = MSG_UINT64, .description = (str), .data.u64 = (val)}, \
-	float:       (message_t){.timestamp = get_timestamp(), .type = MSG_FLOAT,  .description = (str), .data.f   = (val)}, \
-	double:      (message_t){.timestamp = get_timestamp(), .type = MSG_DOUBLE, .description = (str), .data.d   = (val)}, \
-	char*:       (message_t){.timestamp = get_timestamp(), .type = MSG_STRING, .description = (str), .data.str = (val)}, \
-	const char*: (message_t){.timestamp = get_timestamp(), .type = MSG_STRING, .description = (str), .data.str = (val)}, \
-	struct vec3: (message_t){.timestamp = get_timestamp(), .type = MSG_VEC3,   .description = (str), .data.v3  = (val)} \
+	int32_t:      (message_t){.timestamp = get_timestamp(), .type = MSG_INT32,  .description = (str), .data.i32 = (val)}, \
+	uint32_t:     (message_t){.timestamp = get_timestamp(), .type = MSG_UINT32, .description = (str), .data.u32 = (val)}, \
+	int64_t:      (message_t){.timestamp = get_timestamp(), .type = MSG_INT64,  .description = (str), .data.i64 = (val)}, \
+	uint64_t:     (message_t){.timestamp = get_timestamp(), .type = MSG_UINT64, .description = (str), .data.u64 = (val)}, \
+	float:        (message_t){.timestamp = get_timestamp(), .type = MSG_FLOAT,  .description = (str), .data.f   = (val)}, \
+	double:       (message_t){.timestamp = get_timestamp(), .type = MSG_DOUBLE, .description = (str), .data.d   = (val)}, \
+	char*:        (message_t){.timestamp = get_timestamp(), .type = MSG_STRING, .description = (str), .data.str = (val)}, \
+	const char*:  (message_t){.timestamp = get_timestamp(), .type = MSG_STRING, .description = (str), .data.str = (val)}, \
+	struct vec3:  (message_t){.timestamp = get_timestamp(), .type = MSG_VEC3,   .description = (str), .data.v3  = (val)}, \
+	struct ivec3: (message_t){.timestamp = get_timestamp(), .type = MSG_IVEC3,  .description = (str), .data.iv3 = (val)} \
 )
 
 #define MESSAGE_NO_DATA(str) (message_t){.timestamp = get_timestamp(), .type = MSG_NONE, .description = (str)}

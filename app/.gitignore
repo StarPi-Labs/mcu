@@ -8,3 +8,6 @@
 .vscode/extensions.json
 compile_commands.json
 .vscode/settings.json
+
+# File del simulatore
+qemu

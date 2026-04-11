@@ -50,6 +50,9 @@ inline struct {
   std::array<char, MCU_LOG_BUFFER_SIZE> data;
   // Lunghezza attuale del messaggio nel buffer, escluso il terminatore di stringa
   std::size_t length = 0;
+  // NOTE: should not be used, use mutex instead
+  StaticSemaphore_t mutexBuffer;
+  SemaphoreHandle_t mutex = xSemaphoreCreateMutexStatic(&mutexBuffer);
 } g_logBuffer;
 
 namespace log_handler {
@@ -81,6 +84,9 @@ inline void
 logf(const std::string_view &logLevel,
      const std::format_string<std::type_identity_t<Args>...> &format,
      Args &&...args) {
+  // Vai in wait (se non ottenuto)
+  xSemaphoreTake(g_logBuffer.mutex, portMAX_DELAY);
+
   // Scrive il prefisso nel buffer
   std::memcpy(&array_access(g_logBuffer.data, g_logBuffer.length), logLevel.data(),
               logLevel.size());
@@ -95,6 +101,8 @@ logf(const std::string_view &logLevel,
 
   *formatResult.out = '\0'; // Aggiunge il terminatore di stringa
   g_logBuffer.length += formatResult.size;
+
+  xSemaphoreGive(g_logBuffer.mutex);
 }
 
 /**

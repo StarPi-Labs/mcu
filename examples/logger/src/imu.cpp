@@ -15,47 +15,69 @@ void restart_fifo(void);
 
 
 // Interrupt handler for IMU FIFO interrupt
-static void IRAM_ATTR imu_fifo_interrupt(){
-  interrupt_flag = true;
+static void IRAM_ATTR imu_fifo_interrupt()
+{
+	interrupt_flag = true;
 }
 
 
 void imu_setup()
 {
-  pinMode(IMU_INT1, INPUT);
-  dev_spi.begin(SPI_MISO, SPI_MOSI, SPI_SCK);
+	// Pull the lora module CS high
+	pinMode(14, OUTPUT);
+	pinMode(SPI_CS, OUTPUT);
+	digitalWrite(14, HIGH);
+	digitalWrite(SPI_CS, HIGH);
 
-  IMU.begin();
-  // TODO: define in imu.h
-  IMU.Set_X_FS(LSM6DSO32_32g);
-  IMU.Set_G_FS(LSM6DSO32_2000dps);
+	dev_spi.begin(SPI_SCK, SPI_MISO, SPI_MOSI, -1);
 
-  IMU.Enable_X();
-  IMU.Enable_G();
+	if (IMU.begin() != 0) {
+		while(1) {
+			Serial.println("IMU begin failed");
+			delay(1000);
+		}
+	}
+	uint8_t id;
+	IMU.ReadID(&id);
+	delay(2000);
+	Serial.printf("IMU ID: 0x%x\n", id);
 
-  // TODO: define in imu.h
-  IMU.Set_X_ODR(6667.0f); //max
-  IMU.Set_G_ODR(6667.0f);
+	IMU.Enable_X();
+	IMU.Enable_G();
 
-  // fifo
-  // TODO: define in imu.h
-  IMU.Set_FIFO_X_BDR(6667.0f); //max
-  IMU.Set_FIFO_G_BDR(6667.0f);
-  IMU.Set_FIFO_Mode(LSM6DSO32_STREAM_MODE);
+/*
+	// TODO: define in imu.h
+	IMU.Set_X_FS(LSM6DSO32_32g);
+	IMU.Set_G_FS(LSM6DSO32_2000dps);
 
-  //interrupt
-  //IMU.Set_FIFO_INT1_FIFO_Full(true);
-  IMU.Set_FIFO_Watermark_Level(300); // num da capire meglio
+	// TODO: define in imu.h
+	IMU.Set_X_ODR(6667.0f); //max
+	IMU.Set_G_ODR(6667.0f);
 
-  IMU.Write_Reg(LSM6DSO32_INT1_CTRL, 0x08); // Watermark interrput
-  IMU.Write_Reg(LSM6DSO32_CTRL10_C, 0x20); // Timestamp fifo
+	// fifo
+	// TODO: define in imu.h
+	IMU.Set_FIFO_X_BDR(6667.0f); //max
+	IMU.Set_FIFO_G_BDR(6667.0f);
+	IMU.Set_FIFO_Mode(LSM6DSO32_STREAM_MODE);
+*/
 
-  attachInterrupt(digitalPinToInterrupt(IMU_INT1), imu_fifo_interrupt, RISING);
+	//interrupt
+	//IMU.Set_FIFO_INT1_FIFO_Full(true);
+	IMU.Set_FIFO_Watermark_Level(10); // num da capire meglio
+
+	IMU.Write_Reg(LSM6DSO32_INT1_CTRL, 0x08); // Watermark interrput
+	IMU.Write_Reg(LSM6DSO32_CTRL10_C, 0x20); // Timestamp fifo
+
+/*
+	pinMode(IMU_INT1, INPUT_PULLDOWN);
+	attachInterrupt(digitalPinToInterrupt(IMU_INT1), imu_fifo_interrupt, RISING);
+*/
 }
 
 
 int imu_get_sample(FIFO_Sample *sample)
 {
+/*
 	if (interrupt_flag == false || sample == NULL) return -1;
 
 	interrupt_flag = false;
@@ -92,12 +114,20 @@ int imu_get_sample(FIFO_Sample *sample)
 			G_received = false;
 			timestamp_received = false;
 		}
+
+		if (fifo.index >= 148) {
+			break;
+		}
 	}
 
 	// For now return the first sample
 	// TODO: either interpolate samples or return the whole batch
 	// TODO: return the info about what data was received
 	*sample = fifo.fifo_batch[0];
+	return 0;
+*/
+	IMU.Get_X_Axes(sample->accelerometer);
+	IMU.Get_G_Axes(sample->gyroscope);
 	return 0;
 }
 

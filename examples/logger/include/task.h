@@ -6,7 +6,7 @@
 
 // Stack size of each task in words, with zero extra stack this results in 1k
 // words of usable stack
-#define TASK_STACK_SIZE (configMINIMAL_STACK_SIZE + configIDLE_TASK_STACK_SIZE + 0)
+#define TASK_STACK_SIZE (configMINIMAL_STACK_SIZE + configIDLE_TASK_STACK_SIZE + 2048)
 
 
 // TaskDescriptor_t is a struct that contains all the information about a task,

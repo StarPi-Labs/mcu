@@ -133,6 +133,8 @@ int format_message_to_string(const message_t *msg, char *buf, size_t size) {
 		return written + snprintf(ptr, rem, ": %s", msg->data.str ? msg->data.str : "NULL");
 	case MSG_VEC3:
 		return written + snprintf(ptr, rem, ": (%.3g, %.3g, %.3g)", msg->data.v3.x, msg->data.v3.y, msg->data.v3.z);
+	case MSG_IVEC3:
+		return written + snprintf(ptr, rem, ": (%" PRId32 ", %" PRId32 ", %" PRId32 ")", msg->data.iv3.x, msg->data.iv3.y, msg->data.iv3.z);
 	default:
 		return written + snprintf(ptr, rem, ": UNKNOWN_TYPE");
 	}

@@ -56,13 +56,14 @@ typedef union {
 void setup() {
 	Serial.begin(115200);
 	while(!Serial);
+	
 	Serial.print(F("[SX1262] Initializing ... "));
 	
 	int state = radio.begin();
 	check_state(state);
 
 	radio.setDio2AsRfSwitch(true); //
-	//radio.setOutputPower(20); //da capire 
+	radio.setOutputPower(0); //da capire 
 	radio.setBandwidth(500); //max 
 	radio.setSpreadingFactor(7); //eventualmente da aumentare
 	radio.setCodingRate(1); //1 bit su 8

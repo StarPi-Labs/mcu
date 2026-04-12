@@ -12,9 +12,14 @@ DECLARE_STATIC_TASK(logger_task);
 
 void setup(void)
 {
-	message_queue_init();
+	
 	Serial.begin(115200);
-	delay(100);
+	while (!Serial) {
+		delay(100);
+	}
+	Serial.println("Initialized");
+	
+	message_queue_init();
 	imu_setup();
 
 	INIT_STATIC_TASK(imu_task, "imu", NULL, tskIDLE_PRIORITY, 0);

@@ -1,11 +1,12 @@
 //https://github.com/stm32duino/LSM6DSO32/tree/main/examples/LSM6DSO32_HelloWorld
 
 #include <Arduino.h>
+#include <RadioLib.h>
 
 #include "imu.h"
 
 
-static SPIClass dev_spi(HSPI);
+static SPIClass dev_spi(FSPI);
 LSM6DSO32Sensor IMU(&dev_spi, SPI_CS);
 static volatile bool interrupt_flag = false;
 static FIFO_BATCH fifo;
@@ -21,15 +22,124 @@ static void IRAM_ATTR imu_fifo_interrupt()
 }
 
 
+void disable_lora_sx1262()
+{
+    // Replace these with your actual GPIO numbers
+    int lora_cs = 14;
+    int lora_dio1 = 7;  // Example GPIO
+    int lora_busy = 5;  // Example GPIO
+    int lora_reset = 6; // Example GPIO
+
+    // Module(CS, DI01, RST, BUSY, SPI)
+    Module lora_module(lora_cs, lora_dio1, lora_reset, lora_busy, dev_spi);
+    SX1262 radio(&lora_module);
+
+    Serial.println("Initializing SX1262 to force sleep...");
+    int state = radio.begin();
+    
+    if (state == RADIOLIB_ERR_NONE) {
+        // false = cold sleep (disables SPI high-impedance mode/buffer)
+        radio.sleep(false); 
+        Serial.println("SX1262 successfully sent to sleep.");
+    } else {
+        Serial.printf("Error: Could not talk to LoRa (Code %d). MISO may still be blocked.\n", state);
+    }
+
+    pinMode(lora_cs, OUTPUT);
+    digitalWrite(lora_cs, HIGH);
+}
+
+
+// Do some fucking black magic to de-stuck the IMU
+// turns out it may not be needed but better to have it than not
+void resuscitate_imu()
+{
+    Serial.println("[RESCUE] Starting Phase 1: Hardware Bit-Bang Flush...");
+
+    // 1. CRITICAL: Detach pins from the ESP32 Hardware SPI controller!
+    dev_spi.end();
+
+    // 2. CRITICAL: Lock out the LoRa module so it ignores our bit-banging
+    int lora_cs = 14; 
+    pinMode(lora_cs, OUTPUT);
+    digitalWrite(lora_cs, HIGH);
+
+    // Now we can safely take manual GPIO control of the SPI pins
+    pinMode(SPI_CS, OUTPUT);
+    pinMode(SPI_SCK, OUTPUT);
+    pinMode(SPI_MOSI, OUTPUT);
+    
+    // Default idle state for SPI Mode 0 (Clock LOW)
+    digitalWrite(SPI_CS, HIGH);
+    digitalWrite(SPI_SCK, LOW); 
+    digitalWrite(SPI_MOSI, LOW);
+    delay(10);
+
+    // Toggle CS to shake the internal multiplexer
+    for (int i = 0; i < 5; i++) {
+        digitalWrite(SPI_CS, LOW); delay(5);
+        digitalWrite(SPI_CS, HIGH); delay(5);
+    }
+
+    // Flush the shift register
+    digitalWrite(SPI_CS, LOW);
+    delay(1);
+    for (int i = 0; i < 16; i++) {
+        digitalWrite(SPI_SCK, HIGH); delayMicroseconds(50);
+        digitalWrite(SPI_SCK, LOW); delayMicroseconds(50);
+    }
+    digitalWrite(SPI_CS, HIGH);
+    delay(10);
+
+    Serial.println("[RESCUE] Phase 2: Software Reset & I2C Disable...");
+    
+    // 3. Hand control back to the ESP32's hardware SPI controller
+    dev_spi.begin(SPI_SCK, SPI_MISO, SPI_MOSI);
+    
+    // IMPORTANT: Switching to SPI_MODE0 (CPOL=0, CPHA=0)
+    dev_spi.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE0));
+    
+    // 4. Send SW_RESET to CTRL3_C (0x12)
+    digitalWrite(SPI_CS, LOW);
+    dev_spi.transfer(0x12); // Write to CTRL3_C
+    dev_spi.transfer(0x81); // BOOT + SW_RESET
+    digitalWrite(SPI_CS, HIGH);
+    
+    Serial.println("re-booting the IMU");
+    delay(1000); // Wait for the IMU to reboot
+
+    // THE PULL-UP TEST AND RAW READ
+    pinMode(SPI_MISO, INPUT_PULLUP);
+
+    // 5. HARD LOCK TO SPI MODE (Disable I2C)
+    // Register CTRL4_C (0x13), Bit 2 (0x04) is I2C_disable
+    digitalWrite(SPI_CS, LOW);
+    dev_spi.transfer(0x13); // Write to CTRL4_C
+    dev_spi.transfer(0x04); // Set I2C_disable bit
+    digitalWrite(SPI_CS, HIGH);
+
+    delay(10);
+
+    // 6. Raw read test
+    digitalWrite(SPI_CS, LOW);
+    dev_spi.transfer(0x0F | 0x80); // Read WHO_AM_I (0x0F + Read Bit 0x80)
+    uint8_t raw_id = dev_spi.transfer(0x00);
+    digitalWrite(SPI_CS, HIGH);
+    
+    dev_spi.endTransaction();
+
+    Serial.printf("[RESCUE] Post-Reset Raw IMU ID: 0x%02X\n", raw_id);
+}
+
+
 void imu_setup()
 {
-	// Pull the lora module CS high
-	pinMode(14, OUTPUT);
-	pinMode(SPI_CS, OUTPUT);
-	digitalWrite(14, HIGH);
-	digitalWrite(SPI_CS, HIGH);
+	dev_spi.begin(SPI_SCK, SPI_MISO, SPI_MOSI);
+	dev_spi.setFrequency(1000000);
 
-	dev_spi.begin(SPI_SCK, SPI_MISO, SPI_MOSI, -1);
+	disable_lora_sx1262();
+
+//	resuscitate_imu();
 
 	if (IMU.begin() != 0) {
 		while(1) {
@@ -37,13 +147,15 @@ void imu_setup()
 			delay(1000);
 		}
 	}
+	
+	// Should be 0x6C
 	uint8_t id;
 	IMU.ReadID(&id);
-	delay(2000);
 	Serial.printf("IMU ID: 0x%x\n", id);
-
+	
 	IMU.Enable_X();
 	IMU.Enable_G();
+	IMU.Write_Reg(LSM6DSO32_CTRL10_C, 0x20); // Timestamp fifo
 
 /*
 	// TODO: define in imu.h
@@ -58,26 +170,21 @@ void imu_setup()
 	// TODO: define in imu.h
 	IMU.Set_FIFO_X_BDR(6667.0f); //max
 	IMU.Set_FIFO_G_BDR(6667.0f);
+	*/
+
+	//IMU.Set_FIFO_INT1_FIFO_Full(true);
 	IMU.Set_FIFO_Mode(LSM6DSO32_STREAM_MODE);
-*/
+	IMU.Set_FIFO_Watermark_Level(10); // num da capire meglio
+	//IMU.Write_Reg(LSM6DSO32_INT1_CTRL, 0x08); // Watermark interrput
 
 	//interrupt
-	//IMU.Set_FIFO_INT1_FIFO_Full(true);
-	IMU.Set_FIFO_Watermark_Level(10); // num da capire meglio
-
-	IMU.Write_Reg(LSM6DSO32_INT1_CTRL, 0x08); // Watermark interrput
-	IMU.Write_Reg(LSM6DSO32_CTRL10_C, 0x20); // Timestamp fifo
-
-/*
 	pinMode(IMU_INT1, INPUT_PULLDOWN);
 	attachInterrupt(digitalPinToInterrupt(IMU_INT1), imu_fifo_interrupt, RISING);
-*/
 }
 
 
 int imu_get_sample(FIFO_Sample *sample)
 {
-/*
 	if (interrupt_flag == false || sample == NULL) return -1;
 
 	interrupt_flag = false;
@@ -125,10 +232,11 @@ int imu_get_sample(FIFO_Sample *sample)
 	// TODO: return the info about what data was received
 	*sample = fifo.fifo_batch[0];
 	return 0;
-*/
+/*
 	IMU.Get_X_Axes(sample->accelerometer);
 	IMU.Get_G_Axes(sample->gyroscope);
 	return 0;
+*/
 }
 
 
@@ -144,27 +252,4 @@ void imu_restart()
     IMU.Enable_G();
 
     IMU.Set_FIFO_Mode(LSM6DSO32_BYPASS_MODE);
-}
-
-
-void print_data(int32_t accelerometer[3], int32_t gyroscope[3], uint8_t timestamp[6]){
-  Serial.print("| Acc[mg]: ");
-  Serial.print(accelerometer[0]);
-  Serial.print(" ");
-  Serial.print(accelerometer[1]);
-  Serial.print(" ");
-  Serial.print(accelerometer[2]);
-  Serial.print(" | Gyr[mdps]: ");
-  Serial.print(gyroscope[0]);
-  Serial.print(" ");
-  Serial.print(gyroscope[1]);
-  Serial.print(" ");
-  Serial.print(gyroscope[2]);
-
-  uint32_t ts = (timestamp[3] << 24) | (timestamp[2] << 16) | (timestamp[1] << 8) | timestamp[0];
-
-  Serial.print("Timestamp: ");
-  Serial.println((float)ts / 1000 * 25); //converti in ms
-
-  Serial.println(" |");
 }

@@ -1,7 +1,6 @@
 #pragma once
 
 #include <stddef.h>
-#include "logging.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -10,7 +9,7 @@ extern "C" {
 bool sdcard_init(void);
 bool sdcard_start_session(void);
 bool sdcard_end_session(void);
-bool sdcard_log(const void* message, const MessageDescriptor* desc);
+bool sdcard_log_text(const char* text_message);
 
 #ifdef __cplusplus
 }

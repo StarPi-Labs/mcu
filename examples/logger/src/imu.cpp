@@ -13,11 +13,13 @@ LSM6DSO32Sensor IMU(&SPI2, IMU_CS);
 static volatile bool interrupt_flag = false;
 
 
+/*
 // Interrupt handler for IMU FIFO interrupt
 static void IRAM_ATTR imu_fifo_interrupt()
 {
 	interrupt_flag = true;
 }
+ */
 
 
 /*
@@ -130,8 +132,6 @@ void imu_setup()
 	IMU.Set_G_FS(LSM6DSO32_2000dps);
 
 	// TODO: define in imu.h
-	IMU.Set_X_ODR(6667.0f); //max
-	IMU.Set_G_ODR(6667.0f);
 	*/
 
 #if IMU_FIFO_ENABLE
@@ -141,12 +141,13 @@ void imu_setup()
 	IMU.Set_FIFO_Mode(LSM6DSO32_STREAM_MODE);
 	IMU.Set_FIFO_X_BDR(IMU_FIFO_X_BDR_HZ);
 	IMU.Set_FIFO_G_BDR(IMU_FIFO_G_BDR_HZ);
-	// IMU.Set_FIFO_INT1_FIFO_Full(true);
-	IMU.Set_FIFO_Watermark_Level(IMU_FIFO_WATERMARK);
+	IMU.Set_X_ODR(IMU_FIFO_X_BDR_HZ);
+	IMU.Set_G_ODR(IMU_FIFO_G_BDR_HZ);
 
 	// FIFO Interrupt
-	pinMode(IMU_INT1, INPUT_PULLDOWN);
-	attachInterrupt(digitalPinToInterrupt(IMU_INT1), imu_fifo_interrupt, RISING);
+//	IMU.Set_FIFO_Watermark_Level(IMU_FIFO_WATERMARK);
+//	pinMode(IMU_INT1, INPUT_PULLDOWN);
+//	attachInterrupt(digitalPinToInterrupt(IMU_INT1), imu_fifo_interrupt, RISING);
 #endif
 }
 
@@ -156,12 +157,9 @@ int imu_get_sample(FIFO_Sample *sample)
 	if (sample == NULL) return -1;
 
 #if IMU_FIFO_ENABLE
-	if (interrupt_flag == false) return -1;
-
-	interrupt_flag = false;
-
 	uint16_t n_samples;
 	IMU.Get_FIFO_Num_Samples(&n_samples);
+	if (n_samples == 0) return -1;
 
 	uint8_t x_count = 0, g_count = 0;
 	bool xx_ov = false, xy_ov = false, xz_ov = false;
@@ -212,9 +210,8 @@ int imu_get_sample(FIFO_Sample *sample)
 	avg_sample.gyroscope[0] /= g_count;
 	avg_sample.gyroscope[1] /= g_count;
 	avg_sample.gyroscope[2] /= g_count;
-	Serial.printf("FIFO Sample: %d accel samples, %d gyro samples\n", x_count, g_count);
+	// Serial.printf("FIFO Sample: %d accel samples, %d gyro samples\n", x_count, g_count);
 
-	// TODO: return the info about what data was received
 	*sample = avg_sample;
 	return 0;
 #else

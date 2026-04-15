@@ -124,6 +124,11 @@ logf(const std::string_view &logLevel,
  * @param pvParams Parametri del task (non usati in questo caso).
  */
 void vTaskLogger(void *pvParams);
+
+/**
+ * @brief Forza la stampa immediata di tutti i messaggi di log attualmente nel buffer.
+ */
+void flush();
 } // namespace mcu
 
 #if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_DEBUG

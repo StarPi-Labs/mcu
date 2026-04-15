@@ -27,11 +27,11 @@
 #define MCU_LOG_LEVEL_NONE 5
 
 // Prefissi
-#define MCU_LOG_PREFIX_DEBUG "[DEBUG]"
-#define MCU_LOG_PREFIX_INFO "[INFO]"
-#define MCU_LOG_PREFIX_WARNING "[WARNING]"
-#define MCU_LOG_PREFIX_ERROR "[ERROR]"
-#define MCU_LOG_PREFIX_CRITICAL "[CRITICAL]"
+constexpr std::string_view MCU_LOG_PREFIX_DEBUG = "[DEBUG]";
+constexpr std::string_view MCU_LOG_PREFIX_INFO = "[INFO]";
+constexpr std::string_view MCU_LOG_PREFIX_WARNING = "[WARNING]";
+constexpr std::string_view MCU_LOG_PREFIX_ERROR = "[ERROR]";
+constexpr std::string_view MCU_LOG_PREFIX_CRITICAL = "[CRITICAL]";
 
 #if DEBUG || RELEASE
 // Livello di log predefinito
@@ -39,8 +39,6 @@
 #else // PRODUCTION
 #define MCU_LOG_LEVEL MCU_LOG_LEVEL_INFO
 #endif
-
-
 
 namespace mcu {
 // Buffer di log
@@ -141,8 +139,7 @@ void flush();
  * @param ... Eventuali argomenti da formattare.
  */
 #define mcu_log_debug(format, ...)                                             \
-  mcu::logf(std::string_view(MCU_LOG_PREFIX_DEBUG,                             \
-                             sizeof(MCU_LOG_PREFIX_DEBUG) - 1),                \
+  mcu::logf(MCU_LOG_PREFIX_DEBUG,                                              \
             format __VA_OPT__(, ) __VA_ARGS__)
 #else
 #define mcu_log_debug(format, ...)
@@ -158,9 +155,8 @@ void flush();
  * @param ... Eventuali argomenti da formattare.
  */
 #define mcu_log_info(format, ...)                                              \
-  mcu::logf(                                                                   \
-      std::string_view(MCU_LOG_PREFIX_INFO, sizeof(MCU_LOG_PREFIX_INFO) - 1),  \
-      format __VA_OPT__(, ) __VA_ARGS__)
+  mcu::logf(MCU_LOG_PREFIX_INFO,                                               \
+            format __VA_OPT__(, ) __VA_ARGS__)
 #else
 #define mcu_log_info(format, ...)
 #endif
@@ -175,8 +171,7 @@ void flush();
  * @param ... Eventuali argomenti da formattare.
  */
 #define mcu_log_warning(format, ...)                                           \
-  mcu::logf(std::string_view(MCU_LOG_PREFIX_WARNING,                           \
-                             sizeof(MCU_LOG_PREFIX_WARNING) - 1),              \
+  mcu::logf(MCU_LOG_PREFIX_WARNING,                                            \
             format __VA_OPT__(, ) __VA_ARGS__)
 #else
 #define mcu_log_warning(format, ...)
@@ -192,8 +187,7 @@ void flush();
  * @param ... Eventuali argomenti da formattare.
  */
 #define mcu_log_error(format, ...)                                             \
-  mcu::logf(std::string_view(MCU_LOG_PREFIX_ERROR,                             \
-                             sizeof(MCU_LOG_PREFIX_ERROR) - 1),                \
+  mcu::logf(MCU_LOG_PREFIX_ERROR,                                              \
             format __VA_OPT__(, ) __VA_ARGS__)
 #else
 #define mcu_log_error(format, ...)
@@ -209,8 +203,7 @@ void flush();
  * @param ... Eventuali argomenti da formattare.
  */
 #define mcu_log_critical(format, ...)                                          \
-  mcu::logf(std::string_view(MCU_LOG_PREFIX_CRITICAL,                          \
-                             sizeof(MCU_LOG_PREFIX_CRITICAL) - 1),             \
+  mcu::logf(MCU_LOG_PREFIX_CRITICAL,                                           \
             format __VA_OPT__(, ) __VA_ARGS__)
 #else
 #define mcu_log_critical(format, ...)

@@ -4,12 +4,6 @@
 #include <LSM6DSO32Sensor.h>
 #include <SPI.h>
 
-#define SPI_MOSI 11
-#define SPI_MISO 13
-#define SPI_SCK 12
-#define SPI_CS 15
-#define IMU_INT1 10
-
 
 // TODO: rename these to indicate that they are imu-specific
 typedef struct {

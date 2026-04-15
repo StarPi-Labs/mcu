@@ -162,6 +162,13 @@ int format_message_to_string(const message_t *msg, char *buf, size_t size);
 
 
 // ugly macros
-#define WARN_STR(s) "[WARNING]: " ## s
-#define ERR_STR(s)  "[ERROR]: " ## s
+#define WARN_STR(s) "[WARNING]: " s
+#define ERR_STR(s)  "[ERROR]: " s
 #define LOG_STR(s)  s
+
+
+#define ERR_TIMEOUT 0
+#define ERR(str, ...) do { \
+	message_t msg = MESSAGE(ERR_STR(str) __VA_OPT__(,) __VA_ARGS__); \
+	message_queue_enqueue(&msg, ERR_TIMEOUT); \
+} while(0)

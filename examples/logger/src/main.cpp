@@ -1,9 +1,13 @@
 #include <Arduino.h>
 #include <FreeRTOS.h>
 
+#include "board.h"
 #include "logger.h"
 #include "task.h"
 #include "imu.h"
+
+
+SPIClass SPI2(FSPI);
 
 
 DECLARE_STATIC_TASK(imu_task);
@@ -12,14 +16,21 @@ DECLARE_STATIC_TASK(logger_task);
 
 void setup(void)
 {
-	
+
 	Serial.begin(115200);
 	while (!Serial) {
 		delay(100);
 	}
 	Serial.println("Initialized");
-	
+
+	SPI2.begin(SPI2_SCK, SPI2_MISO, SPI2_MOSI);
+
 	message_queue_init();
+
+	// for now disable the lora module here
+	pinMode(LORA_CS, OUTPUT);
+	digitalWrite(LORA_CS, HIGH);
+
 	imu_setup();
 
 	INIT_STATIC_TASK(imu_task, "imu", NULL, tskIDLE_PRIORITY, 0);

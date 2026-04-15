@@ -11,10 +11,6 @@
 extern SPIClass SPI2;
 LSM6DSO32Sensor IMU(&SPI2, IMU_CS);
 static volatile bool interrupt_flag = false;
-static FIFO_BATCH fifo;
-
-void print_data(int32_t accelerometer[3], int32_t gyroscope[3], uint8_t timestamp[6]);
-void restart_fifo(void);
 
 
 // Interrupt handler for IMU FIFO interrupt
@@ -127,9 +123,8 @@ void imu_setup()
 
 	IMU.Enable_X();
 	IMU.Enable_G();
-	IMU.Write_Reg(LSM6DSO32_CTRL10_C, 0x20); // Timestamp fifo
 
-/*
+	/*
 	// TODO: define in imu.h
 	IMU.Set_X_FS(LSM6DSO32_32g);
 	IMU.Set_G_FS(LSM6DSO32_2000dps);
@@ -137,91 +132,94 @@ void imu_setup()
 	// TODO: define in imu.h
 	IMU.Set_X_ODR(6667.0f); //max
 	IMU.Set_G_ODR(6667.0f);
-
-	// fifo
-	// TODO: define in imu.h
-	IMU.Set_FIFO_X_BDR(6667.0f); //max
-	IMU.Set_FIFO_G_BDR(6667.0f);
 	*/
 
-	//IMU.Set_FIFO_INT1_FIFO_Full(true);
+#if IMU_FIFO_ENABLE
+	// FIFO Configuration
+	// TODO: to enable timestamps we need to fork the library and expose an
+	//       API to change the correct bits in FIFO_CTRL4
 	IMU.Set_FIFO_Mode(LSM6DSO32_STREAM_MODE);
-	IMU.Set_FIFO_Watermark_Level(10); // num da capire meglio
-	//IMU.Write_Reg(LSM6DSO32_INT1_CTRL, 0x08); // Watermark interrput
+	IMU.Set_FIFO_X_BDR(IMU_FIFO_X_BDR_HZ);
+	IMU.Set_FIFO_G_BDR(IMU_FIFO_G_BDR_HZ);
+	// IMU.Set_FIFO_INT1_FIFO_Full(true);
+	IMU.Set_FIFO_Watermark_Level(IMU_FIFO_WATERMARK);
 
-	//interrupt
+	// FIFO Interrupt
 	pinMode(IMU_INT1, INPUT_PULLDOWN);
 	attachInterrupt(digitalPinToInterrupt(IMU_INT1), imu_fifo_interrupt, RISING);
+#endif
 }
 
 
 int imu_get_sample(FIFO_Sample *sample)
 {
-	if (interrupt_flag == false || sample == NULL) return -1;
+	if (sample == NULL) return -1;
+
+#if IMU_FIFO_ENABLE
+	if (interrupt_flag == false) return -1;
 
 	interrupt_flag = false;
-	fifo.index = 0; //reset batch index
 
-	uint16_t nSamples;
-	IMU.Get_FIFO_Num_Samples(&nSamples);
+	uint16_t n_samples;
+	IMU.Get_FIFO_Num_Samples(&n_samples);
 
-	bool X_received = false, G_received = false, timestamp_received = false;
+	uint8_t x_count = 0, g_count = 0;
+	bool xx_ov = false, xy_ov = false, xz_ov = false;
+	bool gx_ov = false, gy_ov = false, gz_ov = false;
+	FIFO_Sample avg_sample = {0}, tmp_sample = {0};
 
-	for (int i = 0; i < nSamples; i++) {
+	for (int i = 0; i < n_samples; i++) {
 		uint8_t tag = 0;
 		IMU.Get_FIFO_Tag(&tag);
 
 		switch (tag) {
 		case LSM6DSO32_XL_NC_TAG:
-			IMU.Get_FIFO_X_Axes(fifo.fifo_batch[fifo.index].accelerometer);
-			X_received = true;
+			IMU.Get_FIFO_X_Axes(tmp_sample.accelerometer);
+			xx_ov |= __builtin_add_overflow(avg_sample.accelerometer[0], tmp_sample.accelerometer[0], &avg_sample.accelerometer[0]);
+			xy_ov |= __builtin_add_overflow(avg_sample.accelerometer[1], tmp_sample.accelerometer[1], &avg_sample.accelerometer[1]);
+			xz_ov |= __builtin_add_overflow(avg_sample.accelerometer[2], tmp_sample.accelerometer[2], &avg_sample.accelerometer[2]);
+			x_count++;
 			break;
 		case LSM6DSO32_GYRO_NC_TAG:
-			IMU.Get_FIFO_G_Axes(fifo.fifo_batch[fifo.index].gyroscope);
-			G_received = true;
+			IMU.Get_FIFO_G_Axes(tmp_sample.gyroscope);
+			gx_ov |= __builtin_add_overflow(avg_sample.gyroscope[0], tmp_sample.gyroscope[0], &avg_sample.gyroscope[0]);
+			gy_ov |= __builtin_add_overflow(avg_sample.gyroscope[1], tmp_sample.gyroscope[1], &avg_sample.gyroscope[1]);
+			gz_ov |= __builtin_add_overflow(avg_sample.gyroscope[2], tmp_sample.gyroscope[2], &avg_sample.gyroscope[2]);
+			g_count++;
 			break;
 		case LSM6DSO32_TIMESTAMP_TAG:
 			// TODO: convert timestamp to unix time (local time in microseconds)
-			IMU.Get_FIFO_Data(fifo.fifo_batch[fifo.index].timestamp);
-			timestamp_received = true;
+			IMU.Get_FIFO_Data(tmp_sample.timestamp);
 			break;
-		}
-
-		if (G_received && timestamp_received) { //se è l'ultimo af essere ricevuto incrementa indice
-			fifo.index++;
-			X_received = false;
-			G_received = false;
-			timestamp_received = false;
-		}
-
-		if (fifo.index >= 148) {
+		default:
 			break;
 		}
 	}
+	// on overflow return -1, indicating that the sample is invalid
+	if (xx_ov || xy_ov || xz_ov || gx_ov || gy_ov || gz_ov) {
+		// Serial.println("Overflow detected in FIFO sample accumulation");
+		return -1;
+	}
 
-	// For now return the first sample
-	// TODO: either interpolate samples or return the whole batch
+	if (x_count == 0 && g_count == 0) {
+		// Serial.println("No accelerometer or gyroscope samples in FIFO");
+		return -1;
+	}
+
+	avg_sample.accelerometer[0] /= x_count;
+	avg_sample.accelerometer[1] /= x_count;
+	avg_sample.accelerometer[2] /= x_count;
+	avg_sample.gyroscope[0] /= g_count;
+	avg_sample.gyroscope[1] /= g_count;
+	avg_sample.gyroscope[2] /= g_count;
+	Serial.printf("FIFO Sample: %d accel samples, %d gyro samples\n", x_count, g_count);
+
 	// TODO: return the info about what data was received
-	*sample = fifo.fifo_batch[0];
+	*sample = avg_sample;
 	return 0;
-/*
+#else
 	IMU.Get_X_Axes(sample->accelerometer);
 	IMU.Get_G_Axes(sample->gyroscope);
 	return 0;
-*/
-}
-
-
-// Restart the IMU FIFO (bypass mode)
-void imu_restart()
-{
-	IMU.Set_FIFO_Mode(LSM6DSO32_BYPASS_MODE);
-
-	IMU.Disable_X();
-	IMU.Disable_G();
-
-	IMU.Enable_X();
-	IMU.Enable_G();
-
-	IMU.Set_FIFO_Mode(LSM6DSO32_BYPASS_MODE);
+#endif
 }

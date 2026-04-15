@@ -82,10 +82,10 @@ TASK imu_task(TaskDescriptor_t *self)
 
 			// TODO: timestamp
 		} else {
-		//	msg = MESSAGE(LOG_STR("[IMU]: No sample"));
-		//	message_queue_enqueue(&msg, 100);
+			msg = MESSAGE(LOG_STR("[IMU]: No sample"));
+			message_queue_enqueue(&msg, 100);
 		}
-		TASK_WAIT_HZ(self, 100);
+		TASK_WAIT_HZ(self, IMU_TASK_HZ);
 	}
 }
 
@@ -104,6 +104,6 @@ TASK logger_task(TaskDescriptor_t *self)
 			Serial.println(buf);
 		}
 
-		TASK_WAIT_HZ(self, 500);
+		TASK_WAIT_HZ(self, LOGGER_TASK_HZ);
 	}
 }

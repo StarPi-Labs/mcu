@@ -6,6 +6,10 @@
 #define SPI2_MISO 13
 #define SPI2_SCK  12
 
+// I2C1 Bus
+#define I2C1_SDA 42
+#define I2C1_SCL 45
+
 // IMU Pins
 #define IMU_CS    15
 #define IMU_INT1  10
@@ -19,6 +23,7 @@
 
 // Task Timings
 #define IMU_TASK_HZ    100
+#define BARO_TASK_HZ   20
 #define LOGGER_TASK_HZ 500
 
 
@@ -31,3 +36,6 @@
 #define IMU_FIFO_X_BDR_HZ  (IMU_TASK_HZ * 1.20f)
 #define IMU_FIFO_G_BDR_HZ  (IMU_TASK_HZ * 1.20f)
 
+
+// Barometer configuration
+#define BARO_OSR OSR_ULTRA_HIGH // Oversampling rate: maximum resolution, slowest

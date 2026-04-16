@@ -5,12 +5,15 @@
 #include "logger.h"
 #include "task.h"
 #include "imu.h"
+#include "barometer.h"
 
 
 SPIClass SPI2(FSPI);
+TwoWire I2C1(0);
 
 
 DECLARE_STATIC_TASK(imu_task);
+DECLARE_STATIC_TASK(barometer_task);
 DECLARE_STATIC_TASK(logger_task);
 
 
@@ -23,7 +26,11 @@ void setup(void)
 	}
 	Serial.println("Initialized");
 
-	SPI2.begin(SPI2_SCK, SPI2_MISO, SPI2_MOSI);
+	I2C1.setPins(I2C1_SDA, I2C1_SCL);
+	I2C1.begin();
+	I2C1.setClock(100000);
+	SPI2.begin(SPI2_SCK, SPI2_MISO, SPI2_MOSI, -1);
+	// TODO: Set speed
 
 	message_queue_init();
 
@@ -32,11 +39,13 @@ void setup(void)
 	digitalWrite(LORA_CS, HIGH);
 
 	imu_setup();
+	barometer_setup();
 
 	INIT_STATIC_TASK(imu_task, "imu", NULL, tskIDLE_PRIORITY, 0);
+	INIT_STATIC_TASK(barometer_task, "barometer", NULL, tskIDLE_PRIORITY, 0);
 	INIT_STATIC_TASK(logger_task, "logger", NULL, tskIDLE_PRIORITY, 1);
 
-	if (!TASK_IS_INITIALIZED(imu_task) || !TASK_IS_INITIALIZED(logger_task)) {
+ 	if (!TASK_IS_INITIALIZED(imu_task) || !TASK_IS_INITIALIZED(barometer_task) || !TASK_IS_INITIALIZED(logger_task)) {
 		while (true) {
 			Serial.println("Error creating tasks");
 			delay(500);
@@ -86,6 +95,44 @@ TASK imu_task(TaskDescriptor_t *self)
 			// message_queue_enqueue(&msg, 100);
 		}
 		TASK_WAIT_HZ(self, IMU_TASK_HZ);
+	}
+}
+
+
+TASK barometer_task(TaskDescriptor_t *self)
+{
+	self->last_wake = xTaskGetTickCount();
+	BaroData sample1, sample2;
+	message_t msg;
+
+	while (true) {
+		barometer_read(&sample1, &sample2);
+
+		msg = MESSAGE(
+			LOG_STR("[BARO1]: Pressure"),
+			sample1.pressure
+		);
+		message_queue_enqueue(&msg, 100);
+
+		msg = MESSAGE(
+			LOG_STR("[BARO1]: Altitude"),
+			sample1.altitude
+		);
+		message_queue_enqueue(&msg, 100);
+
+		msg = MESSAGE(
+			LOG_STR("[BARO2]: Pressure"),
+			sample2.pressure
+		);
+		message_queue_enqueue(&msg, 100);
+
+		msg = MESSAGE(
+			LOG_STR("[BARO2]: Altitude"),
+			sample2.altitude
+		);
+		message_queue_enqueue(&msg, 100);
+
+		TASK_WAIT_HZ(self, BARO_TASK_HZ);
 	}
 }
 

@@ -41,8 +41,7 @@ constexpr std::string_view MCU_LOG_PREFIX_CRITICAL = "[CRITICAL]";
 #endif
 
 namespace mcu {
-// Buffer di log
-inline struct {
+struct LogBuffer_t {
   // Dati del messaggio di log formattato, incluso il prefisso
   std::array<char, MCU_LOG_BUFFER_SIZE> data;
   // Lunghezza attuale del messaggio nel buffer, escluso il terminatore di
@@ -50,7 +49,10 @@ inline struct {
   std::size_t length = 0;
   mcu::Mutex mutex;
   std::condition_variable_any cvBufferEmpty, cvBufferFull;
-} g_logBuffer;
+};
+
+// Buffer di log
+inline LogBuffer_t g_logBuffer;
 
 namespace log_handler {
 // Interfaccia per gli handler di log.

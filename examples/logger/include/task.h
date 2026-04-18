@@ -75,8 +75,9 @@ typedef struct _TaskDescriptor_t {
 // Wait until the next period, this should be called at the end of each task loop
 #define TASK_WAIT_HZ(desc, freq) do { \
 		static_assert(_IS_TASKDESCRIPTOR_POINTER(desc), "First argument must be of type TaskDescriptor_t"); \
+		TickType_t wake = desc->last_wake; \
 		desc->was_delayed = xTaskDelayUntil(&(desc->last_wake), pdMS_TO_TICKS(1000/freq)); \
 		if (desc->was_delayed == false) { \
-			Serial.printf("[%s:%d]: task failed to meet deadline\n", __FILE__, __LINE__); \
+			Serial.printf("[%s:%d - %s]: task failed to meet deadline, took %d ms\n", __FILE__, __LINE__, __FUNCTION__, pdTICKS_TO_MS(xTaskGetTickCount() - wake)); \
 		} \
 	} while (0)

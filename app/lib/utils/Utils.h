@@ -61,12 +61,5 @@ private:
     StaticSemaphore_t m_mutexBuffer;
     SemaphoreHandle_t m_mutex;
 };
-
-// Accesso sicuro agli array per evitare out-of-bounds in fase di debug/release
-#if DEBUG || RELEASE
-#define array_access(array, index) ((array).at(index))
-#else // Production
-#define array_access(array, index) ((array)[(index)])
-#endif
 } // namespace mcu
 #endif // UTILS_H

@@ -100,13 +100,13 @@ logf(const std::string_view &logLevel,
     });
 
     // Scrive il prefisso nel buffer
-    std::memcpy(&array_access(g_logBuffer.data, g_logBuffer.length),
+    std::memcpy(&g_logBuffer.data[g_logBuffer.length],
                 logLevel.data(), logLevel.size());
 
     g_logBuffer.length += logLevel.size();
 
     // Formatta il messaggio nel buffer
-    std::format_to(&array_access(g_logBuffer.data, g_logBuffer.length), format,
+    std::format_to(&g_logBuffer.data[g_logBuffer.length], format,
                    std::forward<Args>(args)...);
 
     g_logBuffer.length += messageSize;

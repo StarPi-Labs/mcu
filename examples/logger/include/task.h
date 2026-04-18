@@ -78,6 +78,7 @@ typedef struct _TaskDescriptor_t {
 		TickType_t wake = desc->last_wake; \
 		desc->was_delayed = xTaskDelayUntil(&(desc->last_wake), pdMS_TO_TICKS(1000/freq)); \
 		if (desc->was_delayed == false) { \
-			Serial.printf("[%s:%d - %s]: task failed to meet deadline, took %d ms\n", __FILE__, __LINE__, __FUNCTION__, pdTICKS_TO_MS(xTaskGetTickCount() - wake)); \
+			desc->last_wake = xTaskGetTickCount(); \
+			Serial.printf("[%s:%d - %s]: task failed to meet deadline, took %d ms\n", __FILE__, __LINE__, __FUNCTION__, pdTICKS_TO_MS(desc->last_wake - wake)); \
 		} \
 	} while (0)

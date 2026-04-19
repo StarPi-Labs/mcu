@@ -80,6 +80,6 @@ typedef struct _TaskDescriptor_t {
 		desc->was_delayed = xTaskDelayUntil(&(desc->last_wake), pdMS_TO_TICKS(1000/freq)); \
 		if (desc->was_delayed == false) { \
 			desc->last_wake = xTaskGetTickCount(); \
-			WARN("[" xstr(__FILE__) ":" xstr(__LINE__) " - " xstr(__FUNCTION__) "]: task failed to meet deadline, took [ms]\n", pdTICKS_TO_MS(desc->last_wake - wake)); \
+			WARN("[" xstr(__FILE__) ":" xstr(__LINE__) "]: task failed to meet deadline, took [ms]", pdTICKS_TO_MS(desc->last_wake - wake)); \
 		} \
 	} while (0)

@@ -64,13 +64,14 @@ bool barometer_setup(void)
 	LOG("Barometer 2 initialized");
 
 	// legge un po' di volte per far stabilizzare il sensore
+	// calibrate with the highest OSR to get the most accurate ground pressure
 	for (int i = 0; i < 5; i++) {
-		baro1.read(BARO_OSR);
-		baro2.read(BARO_OSR);
+		baro1.read(OSR_ULTRA_HIGH);
+		baro2.read(OSR_ULTRA_HIGH);
 		delay(50);
 	}
 
-	int status1 = baro1.read(BARO_OSR);
+	int status1 = baro1.read(OSR_ULTRA_HIGH);
 	if (status1 == 0) {
 		ground_pressure_mbar_1 = baro1.getPressure(); // autozero
 		LOG("Barometer 1: Setting ground pressure to [mbar]", ground_pressure_mbar_1);
@@ -78,7 +79,7 @@ bool barometer_setup(void)
 		ERR("Barometer 1: Calibration failed with error code", status1);
 	}
 
-	int status2 = baro2.read(BARO_OSR);
+	int status2 = baro2.read(OSR_ULTRA_HIGH);
 	if (status2 == 0) {
 		ground_pressure_mbar_2 = baro2.getPressure(); // autozero
 		LOG("Barometer 2: Setting ground pressure to [mbar]", ground_pressure_mbar_2);

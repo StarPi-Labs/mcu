@@ -3,6 +3,7 @@
 #include <FreeRTOS.h>
 #include <chrono>
 #include <array>
+#include "Semaphore.h"
 
 namespace freertos {
 /**
@@ -31,7 +32,7 @@ public:
     template <typename Rep, typename Period = std::ratio<1>>
     bool try_lock_for(const std::chrono::duration<Rep, Period>& relativeTime) {
         auto ticks = std::chrono::duration_cast<std::chrono::milliseconds>(relativeTime).count() / portTICK_PERIOD_MS;
-        return xSemaphoreTake(m_handle, ticks) == pdTRUE;
+        return xSemaphoreTake(m_mutex.handle, ticks) == pdTRUE;
     }
    
     /** 
@@ -57,7 +58,6 @@ public:
 
     ~Mutex();
 private:
-    StaticSemaphore_t m_buffer;
-    SemaphoreHandle_t m_handle;
+    NativeSemaphore_t m_mutex;
 };
 } // namespace freertos

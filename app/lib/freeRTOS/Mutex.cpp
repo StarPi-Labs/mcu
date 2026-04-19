@@ -2,25 +2,25 @@
 #include <cassert>
 
 freertos::Mutex::Mutex() : 
-    m_handle(xSemaphoreCreateMutexStatic(&m_buffer))
+    m_mutex({ .handle = xSemaphoreCreateMutexStatic(&m_mutex.buffer) })
 {
-    assert(m_handle != NULL);
+    assert(m_mutex.handle != NULL);
 }
 
 void freertos::Mutex::lock() {
-    bool result = xSemaphoreTake(m_handle, portMAX_DELAY) == pdTRUE;
+    bool result = xSemaphoreTake(m_mutex.handle, portMAX_DELAY) == pdTRUE;
     assert(result);
 }
 
 bool freertos::Mutex::try_lock() {
-    return xSemaphoreTake(m_handle, 0) == pdTRUE;
+    return xSemaphoreTake(m_mutex.handle, 0) == pdTRUE;
 }
 
 void freertos::Mutex::unlock() {
-    bool result = xSemaphoreGive(m_handle) == pdTRUE;
+    bool result = xSemaphoreGive(m_mutex.handle) == pdTRUE;
     assert(result);
 }
 
 freertos::Mutex::~Mutex() {
-    vSemaphoreDelete(m_handle);
+    vSemaphoreDelete(m_mutex.handle);
 }

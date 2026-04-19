@@ -3,6 +3,8 @@
 #include "FreeRTOSConfig.h"
 #include <Arduino.h>
 
+#include "logger.h"
+
 
 // Stack size of each task in words, with zero extra stack this results in 1k
 // words of usable stack
@@ -71,7 +73,6 @@ typedef struct _TaskDescriptor_t {
 
 
 // FIXME: use a different logger
-// TODO: print the task name
 // Wait until the next period, this should be called at the end of each task loop
 #define TASK_WAIT_HZ(desc, freq) do { \
 		static_assert(_IS_TASKDESCRIPTOR_POINTER(desc), "First argument must be of type TaskDescriptor_t"); \
@@ -79,6 +80,6 @@ typedef struct _TaskDescriptor_t {
 		desc->was_delayed = xTaskDelayUntil(&(desc->last_wake), pdMS_TO_TICKS(1000/freq)); \
 		if (desc->was_delayed == false) { \
 			desc->last_wake = xTaskGetTickCount(); \
-			Serial.printf("[%s:%d - %s]: task failed to meet deadline, took %d ms\n", __FILE__, __LINE__, __FUNCTION__, pdTICKS_TO_MS(desc->last_wake - wake)); \
+			WARN("[" xstr(__FILE__) ":" xstr(__LINE__) " - " xstr(__FUNCTION__) "]: task failed to meet deadline, took [ms]\n", pdTICKS_TO_MS(desc->last_wake - wake)); \
 		} \
 	} while (0)

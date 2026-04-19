@@ -41,18 +41,46 @@ constexpr std::string_view MCU_LOG_PREFIX_CRITICAL = "[CRITICAL]";
 #endif
 
 namespace mcu {
-struct LogBuffer_t {
-  // Dati del messaggio di log formattato, incluso il prefisso
-  std::array<char, MCU_LOG_BUFFER_SIZE> data;
-  // Lunghezza attuale del messaggio nel buffer, escluso il terminatore di
-  // stringa
-  std::size_t length = 0;
-  mcu::Mutex mutex;
-  std::condition_variable_any cvBufferEmpty, cvBufferFull;
+/**
+ * @brief Buffer per i messaggi di log
+ */
+class LogBuffer {
+public:
+  using BufferType_t = std::array<char, MCU_LOG_BUFFER_SIZE>;
+
+  /**
+   * @brief Verifica se c'è spazio sufficiente nel buffer per un messaggio di una certa dimensione.
+   * @param requiredSize La dimensione del messaggio da loggare
+   * @return true se c'è spazio sufficiente, false altrimenti
+   */
+  bool hasSpace(std::size_t requiredSize) const;
+
+  /**
+   * @brief Restituisce una reference al buffer dei dati del log.
+   */
+  BufferType_t& data();
+
+  /**
+   * @brief Appende un messaggio al buffer.
+   * @param source Il messaggio da appendere
+   * @param size La dimensione del messaggio da appendere
+   * @pre Deve esserci spazio sufficiente nel buffer
+   */
+  void append(char* source, std::size_t size);
+
+  /**
+   * @brief Pulisce il buffer, resettando l'indice di scrittura.
+   */
+  void clear();
+private:
+  BufferType_t m_data;
+  std::size_t m_writeIndex;
 };
 
-// Buffer di log
-inline LogBuffer_t g_logBuffer;
+inline std::array<LogBuffer, 2> g_logBuffers;
+inline mcu::Mutex g_activeLogBufferMutex;
+inline uint8_t g_activeLogBuffer = 0;
+
 
 namespace log_handler {
 // Interfaccia per gli handler di log.

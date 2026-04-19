@@ -1,7 +1,6 @@
-#ifndef UTILS_H
-#define UTILS_H
+#pragma once
 
-#include <Arduino.h>
+#include <FreeRTOS.h>
 #include <chrono>
 #include <array>
 
@@ -32,7 +31,7 @@ public:
     template <typename Rep, typename Period = std::ratio<1>>
     bool try_lock_for(const std::chrono::duration<Rep, Period>& relativeTime) {
         auto ticks = std::chrono::duration_cast<std::chrono::milliseconds>(relativeTime).count() / portTICK_PERIOD_MS;
-        return xSemaphoreTake(m_mutex, ticks) == pdTRUE;
+        return xSemaphoreTake(m_handle, ticks) == pdTRUE;
     }
    
     /** 
@@ -58,8 +57,7 @@ public:
 
     ~Mutex();
 private:
-    StaticSemaphore_t m_mutexBuffer;
-    SemaphoreHandle_t m_mutex;
+    StaticSemaphore_t m_buffer;
+    SemaphoreHandle_t m_handle;
 };
 } // namespace mcu
-#endif // UTILS_H

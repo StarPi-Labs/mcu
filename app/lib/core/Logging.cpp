@@ -1,5 +1,8 @@
 #include "Logging.h"
 
+#if 1
+#else
+
 void mcu::vTaskLogger(void *pvParams) {
   while (true) {
     {
@@ -78,3 +81,13 @@ void mcu::flush() {
   
   g_logBuffer.cvBufferFull.notify_all();
 }
+
+void mcu::LogBuffer::clear() {
+  m_writeIndex = 0;
+}
+
+bool mcu::LogBuffer::hasSpace(std::size_t requiredSize) const {
+  return m_writeIndex + requiredSize < m_data.size();
+}
+
+#endif

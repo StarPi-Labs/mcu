@@ -4,9 +4,9 @@
 #include <chrono>
 #include <array>
 
-namespace mcu {
+namespace freertos {
 /**
- * @brief Wrapper per mutex FreeRTOS: implementa RAII e da compatibilità con STL C++
+ * @brief Wrapper per mutex FreeRTOS
  * Implementa: BasicLockable, Lockable, TimedLockable
  */
 class Mutex {
@@ -60,4 +60,4 @@ private:
     StaticSemaphore_t m_buffer;
     SemaphoreHandle_t m_handle;
 };
-} // namespace mcu
+} // namespace freertos

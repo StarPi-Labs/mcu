@@ -1,15 +1,15 @@
 #include "Mutex.h"
-#include <cassert>
 
 freertos::Mutex::Mutex() : 
     m_mutex({ .handle = xSemaphoreCreateMutexStatic(&m_mutex.buffer) })
 {
-    assert(m_mutex.handle != NULL);
+    configASSERT(m_mutex.handle != NULL && "Failed to create mutex");
 }
 
 void freertos::Mutex::lock() {
     bool result = xSemaphoreTake(m_mutex.handle, portMAX_DELAY) == pdTRUE;
-    assert(result);
+    configASSERT(result && "Failed to take mutex");
+    (void)result;
 }
 
 bool freertos::Mutex::try_lock() {
@@ -18,7 +18,8 @@ bool freertos::Mutex::try_lock() {
 
 void freertos::Mutex::unlock() {
     bool result = xSemaphoreGive(m_mutex.handle) == pdTRUE;
-    assert(result);
+    configASSERT(result && "Failed to give mutex");
+    (void)result;
 }
 
 freertos::Mutex::~Mutex() {

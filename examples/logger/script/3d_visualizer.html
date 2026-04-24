@@ -47,6 +47,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/DRACOLoader.js"></script>
 </head>
 <body>
 
@@ -65,145 +66,173 @@
     </div>
 
     <script>
-        // --- 1. SETUP THREE.JS SCENE ---
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-        
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.body.appendChild(renderer.domElement);
+            // --- 1. SETUP THREE.JS SCENE ---
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 
-        // --- NEW: AXIS HELPER ---
-        // Adds X (Red), Y (Green), and Z (Blue) lines starting from the center
-        const axesHelper = new THREE.AxesHelper(5);
-        scene.add(axesHelper);
+            renderer.outputEncoding = THREE.sRGBEncoding;
+            renderer.physicallyCorrectLights = true;
 
-        // --- NEW: CAD-LIKE MOUSE CONTROLS ---
-        const controls = new THREE.OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true; // Adds a smooth physics feel to the movement
-        controls.dampingFactor = 0.05;
-
-        // --- NEW: CUSTOM MODEL LOADER ---
-        // We use a Group as a container. We rotate the group, and whatever model 
-        // is loaded inside it will rotate with it.
-        let pcbGroup = new THREE.Group();
-        scene.add(pcbGroup);
-
-        const loader = new THREE.GLTFLoader();
-        // Place your 3D model in the same folder and name it 'board.glb'
-        // You can export a .glb easily from KiCad, Fusion360, or Blender.
-        loader.load('board.glb', function (gltf) {
-            const model = gltf.scene;
-            
-            // Optional: Center the model if its origin is off
-            const box = new THREE.Box3().setFromObject(model);
-            const center = box.getCenter(new THREE.Vector3());
-            model.position.sub(center); 
-
-            pcbGroup.add(model);
-        }, undefined, function (error) {
-            console.error('Error loading the custom model. Did you place board.glb in the folder?', error);
-            // Fallback to the green box if the model is missing
-            const fallbackGeom = new THREE.BoxGeometry(4, 0.2, 6);
-            const fallbackMat = new THREE.MeshLambertMaterial({ color: 0x008800 });
-            pcbGroup.add(new THREE.Mesh(fallbackGeom, fallbackMat));
-        });
-
-        // Add lighting so the model isn't just a black silhouette
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-        scene.add(ambientLight);
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        directionalLight.position.set(10, 20, 10);
-        scene.add(directionalLight);
-
-        // Position the camera
-        camera.position.set(5, 5, 5);
-        camera.lookAt(0, 0, 0);
-
-        // Resize handler
-        window.addEventListener('resize', () => {
             renderer.setSize(window.innerWidth, window.innerHeight);
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-        });
+            document.body.appendChild(renderer.domElement);
 
-        // Rendering loop
-        function animate() {
-            requestAnimationFrame(animate);
-            controls.update(); // Required for OrbitControls damping to work
-            renderer.render(scene, camera);
-        }
-        animate();
+            const axesHelper = new THREE.AxesHelper(5);
+            scene.add(axesHelper);
 
-        // --- 2. SETUP WEB SERIAL API ---
-        const connectBtn = document.getElementById('connect-btn');
-        const dataDisplay = document.getElementById('data-display');
-        let port;
+            const controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
 
-        connectBtn.addEventListener('click', async () => {
-            try {
-                port = await navigator.serial.requestPort();
-                await port.open({ baudRate: 115200 }); 
-                connectBtn.innerText = "Connected";
-                connectBtn.style.backgroundColor = "#555";
-                
-                readLoop();
-            } catch (error) {
-                console.error("Connection error:", error);
+            let pcbGroup = new THREE.Group();
+            // Crucial: Set rotation order for IMU/Aeronautical data so axes don't get confused
+            pcbGroup.rotation.order = 'YXZ';
+            scene.add(pcbGroup);
+
+            // --- FIXED: DRACO LOADER PATH ---
+            const dracoLoader = new THREE.DRACOLoader();
+            // Use the exact same CDN and version (r128) for the decoders to prevent silent worker failures
+            dracoLoader.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/draco/');
+
+            const loader = new THREE.GLTFLoader();
+            loader.setDRACOLoader(dracoLoader);
+
+            loader.load('board.glb', function (gltf) {
+                const model = gltf.scene;
+
+                // --- FIXED: AUTO-SCALING AND CENTERING ---
+                // 1. Find the current size of the model
+                const box = new THREE.Box3().setFromObject(model);
+                const size = box.getSize(new THREE.Vector3());
+
+                // 2. Find the largest dimension (X, Y, or Z)
+                const maxDim = Math.max(size.x, size.y, size.z);
+
+                // 3. Scale it down/up so the largest side is exactly 5 units wide
+                const targetSize = 5;
+                const scaleFactor = targetSize / maxDim;
+                model.scale.set(scaleFactor, scaleFactor, scaleFactor);
+
+                // 4. Recalculate the center after scaling and move it to 0,0,0
+                const scaledBox = new THREE.Box3().setFromObject(model);
+                const center = scaledBox.getCenter(new THREE.Vector3());
+                model.position.sub(center);
+
+                pcbGroup.add(model);
+                console.log("Model loaded and scaled successfully!");
+
+            }, undefined, function (error) {
+                console.error('Error loading the custom model:', error);
+                const fallbackGeom = new THREE.BoxGeometry(4, 0.2, 6);
+                const fallbackMat = new THREE.MeshLambertMaterial({ color: 0x008800 });
+                pcbGroup.add(new THREE.Mesh(fallbackGeom, fallbackMat));
+            });
+
+/*
+            // Add lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(10, 20, 10);
+            scene.add(directionalLight);
+*/
+			// HemisphereLight (skyColor, groundColor, intensity)
+			// Gives a great baseline ambient light without looking flat
+			const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 2.0);
+			hemiLight.position.set(0, 20, 0);
+			scene.add(hemiLight);
+
+			// Key Light (Main bright light from the top right)
+			const dirLightMain = new THREE.DirectionalLight(0xffffff, 5.0);
+			dirLightMain.position.set(10, 10, 10);
+			scene.add(dirLightMain);
+
+			// Fill Light (Softer light from the bottom left to illuminate shadows)
+			const dirLightFill = new THREE.DirectionalLight(0xccddff, 1.5);
+			dirLightFill.position.set(-10, -10, -10);
+			scene.add(dirLightFill);
+
+            // Position the camera
+            camera.position.set(5, 5, 5);
+            camera.lookAt(0, 0, 0);
+
+            // Resize handler
+            window.addEventListener('resize', () => {
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+            });
+
+            // Rendering loop
+            function animate() {
+                requestAnimationFrame(animate);
+                controls.update();
+                renderer.render(scene, camera);
             }
-        });
+            animate();
 
-        async function readLoop() {
-            const textDecoder = new TextDecoderStream();
-            const readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
-            const reader = textDecoder.readable.getReader();
+            // --- 2. SETUP WEB SERIAL API ---
+            const connectBtn = document.getElementById('connect-btn');
+            const dataDisplay = document.getElementById('data-display');
+            let port;
 
-            let buffer = "";
-
-            try {
-                while (true) {
-                    const { value, done } = await reader.read();
-                    if (done) break;
-                    
-                    buffer += value;
-                    const lines = buffer.split('\n');
-                    buffer = lines.pop(); 
-
-                    for (const line of lines) {
-                        parseSerialLine(line);
-                    }
+            connectBtn.addEventListener('click', async () => {
+                try {
+                    port = await navigator.serial.requestPort();
+                    await port.open({ baudRate: 115200 });
+                    connectBtn.innerText = "Connected";
+                    connectBtn.style.backgroundColor = "#555";
+                    readLoop();
+                } catch (error) {
+                    console.error("Connection error:", error);
                 }
-            } catch (error) {
-                console.error("Reading error:", error);
-            } finally {
-                reader.releaseLock();
+            });
+
+            async function readLoop() {
+                const textDecoder = new TextDecoderStream();
+                const readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
+                const reader = textDecoder.readable.getReader();
+                let buffer = "";
+
+                try {
+                    while (true) {
+                        const { value, done } = await reader.read();
+                        if (done) break;
+                        buffer += value;
+                        const lines = buffer.split('\n');
+                        buffer = lines.pop();
+
+                        for (const line of lines) {
+                            parseSerialLine(line);
+                        }
+                    }
+                } catch (error) {
+                    console.error("Reading error:", error);
+                } finally {
+                    reader.releaseLock();
+                }
             }
-        }
 
-        // --- 3. PARSING AND UPDATING DATA ---
-        function parseSerialLine(line) {
-            const regex = /\[IMU\]: Orientation:\s*\(([-.\d]+),\s*([-.\d]+),\s*([-.\d]+)\)/;
-            const match = line.match(regex);
+            // --- 3. PARSING AND UPDATING DATA ---
+            function parseSerialLine(line) {
+                const regex = /\[IMU\]: Orientation:\s*\(([-.\d]+),\s*([-.\d]+),\s*([-.\d]+)\)/;
+                const match = line.match(regex);
 
-            if (match) {
-                const roll = parseFloat(match[1]);
-                const pitch = parseFloat(match[2]);
-                const yaw = parseFloat(match[3]);
-
-                updateOrientation(roll, pitch, yaw);
+                if (match) {
+                    const roll = parseFloat(match[1]);
+                    const pitch = parseFloat(match[2]);
+                    const yaw = -parseFloat(match[3]) - 90.0;
+                    updateOrientation(roll, pitch, yaw);
+                }
             }
-        }
 
-        function updateOrientation(roll, pitch, yaw) {
-            dataDisplay.innerHTML = `Roll: ${roll.toFixed(2)}°<br>Pitch: ${pitch.toFixed(2)}°<br>Yaw: ${yaw.toFixed(2)}°`;
-
-            const degToRad = Math.PI / 180;
-
-            // Rotate the group holding the custom model
-            pcbGroup.rotation.x = roll * degToRad;
-            pcbGroup.rotation.z = -pitch * degToRad; 
-            pcbGroup.rotation.y = -yaw * degToRad;   
-        }
-    </script>
+            function updateOrientation(roll, pitch, yaw) {
+                dataDisplay.innerHTML = `Roll: ${roll.toFixed(2)}°<br>Pitch: ${pitch.toFixed(2)}°<br>Yaw: ${yaw.toFixed(2)}°`;
+                const degToRad = Math.PI / 180;
+                pcbGroup.rotation.x = roll * degToRad;
+                pcbGroup.rotation.z = -pitch * degToRad;
+                pcbGroup.rotation.y = -yaw * degToRad;
+            }
+        </script>
 </body>
 </html>

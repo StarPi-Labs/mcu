@@ -6,6 +6,8 @@
 #include "logger.h"
 
 
+/* ======================= TASK CREATION AND HANDLING ======================= */
+
 // Stack size of each task in words, with zero extra stack this results in 1k
 // words of usable stack
 #define TASK_STACK_SIZE (configMINIMAL_STACK_SIZE + configIDLE_TASK_STACK_SIZE + 2048)
@@ -83,3 +85,19 @@ typedef struct _TaskDescriptor_t {
 			WARN("[" xstr(__FILE__) ":" xstr(__LINE__) "]: task failed to meet deadline, took [ms]", pdTICKS_TO_MS(desc->last_wake - wake)); \
 		} \
 	} while (0)
+
+
+/* ======================= SINCHRONIZATION PRIMITIVES ======================= */
+
+#define DECLARE_STATIC_SEMAPHORE(symbol) \
+	SemaphoreHandle_t symbol; \
+	StaticSemaphore_t symbol##_buffer
+
+
+// Initialize a static semaphore, gives it so that it is available
+#define INIT_STATIC_SEMAPHORE(symbol) do { \
+	symbol = xSemaphoreCreateBinaryStatic(&(symbol##_buffer)); \
+	if (symbol != NULL) { \
+		xSemaphoreGive(symbol); \
+	} \
+} while (0)

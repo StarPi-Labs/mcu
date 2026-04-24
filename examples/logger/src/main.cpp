@@ -12,6 +12,8 @@ SPIClass SPI2(FSPI);
 TwoWire I2C1(0);
 
 
+DECLARE_STATIC_SEMAPHORE(spi_semaphore);
+
 DECLARE_STATIC_TASK(imu_task);
 DECLARE_STATIC_TASK(barometer_task);
 DECLARE_STATIC_TASK(logger_task);
@@ -51,6 +53,14 @@ void setup(void)
 			delay(500);
 		}
 	}
+
+	INIT_STATIC_SEMAPHORE(spi_semaphore);
+	if (spi_semaphore == NULL) {
+		while (true) {
+			Serial.println("Error creating semaphore");
+			delay(500);
+		}
+	}
 }
 
 
@@ -68,7 +78,7 @@ TASK imu_task(TaskDescriptor_t *self)
 	message_t msg;
 
 	while (true) {
-		if (imu_get_sample(&sample) == 0) {
+		if (xSemaphoreTake(spi_semaphore, portMAX_DELAY) == pdTRUE && imu_get_sample(&sample) == 0) {
 			msg = MESSAGE(
 				LOG_STR("[IMU]: Accellerometer"),
 				(struct ivec3){
@@ -94,6 +104,7 @@ TASK imu_task(TaskDescriptor_t *self)
 			// msg = MESSAGE(LOG_STR("[IMU]: No sample"));
 			// message_queue_enqueue(&msg, 100);
 		}
+		xSemaphoreGive(spi_semaphore);
 		TASK_WAIT_HZ(self, IMU_TASK_HZ);
 	}
 }

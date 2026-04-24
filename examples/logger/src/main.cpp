@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <FreeRTOS.h>
+#include <MadgwickAHRS.h>
 
 #include "board.h"
 #include "logger.h"
@@ -12,6 +13,8 @@
 SPIClass SPI2(FSPI);
 TwoWire I2C1(0);
 
+// State filter for orientation estimation, used in the IMU task
+Madgwick state_filter;
 
 DECLARE_STATIC_SEMAPHORE(spi_semaphore);
 
@@ -36,11 +39,9 @@ void setup(void)
 	SPI2.begin(SPI2_SCK, SPI2_MISO, SPI2_MOSI, -1);
 	// TODO: Set speed
 
-	message_queue_init();
+	state_filter.begin(IMU_TASK_HZ);
 
-	// for now disable the lora module here
-	pinMode(LORA_CS, OUTPUT);
-	digitalWrite(LORA_CS, HIGH);
+	message_queue_init();
 
 	imu_setup();
 	barometer_setup();
@@ -87,27 +88,45 @@ TASK imu_task(TaskDescriptor_t *self)
 
 	while (true) {
 		if (xSemaphoreTake(spi_semaphore, portMAX_DELAY) == pdTRUE && imu_get_sample(&sample) == 0) {
+			// msg = MESSAGE(
+			// 	LOG_STR("[IMU]: Accellerometer"),
+			// 	(struct ivec3){
+			// 		sample.accelerometer[0],
+			// 		sample.accelerometer[1],
+			// 		sample.accelerometer[2]
+			// 	}
+			// );
+			// message_queue_enqueue(&msg, 100);
+
+			// msg = MESSAGE(
+			// 	LOG_STR("[IMU]: Gyroscope"),
+			// 	(struct ivec3){
+			// 		sample.gyroscope[0],
+			// 		sample.gyroscope[1],
+			// 		sample.gyroscope[2]
+			// 	}
+			// );
+			// message_queue_enqueue(&msg, 100);
+
+			state_filter.updateIMU(
+				(float)sample.gyroscope[0]/1000.0f,
+				(float)sample.gyroscope[1]/1000.0f,
+				(float)sample.gyroscope[2]/1000.0f,
+				(float)sample.accelerometer[0]/1000.0f,
+				(float)sample.accelerometer[1]/1000.0f,
+				(float)sample.accelerometer[2]/1000.0f
+			);
+
 			msg = MESSAGE(
-				LOG_STR("[IMU]: Accellerometer"),
-				(struct ivec3){
-					sample.accelerometer[0],
-					sample.accelerometer[1],
-					sample.accelerometer[2]
+				LOG_STR("[IMU]: Orientation"),
+				(struct vec3){
+					state_filter.getRoll(),
+					state_filter.getPitch(),
+					state_filter.getYaw(),
 				}
 			);
 			message_queue_enqueue(&msg, 100);
 
-			msg = MESSAGE(
-				LOG_STR("[IMU]: Gyroscope"),
-				(struct ivec3){
-					sample.gyroscope[0],
-					sample.gyroscope[1],
-					sample.gyroscope[2]
-				}
-			);
-			message_queue_enqueue(&msg, 100);
-
-			// TODO: timestamp
 		} else {
 			// msg = MESSAGE(LOG_STR("[IMU]: No sample"));
 			// message_queue_enqueue(&msg, 100);
@@ -161,6 +180,7 @@ TASK lora_task(TaskDescriptor_t *self)
 	self->last_wake = xTaskGetTickCount();
 
 	while (true) {
+/*
 		if (xSemaphoreTake(spi_semaphore, portMAX_DELAY) == pdTRUE) {
 			if (lora_is_transmission_done()) {
 				LOG("[LORA]: Transmission done");
@@ -170,6 +190,7 @@ TASK lora_task(TaskDescriptor_t *self)
 			}
 			xSemaphoreGive(spi_semaphore);
 		}
+*/
 		TASK_WAIT_HZ(self, LORA_TASK_HZ);
 	}
 }

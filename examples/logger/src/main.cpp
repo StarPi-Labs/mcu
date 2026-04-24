@@ -6,6 +6,7 @@
 #include "task.h"
 #include "imu.h"
 #include "barometer.h"
+#include "lora.h"
 
 
 SPIClass SPI2(FSPI);
@@ -16,6 +17,7 @@ DECLARE_STATIC_SEMAPHORE(spi_semaphore);
 
 DECLARE_STATIC_TASK(imu_task);
 DECLARE_STATIC_TASK(barometer_task);
+DECLARE_STATIC_TASK(lora_task);
 DECLARE_STATIC_TASK(logger_task);
 
 
@@ -42,12 +44,18 @@ void setup(void)
 
 	imu_setup();
 	barometer_setup();
+	lora_setup();
 
 	INIT_STATIC_TASK(imu_task, "imu", NULL, tskIDLE_PRIORITY, 0);
 	INIT_STATIC_TASK(barometer_task, "barometer", NULL, tskIDLE_PRIORITY, 0);
 	INIT_STATIC_TASK(logger_task, "logger", NULL, tskIDLE_PRIORITY, 1);
+	INIT_STATIC_TASK(lora_task, "lora", NULL, tskIDLE_PRIORITY, 1);
 
- 	if (!TASK_IS_INITIALIZED(imu_task) || !TASK_IS_INITIALIZED(barometer_task) || !TASK_IS_INITIALIZED(logger_task)) {
+ 	if (
+	    !TASK_IS_INITIALIZED(imu_task) ||
+	    !TASK_IS_INITIALIZED(barometer_task) ||
+	    !TASK_IS_INITIALIZED(logger_task) ||
+	    !TASK_IS_INITIALIZED(lora_task)) {
 		while (true) {
 			Serial.println("Error creating tasks");
 			delay(500);
@@ -144,6 +152,25 @@ TASK barometer_task(TaskDescriptor_t *self)
 		message_queue_enqueue(&msg, 100);
 
 		TASK_WAIT_HZ(self, BARO_TASK_HZ);
+	}
+}
+
+
+TASK lora_task(TaskDescriptor_t *self)
+{
+	self->last_wake = xTaskGetTickCount();
+
+	while (true) {
+		if (xSemaphoreTake(spi_semaphore, portMAX_DELAY) == pdTRUE) {
+			if (lora_is_transmission_done()) {
+				LOG("[LORA]: Transmission done");
+				lora_start_transmission(LoRaPayload{0}.bytes, sizeof(LoRaPayload));
+			} else {
+				LOG("[LORA]: Transmission in progress");
+			}
+			xSemaphoreGive(spi_semaphore);
+		}
+		TASK_WAIT_HZ(self, LORA_TASK_HZ);
 	}
 }
 

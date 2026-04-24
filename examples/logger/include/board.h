@@ -25,6 +25,7 @@
 #define IMU_TASK_HZ    100
 #define BARO_TASK_HZ   20
 #define LOGGER_TASK_HZ 500
+#define LORA_TASK_HZ   50
 
 
 // IMU FIFO Configuration
@@ -42,3 +43,10 @@
 // barometers ULTRA_HIGH means about 70ms per both samples, high 50ms
 // OSR_STANDARD works for 20Hz sampling
 #define BARO_OSR OSR_STANDARD
+
+
+// LoRa configuration
+#define LORA_OUTPUT_POWER     0   // dBm, da capire
+#define LORA_BANDWIDTH        500 // kHz, max
+#define LORA_SPREADING_FACTOR 7   //eventualmente da aumentare
+#define LORA_CODING_RATE      1   // 1 bit su 8

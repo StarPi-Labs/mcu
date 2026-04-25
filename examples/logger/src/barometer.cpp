@@ -50,11 +50,11 @@ parametri di variazione: 1. Frequenza(ora a 20 hz);
 bool barometer_setup(void)
 {
 	if (baro1.begin() == false) {
-		ERR("Barometer 1 " xstr(BARO1_ADDRESS) " not found");
+		ERR("Barometer 1 " TO_XSTR(BARO1_ADDRESS) " not found");
 		return false; //se non funziona segnala l'errore e lascia svolgere le altre tasks
 	}
 	if (baro2.begin() == false) {
-		ERR("Barometer 2 " xstr(BARO2_ADDRESS) " not found");
+		ERR("Barometer 2 " TO_XSTR(BARO2_ADDRESS) " not found");
 		return false; //se non funziona segnala l'errore e lascia svolgere le altre tasks
 	}
 

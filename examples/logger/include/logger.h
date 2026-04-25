@@ -167,8 +167,8 @@ int format_message_to_string(const message_t *msg, char *buf, size_t size);
 #define LOG_STR(s)  s
 
 
-#define xstr(s) str(s)
-#define str(s) #s
+#define TO_XSTR(s) TO_STR(s)
+#define TO_STR(s) #s
 #define ERR_TIMEOUT 0
 #define ERR(str, ...) do { \
 	message_t msg = MESSAGE(ERR_STR(str) __VA_OPT__(,) __VA_ARGS__); \

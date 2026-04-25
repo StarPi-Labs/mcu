@@ -82,7 +82,7 @@ typedef struct _TaskDescriptor_t {
 		desc->was_delayed = xTaskDelayUntil(&(desc->last_wake), pdMS_TO_TICKS(1000/freq)); \
 		if (desc->was_delayed == false) { \
 			desc->last_wake = xTaskGetTickCount(); \
-			WARN("[" xstr(__FILE__) ":" xstr(__LINE__) "]: task failed to meet deadline, took [ms]", pdTICKS_TO_MS(desc->last_wake - wake)); \
+			WARN("[" TO_XSTR(__FILE__) ":" TO_XSTR(__LINE__) "]: task failed to meet deadline, took [ms]", pdTICKS_TO_MS(desc->last_wake - wake)); \
 		} \
 	} while (0)
 
@@ -96,8 +96,8 @@ typedef struct _TaskDescriptor_t {
 
 // Initialize a static semaphore, gives it so that it is available
 #define INIT_STATIC_SEMAPHORE(symbol) do { \
-	symbol = xSemaphoreCreateBinaryStatic(&(symbol##_buffer)); \
-	if (symbol != NULL) { \
-		xSemaphoreGive(symbol); \
-	} \
-} while (0)
+		symbol = xSemaphoreCreateBinaryStatic(&(symbol##_buffer)); \
+		if (symbol != NULL) { \
+			xSemaphoreGive(symbol); \
+		} \
+	} while (0)

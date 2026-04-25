@@ -8,15 +8,22 @@
 #include "imu.h"
 #include "barometer.h"
 #include "lora.h"
+#include "KalmanFilter.hpp"
 
 
 SPIClass SPI2(FSPI);
 TwoWire I2C1(0);
 
 // State filter for orientation estimation, used in the IMU task
-Madgwick state_filter;
+Madgwick orientation;
+
+// Altitude and veritcal velocity state filter, used to sense when to deploy
+// the parachute
+KalmanFilter altitude;
+
 
 DECLARE_STATIC_SEMAPHORE(spi_semaphore);
+// TODO: add semaphore for i2c once we connect the pitot
 
 DECLARE_STATIC_TASK(imu_task);
 DECLARE_STATIC_TASK(barometer_task);
@@ -38,8 +45,6 @@ void setup(void)
 	I2C1.setClock(100000);
 	SPI2.begin(SPI2_SCK, SPI2_MISO, SPI2_MOSI, -1);
 	// TODO: Set speed
-
-	state_filter.begin(IMU_TASK_HZ);
 
 	message_queue_init();
 
@@ -85,30 +90,14 @@ TASK imu_task(TaskDescriptor_t *self)
 	self->last_wake = xTaskGetTickCount();
 	FIFO_Sample sample;
 	message_t msg;
+	orientation.begin(IMU_TASK_HZ);
 
 	while (true) {
 		if (xSemaphoreTake(spi_semaphore, portMAX_DELAY) == pdTRUE && imu_get_sample(&sample) == 0) {
-			// msg = MESSAGE(
-			// 	LOG_STR("[IMU]: Accellerometer"),
-			// 	(struct ivec3){
-			// 		sample.accelerometer[0],
-			// 		sample.accelerometer[1],
-			// 		sample.accelerometer[2]
-			// 	}
-			// );
-			// message_queue_enqueue(&msg, 100);
-
-			// msg = MESSAGE(
-			// 	LOG_STR("[IMU]: Gyroscope"),
-			// 	(struct ivec3){
-			// 		sample.gyroscope[0],
-			// 		sample.gyroscope[1],
-			// 		sample.gyroscope[2]
-			// 	}
-			// );
-			// message_queue_enqueue(&msg, 100);
-
-			state_filter.updateIMU(
+			// Update the relative orientation of the board using
+			// the Madgwick filter, readings are in mg and mdps, so
+			// conversion is needed
+			orientation.updateIMU(
 				(float)sample.gyroscope[0]/1000.0f,
 				(float)sample.gyroscope[1]/1000.0f,
 				(float)sample.gyroscope[2]/1000.0f,
@@ -117,21 +106,26 @@ TASK imu_task(TaskDescriptor_t *self)
 				(float)sample.accelerometer[2]/1000.0f
 			);
 
+			// Update the altitude and vertical velocity estimation
+			// with the inertial data
+			altitude.predict(
+				(float)sample.accelerometer[2]/1000.0f,
+				orientation.getPitch(),
+				false // TODO: airbrake trigger
+			);
+
 			msg = MESSAGE(
 				LOG_STR("[IMU]: Orientation"),
 				(struct vec3){
-					state_filter.getRoll(),
-					state_filter.getPitch(),
-					state_filter.getYaw(),
+					orientation.getRoll(),
+					orientation.getPitch(),
+					orientation.getYaw(),
 				}
 			);
 			message_queue_enqueue(&msg, 100);
 
-		} else {
-			// msg = MESSAGE(LOG_STR("[IMU]: No sample"));
-			// message_queue_enqueue(&msg, 100);
+			xSemaphoreGive(spi_semaphore);
 		}
-		xSemaphoreGive(spi_semaphore);
 		TASK_WAIT_HZ(self, IMU_TASK_HZ);
 	}
 }
@@ -146,27 +140,15 @@ TASK barometer_task(TaskDescriptor_t *self)
 	while (true) {
 		barometer_read(&sample1, &sample2);
 
-		msg = MESSAGE(
-			LOG_STR("[BARO1]: Pressure"),
-			sample1.pressure
-		);
-		message_queue_enqueue(&msg, 100);
+		// FIXME: is the median really the best way to fuse the two barometer readings?
+		float alt = (sample1.altitude + sample2.altitude) / 2.0f;
+
+		// Update the altitude and vertical velocity estimation with the barometer data
+		altitude.update(alt);
 
 		msg = MESSAGE(
-			LOG_STR("[BARO1]: Altitude"),
-			sample1.altitude
-		);
-		message_queue_enqueue(&msg, 100);
-
-		msg = MESSAGE(
-			LOG_STR("[BARO2]: Pressure"),
-			sample2.pressure
-		);
-		message_queue_enqueue(&msg, 100);
-
-		msg = MESSAGE(
-			LOG_STR("[BARO2]: Altitude"),
-			sample2.altitude
+			LOG_STR("[BARO]: Altitude"),
+			altitude.getState()[0]
 		);
 		message_queue_enqueue(&msg, 100);
 

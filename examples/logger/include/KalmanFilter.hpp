@@ -72,7 +72,10 @@ public:
 	}
 
 	// ===== FUNZIONI PER LA SIMULAZIONE =====
-	Vector2f getState() const { return x;}
+
+	// restituisce lo stato attuale (altitudine e velocità verticale)
+	//   Vector2f: x(0) = altitudine, x(1) = velocità verticale
+	Vector2f getState() const { return x; }
 
 	void getSigmaConstants(float &sb, float &sc, float &sa, float &sf) const
 	{
@@ -91,6 +94,11 @@ public:
 	}
 
 
+	// predizione dello stato a partire dall'accelerazione misurata, dall'angolo
+	// di tilt e dallo stato attuale dell'airbrake (triggerato o no)
+	//   a : accelerazione verticale misurata
+	//   alpha : angolo di tilt rispetto alla verticale (in gradi)
+	//   airbrake_trigger : se true, si è in fase di airbrakes
 	void predict(float a, float alpha, bool airbrake_trigger)
 	{
 		//alpha è l'angolo di tilt rispetto alla verticale
@@ -124,6 +132,8 @@ public:
 
 	}
 
+	// aggiornamento dello stato a partire da una misura di altitudine
+	//   h : altitudine misurata (in metri)
 	void update(float h)
 	{
 		float S = H*P*H.transpose() + R;

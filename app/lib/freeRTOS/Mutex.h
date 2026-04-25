@@ -6,6 +6,23 @@
 #include "Semaphore.h"
 
 namespace freertos {
+template <typename T>
+concept BasicLockable = requires(T a) {
+    { a.lock() } -> std::same_as<void>;
+    { a.unlock() } -> std::same_as<void>;
+};
+
+template <typename T>
+concept Lockable = BasicLockable<T> && requires(T a) {
+    { a.try_lock() } -> std::same_as<bool>;
+};
+
+template <typename T>
+concept TimedLockable = Lockable<T> && requires(T a) {
+    { a.try_lock_for(std::chrono::milliseconds(1)) } -> std::same_as<bool>;
+    { a.try_lock_until(std::chrono::steady_clock::now()) } -> std::same_as<bool>;
+};
+
 /**
  * @brief Wrapper for FreeRTOS mutex
  * Implements: BasicLockable, Lockable, TimedLockable

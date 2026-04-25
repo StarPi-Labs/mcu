@@ -7,27 +7,29 @@
 
 namespace freertos {
 /**
- * @brief Wrapper per mutex FreeRTOS
- * Implementa: BasicLockable, Lockable, TimedLockable
+ * @brief Wrapper for FreeRTOS mutex
+ * Implements: BasicLockable, Lockable, TimedLockable
  */
 class Mutex {
 public:
     Mutex();
+    ~Mutex();
+
     /**
-     * @brief Acquisisce il mutex, bloccando il thread finché non è disponibile.
+     * @brief Acquires the mutex, blocking the thread until it is available.
      */
     void lock();
 
     /** 
-     * @brief Prova ad acquisire il mutex senza bloccare.
-     * @return true se il mutex è stato acquisito, false altrimenti.
+     * @brief Attempts to acquire the mutex without blocking.
+     * @return true if the mutex was acquired, false otherwise.
      */
     bool try_lock();
 
     /** 
-     * @brief Prova ad acquisire il mutex per un tempo specifico.
-     * @param relativeTime il tempo di attesa.
-     * @return true se il mutex è stato acquisito, false altrimenti.
+     * @brief Attempts to acquire the mutex for a specific time.
+     * @param relativeTime the wait time.
+     * @return true if the mutex was acquired, false otherwise.
      */
     template <typename Rep, typename Period = std::ratio<1>>
     bool try_lock_for(const std::chrono::duration<Rep, Period>& relativeTime) {
@@ -36,9 +38,9 @@ public:
     }
    
     /** 
-     * @brief Prova ad acquisire il mutex fino a un tempo specifico.
-     * @param absoluteTime il tempo assoluto di scadenza.
-     * @return true se il mutex è stato acquisito, false altrimenti.
+     * @brief Attempts to acquire the mutex until a specific time.
+     * @param absoluteTime the absolute expiration time.
+     * @return true if the mutex was acquired, false otherwise.
      */
     template <typename Clock, typename Duration = typename Clock::duration>
     bool try_lock_until(const std::chrono::time_point<Clock, Duration>& absoluteTime) {
@@ -52,11 +54,9 @@ public:
     }
 
     /** 
-     * @brief Rilascia il mutex.
+     * @brief Releases the mutex.
      */
     void unlock();
-
-    ~Mutex();
 private:
     NativeSemaphore_t m_mutex;
 };

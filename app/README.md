@@ -1,59 +1,59 @@
 # MCU App (PlatformIO)
 
-Progetto firmware PlatformIO per **ESP32-S3** con:
-- profili di build per debug/release/production
-- flusso opzionale di build basato su QEMU
-- Standard C++20
+PlatformIO firmware project for **ESP32-S3** with:
+- build profiles for debug/release/production
+- optional QEMU-based build flow
+- C++20 standard
 
-## Cosa è attualmente implementato
+## What Is Currently Implemented
 
-- Modulo di logging in [src/logging.h](src/logging.h) e [src/logging.cpp](src/logging.cpp), che include:
-  - livelli di log e prefissi
-  - filtraggio dei log a compile-time in base al profilo di build
-  - logging formattato tramite `std::format`
-  - handler di log collegabili (predefinito: Arduino Serial)
-- Script di supporto QEMU in [scripts/setup-qemu.py](scripts/setup-qemu.py), [scripts/merge-firmware.py](scripts/merge-firmware.py) e [scripts/skip-upload.py](scripts/skip-upload.py).
+- Logging module in [src/logging.h](src/logging.h) and [src/logging.cpp](src/logging.cpp), including:
+  - log levels and prefixes
+  - compile-time log filtering based on the build profile
+  - formatted logging via `std::format`
+  - pluggable log handlers (default: Arduino Serial)
+- QEMU support scripts in [scripts/setup-qemu.py](scripts/setup-qemu.py), [scripts/merge-firmware.py](scripts/merge-firmware.py), and [scripts/skip-upload.py](scripts/skip-upload.py).
 
-## Struttura del progetto
+## Project Structure
 
-- [platformio.ini](platformio.ini): ambienti PlatformIO e hook degli script
-- [src/](src): sorgenti firmware
-- [scripts/](scripts): script Python di supporto per PlatformIO
-- [qemu/](qemu): installazione/cache locale di QEMU
+- [platformio.ini](platformio.ini): PlatformIO environments and script hooks
+- [src/](src): firmware sources
+- [scripts/](scripts): PlatformIO support Python scripts
+- [qemu/](qemu): local QEMU installation/cache
 
-## Ambienti di build
+## Build Environments
 
-Definiti in [platformio.ini](platformio.ini):
+Defined in [platformio.ini](platformio.ini):
 
-- `debug`: simboli di debug + `DEBUG=1`
-- `release`: ottimizzato + `RELEASE=1`
-- `production`: ottimizzato + `PRODUCTION=1`
-- `qemu-debug`: flusso QEMU + flag debug
-- `qemu-release`: flusso QEMU + flag release
-- `qemu-production`: flusso QEMU + flag production
+- `debug`: debug symbols + `DEBUG=1`
+- `release`: optimized + `RELEASE=1`
+- `production`: optimized + `PRODUCTION=1`
+- `qemu-debug`: QEMU flow + debug flags
+- `qemu-release`: QEMU flow + release flags
+- `qemu-production`: QEMU flow + production flags
 
 ### Hook QEMU
 
-Per gli ambienti QEMU, PlatformIO esegue:
+For QEMU environments, PlatformIO runs:
 
 - pre-build: [scripts/setup-qemu.py](scripts/setup-qemu.py)
-  - scarica/estrae Espressif QEMU se manca
+  - downloads/extracts Espressif QEMU if missing
 - post-build: [scripts/merge-firmware.py](scripts/merge-firmware.py)
-  - unisce bootloader, partizioni e firmware in `qemu-image.bin`
+  - merges bootloader, partitions, and firmware into `qemu-image.bin`
 - pre-upload: [scripts/skip-upload.py](scripts/skip-upload.py)
-  - salta lo step di upload nei workflow con emulatore
+  - skips the upload step in emulator workflows
 
-## Prerequisiti
+## Prerequisites
 
 - Python 3
-- PlatformIO Core (comando `pio`) oppure estensione PlatformIO IDE
-- Toolchain compatibile con il pacchetto community `platform-espressif32` usato in [platformio.ini](platformio.ini)
+- PlatformIO Core (`pio` command) or PlatformIO IDE extension
+- Toolchain compatible with the community `platform-espressif32` package used in [platformio.ini](platformio.ini)
 
-## Comandi comuni
+## Common Commands
 
-Esegui questi comandi dalla root del progetto.
+Run these commands from the project root.
 
-Build per i profili hardware:
+Build for hardware profiles:
 
 ```sh
 pio run -e debug
@@ -61,7 +61,7 @@ pio run -e release
 pio run -e production
 ```
 
-Build per i profili QEMU:
+Build for QEMU profiles:
 
 ```sh
 pio run -e qemu-debug
@@ -71,5 +71,5 @@ pio run -e qemu-production
 
 ## Note
 
-- Lo script QEMU supporta attualmente le convenzioni di naming host Linux, macOS e Windows.
-- Il modulo di logging fa ampio uso dell'header e usa stato globale (`mcu::g_logBuffer`, `mcu::g_logHandlers`), utile per logging embedded semplice ma da rivedere per la concorrenza se più task loggano simultaneamente.
+- The QEMU script currently supports Linux, macOS, and Windows host naming conventions.
+- The logging module makes extensive use of the header and global state (`mcu::g_logBuffer`, `mcu::g_logHandlers`), which is useful for simple embedded logging but should be reviewed for concurrency if multiple tasks log simultaneously.

@@ -1,20 +1,16 @@
 #include "Logging.h"
 
-#if 1
-#else
-
 void mcu::vTaskLogger(void *pvParams) {
   while (true) {
     {
       std::unique_lock lock(g_logBuffer.mutex);
 
-      // 1. Aspetta indefinitamente finché non c'è almeno un messaggio
+      // 1. Wait indefinitely until there is at least one message.
       g_logBuffer.cvBufferEmpty.wait(lock,
                                      [&]() { return g_logBuffer.length > 0; });
 
-      // 2. Abbiamo un messaggio. Aspettiamo fino a 100ms per raggruppare altri
-      // messaggi, a meno che il buffer non si stia riempiendo (es. raggiunge
-      // l'80% della capacità)
+      // 2. We have a message. Wait up to 100ms to batch more messages,
+      // unless the buffer is filling up (e.g. reaches 80% capacity).
       using namespace std::chrono_literals;
 
       g_logBuffer.cvBufferEmpty.wait_for(lock, 100ms, [&]() {
@@ -23,7 +19,7 @@ void mcu::vTaskLogger(void *pvParams) {
         return g_logBuffer.length >= CAPACITY_THRESHOLD;
       });
 
-      // Lascia gli handler leggere
+      // Let handlers read the buffered content.
 
       struct HandlerParam {
         std::size_t index;
@@ -55,7 +51,7 @@ void mcu::vTaskLogger(void *pvParams) {
         assert(result);
       }
 
-      // Attesa termine di tutti i task
+      // Wait for all handler tasks to complete.
       for (std::size_t i = 0; i < g_logHandlers.size(); ++i)
         ulTaskNotifyTake(pdFALSE, portMAX_DELAY);
 

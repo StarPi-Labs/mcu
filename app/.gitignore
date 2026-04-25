@@ -9,5 +9,5 @@
 compile_commands.json
 .vscode/settings.json
 
-# File del simulatore
+# Qemu simulator files
 qemu

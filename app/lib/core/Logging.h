@@ -1,5 +1,4 @@
-#ifndef LOGGING_H
-#define LOGGING_H
+#pragma once
 
 #include <Arduino.h>
 #include <condition_variable>
@@ -10,15 +9,16 @@
 #include <mutex>
 #include <string_view>
 #include <array>
-#include <Utils.h>
+#include <Mutex.h>
+#include <cassert>
 
 #ifndef MCU_LOG_BUFFER_SIZE
-// Dimensione del buffer per i messaggi di log.
-// NOTA: Deve essere almeno grande quanto il prefisso più lungo.
+// Size of the buffer for log messages.
+// NOTE: It must be at least as large as the longest prefix.
 #define MCU_LOG_BUFFER_SIZE 8192
 #endif
 
-// Livelli di log
+// Log levels
 #define MCU_LOG_LEVEL_DEBUG 0
 #define MCU_LOG_LEVEL_INFO 1
 #define MCU_LOG_LEVEL_WARNING 2
@@ -26,7 +26,7 @@
 #define MCU_LOG_LEVEL_CRITICAL 4
 #define MCU_LOG_LEVEL_NONE 5
 
-// Prefissi
+// Prefixes
 constexpr std::string_view MCU_LOG_PREFIX_DEBUG = "[DEBUG]";
 constexpr std::string_view MCU_LOG_PREFIX_INFO = "[INFO]";
 constexpr std::string_view MCU_LOG_PREFIX_WARNING = "[WARNING]";
@@ -34,56 +34,16 @@ constexpr std::string_view MCU_LOG_PREFIX_ERROR = "[ERROR]";
 constexpr std::string_view MCU_LOG_PREFIX_CRITICAL = "[CRITICAL]";
 
 #if DEBUG || RELEASE
-// Livello di log predefinito
+// Default log level
 #define MCU_LOG_LEVEL MCU_LOG_LEVEL_DEBUG
 #else // PRODUCTION
 #define MCU_LOG_LEVEL MCU_LOG_LEVEL_INFO
 #endif
 
 namespace mcu {
-/**
- * @brief Buffer per i messaggi di log
- */
-class LogBuffer {
-public:
-  using BufferType_t = std::array<char, MCU_LOG_BUFFER_SIZE>;
-
-  /**
-   * @brief Verifica se c'è spazio sufficiente nel buffer per un messaggio di una certa dimensione.
-   * @param requiredSize La dimensione del messaggio da loggare
-   * @return true se c'è spazio sufficiente, false altrimenti
-   */
-  bool hasSpace(std::size_t requiredSize) const;
-
-  /**
-   * @brief Restituisce una reference al buffer dei dati del log.
-   */
-  BufferType_t& data();
-
-  /**
-   * @brief Appende un messaggio al buffer.
-   * @param source Il messaggio da appendere
-   * @param size La dimensione del messaggio da appendere
-   * @pre Deve esserci spazio sufficiente nel buffer
-   */
-  void append(char* source, std::size_t size);
-
-  /**
-   * @brief Pulisce il buffer, resettando l'indice di scrittura.
-   */
-  void clear();
-private:
-  BufferType_t m_data;
-  std::size_t m_writeIndex;
-};
-
-inline std::array<LogBuffer, 2> g_logBuffers;
-inline mcu::Mutex g_activeLogBufferMutex;
-inline uint8_t g_activeLogBuffer = 0;
-
 
 namespace log_handler {
-// Interfaccia per gli handler di log.
+// Interface for log handlers.
 typedef std::function<void(std::string_view)> LogHandler_t;
 
 const LogHandler_t ARDUINO_SERIAL = [](std::string_view msg) {
@@ -91,23 +51,23 @@ const LogHandler_t ARDUINO_SERIAL = [](std::string_view msg) {
 };
 } // namespace log_handler
 
-// Gli handler di log verso cui mandare il messaggio dopo
-// la formattazione, nota non è pensata per essere modificata a runtime
-// ma solo in fase di inizializzazione del programma (e.g. setup())
+// Log handlers to which the message is sent after
+// formatting, note it is not intended to be modified at runtime
+// but only during program initialization (e.g. setup())
 inline std::vector<log_handler::LogHandler_t> g_logHandlers;
 
 /**
- * @brief Logga (stampa) un messaggio formattato con un prefisso.
+ * @brief Logs (prints) a formatted message with a prefix.
  *
- * Non è pensata per essere usata direttamente, ma tramite le macro:
+ * It is not intended to be used directly, but via macros:
  * mcu_log_debug, mcu_log_info, mcu_log_warning, mcu_log_error,
  mcu_log_critical.
 
- * @param logLevel La stringa del livello di log (es. "[DEBUG]").
- * @param format La stringa di formato (usa std::format_string,
- * per info sulla sintassi @see
+ * @param logLevel The log level string (e.g. "[DEBUG]").
+ * @param format The format string (uses std::format_string,
+ * for info on syntax @see
  https://en.cppreference.com/w/cpp/utility/format/spec.html).
- * @param args... Gli argomenti variabili da formattare nella stringa.
+ * @param args... Variable arguments to format into the string.
  */
 template <typename... Args>
 inline void
@@ -127,13 +87,13 @@ logf(const std::string_view &logLevel,
       return g_logBuffer.length + requiredSize <= MCU_LOG_BUFFER_SIZE;
     });
 
-    // Scrive il prefisso nel buffer
+    // Writes the prefix to the buffer
     std::memcpy(&g_logBuffer.data[g_logBuffer.length],
                 logLevel.data(), logLevel.size());
 
     g_logBuffer.length += logLevel.size();
 
-    // Formatta il messaggio nel buffer
+    // Formats the message into the buffer
     std::format_to(&g_logBuffer.data[g_logBuffer.length], format,
                    std::forward<Args>(args)...);
 
@@ -144,29 +104,29 @@ logf(const std::string_view &logLevel,
 }
 
 /**
- * @brief Task FreeRTOS per gestire la stampa dei messaggi di log.
+ * @brief FreeRTOS task to manage printing log messages.
  *
- * Questo task si occupa di prendere i messaggi formattati da `g_logBuffer`
- * e inviarli a tutti gli handler registrati in `g_logHandlers`.
+ * This task takes formatted messages from `g_logBuffer`
+ * and sends them to all registered handlers in `g_logHandlers`.
  *
- * @param pvParams Parametri del task (non usati in questo caso).
+ * @param pvParams Task parameters (not used in this case).
  */
 void vTaskLogger(void *pvParams);
 
 /**
- * @brief Forza la stampa immediata di tutti i messaggi di log attualmente nel buffer.
+ * @brief Forces immediate printing of all log messages currently in the buffer.
  */
 void flush();
 } // namespace mcu
 
 #if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_DEBUG
 /**
- * @brief Logga un messaggio a livello DEBUG.
- * Se abilitato, aggiunge il prefisso [DEBUG] in testa al log.
- * Compilato ed eseguito solo se MCU_LOG_LEVEL <= MCU_LOG_LEVEL_DEBUG.
+ * @brief Logs a message at DEBUG level.
+ * If enabled, adds the [DEBUG] prefix to the head of the log.
+ * Compiled and executed only if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_DEBUG.
  * 
- * @param format Stringa di formato compatibile con std::format.
- * @param ... Eventuali argomenti da formattare.
+ * @param format Format string compatible with std::format.
+ * @param ... Any arguments to format.
  */
 #define mcu_log_debug(format, ...)                                             \
   mcu::logf(MCU_LOG_PREFIX_DEBUG,                                              \
@@ -177,12 +137,12 @@ void flush();
 
 #if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_INFO
 /**
- * @brief Logga un messaggio a livello INFO.
- * Se abilitato, aggiunge il prefisso [INFO] in testa al log.
- * Compilato ed eseguito solo se MCU_LOG_LEVEL <= MCU_LOG_LEVEL_INFO.
+ * @brief Logs a message at INFO level.
+ * If enabled, adds the [INFO] prefix to the head of the log.
+ * Compiled and executed only if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_INFO.
  * 
- * @param format Stringa di formato compatibile con std::format.
- * @param ... Eventuali argomenti da formattare.
+ * @param format Format string compatible with std::format.
+ * @param ... Any arguments to format.
  */
 #define mcu_log_info(format, ...)                                              \
   mcu::logf(MCU_LOG_PREFIX_INFO,                                               \
@@ -193,12 +153,12 @@ void flush();
 
 #if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_WARNING
 /**
- * @brief Logga un messaggio a livello WARNING.
- * Se abilitato, aggiunge il prefisso [WARNING] in testa al log.
- * Compilato ed eseguito solo se MCU_LOG_LEVEL <= MCU_LOG_LEVEL_WARNING.
+ * @brief Logs a message at WARNING level.
+ * If enabled, adds the [WARNING] prefix to the head of the log.
+ * Compiled and executed only if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_WARNING.
  * 
- * @param format Stringa di formato compatibile con std::format.
- * @param ... Eventuali argomenti da formattare.
+ * @param format Format string compatible with std::format.
+ * @param ... Optional arguments to format.
  */
 #define mcu_log_warning(format, ...)                                           \
   mcu::logf(MCU_LOG_PREFIX_WARNING,                                            \
@@ -209,12 +169,12 @@ void flush();
 
 #if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_ERROR
 /**
- * @brief Logga un messaggio a livello ERROR.
- * Se abilitato, aggiunge il prefisso [ERROR] in testa al log.
- * Compilato ed eseguito solo se MCU_LOG_LEVEL <= MCU_LOG_LEVEL_ERROR.
+ * @brief Logs a message at ERROR level.
+ * If enabled, adds the [ERROR] prefix to the head of the log.
+ * Compiled and executed only if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_ERROR.
  * 
- * @param format Stringa di formato compatibile con std::format.
- * @param ... Eventuali argomenti da formattare.
+ * @param format Format string compatible with std::format.
+ * @param ... Optional arguments to format.
  */
 #define mcu_log_error(format, ...)                                             \
   mcu::logf(MCU_LOG_PREFIX_ERROR,                                              \
@@ -225,12 +185,12 @@ void flush();
 
 #if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_CRITICAL
 /**
- * @brief Logga un messaggio a livello CRITICAL.
- * Se abilitato, aggiunge il prefisso [CRITICAL] in testa al log.
- * Compilato ed eseguito solo se MCU_LOG_LEVEL <= MCU_LOG_LEVEL_CRITICAL.
+ * @brief Logs a message at CRITICAL level.
+ * If enabled, adds the [CRITICAL] prefix to the head of the log.
+ * Compiled and executed only if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_CRITICAL.
  * 
- * @param format Stringa di formato compatibile con std::format.
- * @param ... Eventuali argomenti da formattare.
+ * @param format Format string compatible with std::format.
+ * @param ... Optional arguments to format.
  */
 #define mcu_log_critical(format, ...)                                          \
   mcu::logf(MCU_LOG_PREFIX_CRITICAL,                                           \
@@ -238,5 +198,3 @@ void flush();
 #else
 #define mcu_log_critical(format, ...)
 #endif
-
-#endif // LOGGING_H

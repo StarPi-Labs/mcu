@@ -34,7 +34,8 @@ public:
     template <typename Rep, typename Period = std::ratio<1>>
     bool try_lock_for(const std::chrono::duration<Rep, Period>& relativeTime) {
         auto ticks = std::chrono::duration_cast<std::chrono::milliseconds>(relativeTime).count() / portTICK_PERIOD_MS;
-        return xSemaphoreTake(m_mutex.handle, ticks) == pdTRUE;
+        // Round up (+1) to ensure we wait at least as long as requested (to avoid truncation)
+        return xSemaphoreTake(m_mutex.handle, ticks + 1) == pdTRUE;
     }
    
     /** 

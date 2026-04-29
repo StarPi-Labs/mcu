@@ -42,7 +42,8 @@
 // Oversampling rate: this affects the preision and sampling time, for the two
 // barometers ULTRA_HIGH means about 70ms per both samples, high 50ms
 // OSR_STANDARD works for 20Hz sampling
-#define BARO_OSR OSR_STANDARD
+//#define BARO_OSR OSR_STANDARD
+#define BARO_OSR OSR_ULTRA_HIGH
 
 
 // LoRa configuration

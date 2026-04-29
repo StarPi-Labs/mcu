@@ -76,6 +76,7 @@ typedef struct _TaskDescriptor_t {
 
 // FIXME: use a different logger
 // Wait until the next period, this should be called at the end of each task loop
+#ifdef LOG_TASK_DEADLINES
 #define TASK_WAIT_HZ(desc, freq) do { \
 		static_assert(_IS_TASKDESCRIPTOR_POINTER(desc), "First argument must be of type TaskDescriptor_t"); \
 		TickType_t wake = desc->last_wake; \
@@ -85,7 +86,15 @@ typedef struct _TaskDescriptor_t {
 			WARN("[" TO_XSTR(__FILE__) ":" TO_XSTR(__LINE__) "]: task failed to meet deadline, took [ms]", pdTICKS_TO_MS(desc->last_wake - wake)); \
 		} \
 	} while (0)
-
+#else
+#define TASK_WAIT_HZ(desc, freq) do { \
+		static_assert(_IS_TASKDESCRIPTOR_POINTER(desc), "First argument must be of type TaskDescriptor_t"); \
+		desc->was_delayed = xTaskDelayUntil(&(desc->last_wake), pdMS_TO_TICKS(1000/freq)); \
+		if (desc->was_delayed == false) { \
+			desc->last_wake = xTaskGetTickCount(); \
+		} \
+	} while (0)
+#endif
 
 /* ======================= SINCHRONIZATION PRIMITIVES ======================= */
 

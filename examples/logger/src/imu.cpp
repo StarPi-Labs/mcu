@@ -119,7 +119,7 @@ int imu_get_sample(FIFO_Sample *sample)
 		return -1;
 	}
 
-	if (x_count == 0 && g_count == 0) {
+	if (x_count == 0 || g_count == 0) {
 		// Serial.println("No accelerometer or gyroscope samples in FIFO");
 		return -1;
 	}

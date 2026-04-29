@@ -21,6 +21,7 @@ Madgwick orientation;
 // the parachute
 KalmanFilter altitude;
 
+extern float g_cal;
 
 DECLARE_STATIC_SEMAPHORE(spi_semaphore);
 // TODO: add semaphore for i2c once we connect the pitot
@@ -49,8 +50,11 @@ void setup(void)
 	message_queue_init();
 
 	imu_setup();
+	altitude.setG(g_cal);
+
 	barometer_setup();
 	lora_setup();
+
 
 	INIT_STATIC_TASK(imu_task, "imu", NULL, tskIDLE_PRIORITY, 0);
 	INIT_STATIC_TASK(barometer_task, "barometer", NULL, tskIDLE_PRIORITY, 0);

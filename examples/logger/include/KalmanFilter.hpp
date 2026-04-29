@@ -8,7 +8,7 @@ using namespace Eigen;
 class KalmanFilter {
 
 private:
-	Vector2f x;     // Stato
+	Vector2f x;     // Stato x[0]: altitudine, x[1]: velocità verticale
 	Vector2f u;     // Ingresso di controllo
 
 	Matrix2f A;     // Matrice di transizione dello stato
@@ -20,17 +20,17 @@ private:
 	float R;        // Covarianza del rumore di misura
 
 	//====== VARIANZA DEL RUMORE DI PROCESSO ======
-	const float sigma_boost = 250.0;      // Boost fase
-	const float sigma_coast = 7.0;        // Coast fase
-	const float sigma_airbrakes = 75.0;   // Airbrakes fase
-	const float sigma_freefall = 10000.0; // Free fall fase
+	const float sigma_boost     = 7.0; // Boost fase
+	const float sigma_coast     = 7.0; // Coast fase
+	const float sigma_airbrakes = 7.0; // Airbrakes fase
+	const float sigma_freefall  = 7.0; // Free fall fase
 
 	//====== VARIANZA DEL RUMORE DI MISURA DEL BAROMETRO ======
-	const float sigma_bar_launch = 1.0;    // Launch fase
-	const float sigma_bar_boost = 500.0;   // Boost fase 250-500
-	const float sigma_bar_coast = 1.0;     // Coast fase
-	const float sigma_bar_airbrake = 17.0; // Airbrakes fase
-	const float sigma_bar_freefall = 3.0;  // Free fall fase
+	const float sigma_bar_launch   = 0.6; // Launch fase
+	const float sigma_bar_boost    = 0.6; // Boost fase 250-500
+	const float sigma_bar_coast    = 0.6; // Coast fase
+	const float sigma_bar_airbrake = 0.6; // Airbrakes fase
+	const float sigma_bar_freefall = 0.6; // Free fall fase
 
 	/* Un'alternativa sarebbe questa:
 	const float sigma_boost = 300.0;      // Boost fase
@@ -44,8 +44,8 @@ private:
 	const float sigma_bar_highdrag = 20.0; // Airbrakes fase
 	const float sigma_bar_freefall = 3.0;  // Free fall fase*/
 
-	const float dt = 0.02;                 // Tempo di campionamento
-	static constexpr float g = 9.80665;    // Accelerazione gravitazionale
+	const float dt = 0.01;                 // Tempo di campionamento
+	float g = 9.80665;    // Accelerazione gravitazionale
 
 	// Valore di a che separa la fase di boost da quella di coast
 	// !!! ancora da capire quanto vale !!! ancora da settare
@@ -69,6 +69,11 @@ public:
 		Q_base(1,1) = dt*dt;
 
 		R = sigma_bar_boost;
+	}
+
+	void setG(float g_cal)
+	{
+		g = g_cal;
 	}
 
 	// ===== FUNZIONI PER LA SIMULAZIONE =====
@@ -128,6 +133,7 @@ public:
 		}
 
 		x = A*x + (a*cos(alpha) - g)*u;
+		//x = A*x;
 		P = A*P*A.transpose() + Q;
 
 	}

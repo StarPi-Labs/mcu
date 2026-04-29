@@ -21,11 +21,11 @@ static void IRAM_ATTR imu_fifo_interrupt()
 }
  */
 
+float g_cal = 0.0f;
+
 
 void imu_setup()
 {
-//	resuscitate_imu();
-
 	if (IMU.begin() != 0) {
 		while(1) {
 			ERR("Failed to initialize IMU");
@@ -69,6 +69,23 @@ void imu_setup()
 //	pinMode(IMU_INT1, INPUT_PULLDOWN);
 //	attachInterrupt(digitalPinToInterrupt(IMU_INT1), imu_fifo_interrupt, RISING);
 #endif
+
+	const int cal_time_ms = 5000;
+	int samples = 0;
+	for (int t = 0; t < cal_time_ms;) {
+		// get current time in freertos tick
+		TickType_t start_tick = xTaskGetTickCount();
+
+		FIFO_Sample sample;
+		if (imu_get_sample(&sample) == 0) {
+			// TODO: should be a.z*cos(alpha), this assumes board is perfectly horizontal
+			g_cal += (float)sample.accelerometer[2]/1000.0f;
+			samples++;
+		}
+
+		t += (xTaskGetTickCount() - start_tick) * portTICK_PERIOD_MS;
+	}
+	g_cal /= samples;
 }
 
 

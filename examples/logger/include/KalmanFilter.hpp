@@ -26,11 +26,11 @@ private:
 	const float sigma_freefall  = 7.0; // Free fall fase
 
 	//====== VARIANZA DEL RUMORE DI MISURA DEL BAROMETRO ======
-	const float sigma_bar_launch   = 0.6; // Launch fase
-	const float sigma_bar_boost    = 0.6; // Boost fase 250-500
-	const float sigma_bar_coast    = 0.6; // Coast fase
-	const float sigma_bar_airbrake = 0.6; // Airbrakes fase
-	const float sigma_bar_freefall = 0.6; // Free fall fase
+	const float sigma_bar_launch   = 1.5; // Launch fase
+	const float sigma_bar_boost    = 1.5; // Boost fase 250-500
+	const float sigma_bar_coast    = 1.5; // Coast fase
+	const float sigma_bar_airbrake = 1.5; // Airbrakes fase
+	const float sigma_bar_freefall = 1.5; // Free fall fase
 
 	/* Un'alternativa sarebbe questa:
 	const float sigma_boost = 300.0;      // Boost fase
@@ -45,7 +45,8 @@ private:
 	const float sigma_bar_freefall = 3.0;  // Free fall fase*/
 
 	const float dt = 0.01;                 // Tempo di campionamento
-	float g = 9.80665;    // Accelerazione gravitazionale
+	float g;    // Accelerazione gravitazionale
+	static constexpr float g0 = 9.80665;
 
 	// Valore di a che separa la fase di boost da quella di coast
 	// !!! ancora da capire quanto vale !!! ancora da settare
@@ -132,7 +133,7 @@ public:
 			}
 		}
 
-		x = A*x + (a*cos(alpha) - g)*u;
+		x = A*x + g0*(a*cos(alpha) - g)*u;
 		//x = A*x;
 		P = A*P*A.transpose() + Q;
 

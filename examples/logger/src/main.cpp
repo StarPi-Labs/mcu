@@ -8,7 +8,7 @@
 #include "imu.h"
 #include "barometer.h"
 #include "lora.h"
-#include "KalmanFilter.hpp"
+#include "KalmanFilter2.hpp"
 
 
 SPIClass SPI2(FSPI);
@@ -16,12 +16,6 @@ TwoWire I2C1(0);
 
 // State filter for orientation estimation, used in the IMU task
 Madgwick orientation;
-
-// Altitude and veritcal velocity state filter, used to sense when to deploy
-// the parachute
-KalmanFilter altitude;
-
-extern float g_cal;
 
 DECLARE_STATIC_SEMAPHORE(spi_semaphore);
 // TODO: add semaphore for i2c once we connect the pitot
@@ -50,7 +44,6 @@ void setup(void)
 	message_queue_init();
 
 	imu_setup();
-	altitude.setG(g_cal);
 
 	barometer_setup();
 	lora_setup();
@@ -93,6 +86,7 @@ TASK imu_task(TaskDescriptor_t *self)
 {
 	self->last_wake = xTaskGetTickCount();
 	FIFO_Sample sample;
+	KalmanFilter& altitude = KalmanFilter::getInstance();
 	message_t msg;
 	orientation.begin(IMU_TASK_HZ);
 
@@ -101,32 +95,24 @@ TASK imu_task(TaskDescriptor_t *self)
 			// Update the relative orientation of the board using
 			// the Madgwick filter, readings are in mg and mdps, so
 			// conversion is needed
-			orientation.updateIMU(
-				(float)sample.gyroscope[0]/1000.0f,
-				(float)sample.gyroscope[1]/1000.0f,
-				(float)sample.gyroscope[2]/1000.0f,
-				(float)sample.accelerometer[0]/1000.0f,
-				(float)sample.accelerometer[1]/1000.0f,
-				(float)sample.accelerometer[2]/1000.0f
-			);
-
-			// Update the altitude and vertical velocity estimation
-			// with the inertial data
 			altitude.predict(
-				(float)sample.accelerometer[2]/1000.0f,
-				orientation.getPitch(),
-				false // TODO: airbrake trigger
+				(float)sample.gyroscope[0] * 1e-3f * 0.01745329f,
+				(float)sample.gyroscope[1] * 1e-3f * 0.01745329f,
+				(float)sample.gyroscope[2] * 1e-3f * 0.01745329f,
+				(float)sample.accelerometer[0] * 9.81e-3f,
+				(float)sample.accelerometer[1] * 9.81e-3f,
+				(float)sample.accelerometer[2] * 9.81e-3f
 			);
 
-			msg = MESSAGE(
+			/* msg = MESSAGE(
 				LOG_STR("[IMU]: Orientation"),
 				(struct vec3){
 					orientation.getRoll(),
 					orientation.getPitch(),
 					orientation.getYaw(),
 				}
-			);
-			message_queue_enqueue(&msg, 100);
+			); 
+			message_queue_enqueue(&msg, 100); */
 
 			xSemaphoreGive(spi_semaphore);
 		}
@@ -139,21 +125,17 @@ TASK barometer_task(TaskDescriptor_t *self)
 {
 	self->last_wake = xTaskGetTickCount();
 	BaroData sample1, sample2;
+	KalmanFilter& altitude = KalmanFilter::getInstance();
 	message_t msg;
 
 	while (true) {
 		barometer_read(&sample1, &sample2);
 
-		// FIXME: is the median really the best way to fuse the two barometer readings?
-		float alt = (sample1.altitude + sample2.altitude) / 2.0f;
+		//float alt = (sample1.altitude + sample2.altitude) / 2.0f;
 
 		// Update the altitude and vertical velocity estimation with the barometer data
-		altitude.update(alt);
+		altitude.update(sample1.pressure);
 
-		msg = MESSAGE(
-			LOG_STR("[BARO]: Altitude"),
-			altitude.getState()[0]
-		);
 		message_queue_enqueue(&msg, 100);
 
 		TASK_WAIT_HZ(self, BARO_TASK_HZ);

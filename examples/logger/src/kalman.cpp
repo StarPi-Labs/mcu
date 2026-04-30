@@ -23,14 +23,18 @@ KalmanFilter& KalmanFilter::getInstance() {
     return *pt;
 }
 
-State KalmanFilter::getState() const {
-    return State{
+ObservedState KalmanFilter::getState() const {
+    return ObservedState{
         .altitude = PlaneNavigationFilter_Y.EkfState.h,
         .altitude_rate = 0,
         .roll = PlaneNavigationFilter_Y.EkfState.rpy[0],
         .pitch = PlaneNavigationFilter_Y.EkfState.rpy[1],
         .yaw = PlaneNavigationFilter_Y.EkfState.rpy[2],
     };
+}
+
+KFState KalmanFilter::getKFState() const {
+    return (KFState) PlaneNavigationFilter_Y.EKF_STAGE; 
 }
 
 void KalmanFilter::predict(float omega_x, float omega_y, float omega_z,
@@ -46,12 +50,20 @@ void KalmanFilter::predict(float omega_x, float omega_y, float omega_z,
     PlaneNavigationFilter_U.omega_ib[1] = acc_y;
     PlaneNavigationFilter_U.omega_ib[2] = acc_z;
 
-    PlaneNavigationFilter_U.BARO_EN = false;
+    PlaneNavigationFilter_U.init_input.rpy_init[0] = .0f;
+    PlaneNavigationFilter_U.init_input.rpy_init[1] = .0f;
+    PlaneNavigationFilter_U.init_input.rpy_init[2] = .0f;
+
+    PlaneNavigationFilter_U.HAS_BARO_DATA = false;
 
     PlaneNavigationFilter_step();
 }
 
-void KalmanFilter::update(float pressure_bar) {
+void KalmanFilter::update(float pressure_bar, float temperature_kelvin) {
     PlaneNavigationFilter_U.baro_pressure = pressure_bar;
-    PlaneNavigationFilter_U.BARO_EN = true;
+
+    PlaneNavigationFilter_U.init_input.T0 = temperature_kelvin;
+    PlaneNavigationFilter_U.init_input.P0 = pressure_bar;
+
+    PlaneNavigationFilter_U.HAS_BARO_DATA = true;
 }

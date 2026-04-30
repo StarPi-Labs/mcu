@@ -7,9 +7,9 @@
  *
  * Code generated for Simulink model 'PlaneNavigationFilter'.
  *
- * Model version                  : 1.65
+ * Model version                  : 1.101
  * Simulink Coder version         : 24.2 (R2024b) 21-Jun-2024
- * C/C++ source code generated on : Thu Apr 30 13:25:11 2026
+ * C/C++ source code generated on : Thu Apr 30 20:32:16 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: Custom Processor->Custom Processor
@@ -35,33 +35,33 @@
 void rt_OneStep(void);
 void rt_OneStep(void)
 {
-  static boolean_T OverrunFlag = false;
+    static boolean_T OverrunFlag = false;
 
-  /* Disable interrupts here */
+    /* Disable interrupts here */
 
-  /* Check for overrun */
-  if (OverrunFlag) {
-    rtmSetErrorStatus(PlaneNavigationFilter_M, "Overrun");
-    return;
-  }
+    /* Check for overrun */
+    if (OverrunFlag) {
+        rtmSetErrorStatus(PlaneNavigationFilter_M, "Overrun");
+        return;
+    }
 
-  OverrunFlag = true;
+    OverrunFlag = true;
 
-  /* Save FPU context here (if necessary) */
-  /* Re-enable timer or interrupt here */
-  /* Set model inputs here */
+    /* Save FPU context here (if necessary) */
+    /* Re-enable timer or interrupt here */
+    /* Set model inputs here */
 
-  /* Step the model */
-  PlaneNavigationFilter_step();
+    /* Step the model */
+    PlaneNavigationFilter_step();
 
-  /* Get model outputs here */
+    /* Get model outputs here */
 
-  /* Indicate task complete */
-  OverrunFlag = false;
+    /* Indicate task complete */
+    OverrunFlag = false;
 
-  /* Disable interrupts here */
-  /* Restore FPU context here (if necessary) */
-  /* Enable interrupts here */
+    /* Disable interrupts here */
+    /* Restore FPU context here (if necessary) */
+    /* Enable interrupts here */
 }
 
 /*
@@ -72,30 +72,30 @@ void rt_OneStep(void)
  */
 int_T main(int_T argc, const char *argv[])
 {
-  /* Unused arguments */
-  (void)(argc);
-  (void)(argv);
+    /* Unused arguments */
+    (void)(argc);
+    (void)(argv);
 
-  /* Initialize model */
-  PlaneNavigationFilter_initialize();
+    /* Initialize model */
+    PlaneNavigationFilter_initialize();
 
-  /* Attach rt_OneStep to a timer or interrupt service routine with
-   * period 0.01 seconds (base rate of the model) here.
-   * The call syntax for rt_OneStep is
-   *
-   *  rt_OneStep();
-   */
-  printf("Warning: The simulation will run forever. "
-         "Generated ERT main won't simulate model step behavior. "
-         "To change this behavior select the 'MAT-file logging' option.\n");
-  fflush((NULL));
-  while (rtmGetErrorStatus(PlaneNavigationFilter_M) == (NULL)) {
-    /*  Perform application tasks here */
-  }
+    /* Attach rt_OneStep to a timer or interrupt service routine with
+     * period 0.01 seconds (base rate of the model) here.
+     * The call syntax for rt_OneStep is
+     *
+     *  rt_OneStep();
+     */
+    printf("Warning: The simulation will run forever. "
+           "Generated ERT main won't simulate model step behavior. "
+           "To change this behavior select the 'MAT-file logging' option.\n");
+    fflush((NULL));
+    while (rtmGetErrorStatus(PlaneNavigationFilter_M) == (NULL)) {
+        /*  Perform application tasks here */
+    }
 
-  /* Terminate model */
-  PlaneNavigationFilter_terminate();
-  return 0;
+    /* Terminate model */
+    PlaneNavigationFilter_terminate();
+    return 0;
 }
 
 /*

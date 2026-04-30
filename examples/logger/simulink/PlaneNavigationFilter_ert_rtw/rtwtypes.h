@@ -7,9 +7,9 @@
  *
  * Code generated for Simulink model 'PlaneNavigationFilter'.
  *
- * Model version                  : 1.65
+ * Model version                  : 1.101
  * Simulink Coder version         : 24.2 (R2024b) 21-Jun-2024
- * C/C++ source code generated on : Thu Apr 30 13:25:11 2026
+ * C/C++ source code generated on : Thu Apr 30 20:32:16 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: Custom Processor->Custom Processor
@@ -80,74 +80,74 @@ typedef char_T byte_T;
 #define CREAL_T
 
 typedef struct {
-  real32_T re;
-  real32_T im;
+    real32_T re;
+    real32_T im;
 } creal32_T;
 
 typedef struct {
-  real64_T re;
-  real64_T im;
+    real64_T re;
+    real64_T im;
 } creal64_T;
 
 typedef struct {
-  real_T re;
-  real_T im;
+    real_T re;
+    real_T im;
 } creal_T;
 
 #define CINT8_T
 
 typedef struct {
-  int8_T re;
-  int8_T im;
+    int8_T re;
+    int8_T im;
 } cint8_T;
 
 #define CUINT8_T
 
 typedef struct {
-  uint8_T re;
-  uint8_T im;
+    uint8_T re;
+    uint8_T im;
 } cuint8_T;
 
 #define CINT16_T
 
 typedef struct {
-  int16_T re;
-  int16_T im;
+    int16_T re;
+    int16_T im;
 } cint16_T;
 
 #define CUINT16_T
 
 typedef struct {
-  uint16_T re;
-  uint16_T im;
+    uint16_T re;
+    uint16_T im;
 } cuint16_T;
 
 #define CINT32_T
 
 typedef struct {
-  int32_T re;
-  int32_T im;
+    int32_T re;
+    int32_T im;
 } cint32_T;
 
 #define CUINT32_T
 
 typedef struct {
-  uint32_T re;
-  uint32_T im;
+    uint32_T re;
+    uint32_T im;
 } cuint32_T;
 
 #define CINT64_T
 
 typedef struct {
-  int64_T re;
-  int64_T im;
+    int64_T re;
+    int64_T im;
 } cint64_T;
 
 #define CUINT64_T
 
 typedef struct {
-  uint64_T re;
-  uint64_T im;
+    uint64_T re;
+    uint64_T im;
 } cuint64_T;
 
 /*=======================================================================*

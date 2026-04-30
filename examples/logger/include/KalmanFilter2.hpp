@@ -1,11 +1,18 @@
 #pragma once
 
-struct State {
+struct ObservedState {
     float altitude;
     float altitude_rate;
     float roll;
     float pitch;
     float yaw;
+};
+
+enum KFState {
+    IDLE = 0,
+    INIT,
+    NOMINAL,
+    DEGRADED,
 };
 
 class KalmanFilter {
@@ -19,10 +26,9 @@ public:
 
 	// ===== FUNZIONI PER LA SIMULAZIONE =====
 
-	// restituisce lo stato attuale (altitudine e velocità verticale)
-	//   Vector2f: x(0) = altitudine, x(1) = velocità verticale
-	State getState() const;
+	ObservedState getState() const;
+        KFState getKFState() const;
 	void predict(float omega_x, float omega_y, float omega_z,
                            float acc_x, float acc_y, float acc_z);
-	void update(float pressure_bar);
+	void update(float pressure_bar, float temperature_kelvin);
 };

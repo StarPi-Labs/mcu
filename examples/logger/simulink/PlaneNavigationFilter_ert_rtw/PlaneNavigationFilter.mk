@@ -2,7 +2,7 @@
 ## Makefile generated for component 'PlaneNavigationFilter'. 
 ## 
 ## Makefile     : PlaneNavigationFilter.mk
-## Generated on : Thu Apr 30 13:25:13 2026
+## Generated on : Thu Apr 30 14:48:42 2026
 ## Final product: $(RELATIVE_PATH_TO_ANCHOR)/PlaneNavigationFilter.elf
 ## Product type : executable
 ## 
@@ -25,7 +25,7 @@ START_DIR                 = /home/enrico/MATLAB-Drive/ACC
 SOLVER                    = 
 SOLVER_OBJ                = 
 CLASSIC_INTERFACE         = 0
-TGT_FCN_LIB               = None
+TGT_FCN_LIB               = ISO_C
 MODEL_HAS_DYNAMICALLY_LOADED_SFCNS = 0
 RELATIVE_PATH_TO_ANCHOR   = ..
 C_STANDARD_OPTS           = 

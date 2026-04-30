@@ -1,6 +1,5 @@
 #include <Arduino.h>
 #include <FreeRTOS.h>
-#include <MadgwickAHRS.h>
 
 #include "board.h"
 #include "logger.h"
@@ -8,14 +7,11 @@
 #include "imu.h"
 #include "barometer.h"
 #include "lora.h"
-#include "KalmanFilter2.hpp"
+#include "KalmanFilter.hpp"
 
 
 SPIClass SPI2(FSPI);
 TwoWire I2C1(0);
-
-// State filter for orientation estimation, used in the IMU task
-Madgwick orientation;
 
 DECLARE_STATIC_SEMAPHORE(spi_semaphore);
 // TODO: add semaphore for i2c once we connect the pitot
@@ -86,16 +82,12 @@ TASK imu_task(TaskDescriptor_t *self)
 {
 	self->last_wake = xTaskGetTickCount();
 	FIFO_Sample sample;
-	KalmanFilter& altitude = KalmanFilter::getInstance();
+	KalmanFilter& kf = KalmanFilter::getInstance();
 	message_t msg;
-	orientation.begin(IMU_TASK_HZ);
 
 	while (true) {
 		if (xSemaphoreTake(spi_semaphore, portMAX_DELAY) == pdTRUE && imu_get_sample(&sample) == 0) {
-			// Update the relative orientation of the board using
-			// the Madgwick filter, readings are in mg and mdps, so
-			// conversion is needed
-			altitude.predict(
+			kf.predict(
 				(float)sample.gyroscope[0] * 1e-3f * 0.01745329f,
 				(float)sample.gyroscope[1] * 1e-3f * 0.01745329f,
 				(float)sample.gyroscope[2] * 1e-3f * 0.01745329f,
@@ -104,15 +96,12 @@ TASK imu_task(TaskDescriptor_t *self)
 				(float)sample.accelerometer[2] * 9.81e-3f
 			);
 
-			/* msg = MESSAGE(
+			ObservedState state = kf.getState();
+			msg = MESSAGE(
 				LOG_STR("[IMU]: Orientation"),
-				(struct vec3){
-					orientation.getRoll(),
-					orientation.getPitch(),
-					orientation.getYaw(),
-				}
-			); 
-			message_queue_enqueue(&msg, 100); */
+				(struct vec3){ state.roll, state.pitch, state.yaw }
+			);
+			message_queue_enqueue(&msg, 100);
 
 			xSemaphoreGive(spi_semaphore);
 		}
@@ -125,17 +114,18 @@ TASK barometer_task(TaskDescriptor_t *self)
 {
 	self->last_wake = xTaskGetTickCount();
 	BaroData sample1, sample2;
-	KalmanFilter& altitude = KalmanFilter::getInstance();
+	KalmanFilter& kf = KalmanFilter::getInstance();
 	message_t msg;
 
 	while (true) {
 		barometer_read(&sample1, &sample2);
 
-		//float alt = (sample1.altitude + sample2.altitude) / 2.0f;
+		kf.update(sample1.pressure, sample1.temperature + 273.15f);
 
-		// Update the altitude and vertical velocity estimation with the barometer data
-		altitude.update(sample1.pressure);
-
+		msg = MESSAGE(
+			LOG_STR("[BARO]: Altitude"),
+			kf.getState().altitude
+		);
 		message_queue_enqueue(&msg, 100);
 
 		TASK_WAIT_HZ(self, BARO_TASK_HZ);

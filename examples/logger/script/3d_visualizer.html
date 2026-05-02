@@ -181,6 +181,7 @@
             try {
                 port = await navigator.serial.requestPort();
                 await port.open({ baudRate: 115200 });
+                await port.setSignals({ dataTerminalReady: true, requestToSend: true });
                 connectBtn.innerText = "Connected";
                 connectBtn.style.backgroundColor = "#555";
                 readLoop();

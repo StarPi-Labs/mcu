@@ -16,3 +16,4 @@ extern bool motore_ok;
 void initPara();
 void valutaStato(DatiIMU imu, DatiBarometro baro);
 void vTaskPara(void *pvParameters);
+void vTaskDatalogger(void *pvParameters);

@@ -1,3 +1,6 @@
+//MODIFICARE TUTTI I SERIAL PER LA COMUNICAZIONE E IL SALVATAGGIO SU SD
+//DECOMMENTARE I TASK DEI SENSORI QUANDO IMPLEMENTATI
+
 #include <Arduino.h>
 #include "dati_volo.h"
 #include "paracadute.h"
@@ -7,29 +10,15 @@ QueueHandle_t codaBarometro;
 QueueHandle_t codaLogger;
 
 
-void vTaskDatalogger(void *pvParameters) {
-    PacchettoLog logRicevuto;
-    for(;;) {
-        if (xQueueReceive(codaLogger, &logRicevuto, portMAX_DELAY) == pdPASS) {  
-            Serial.printf("T: %lu | Stato: %d | Alt: %.1f m | AccZ: %.1f g | VelZ: %.1f m/s\n", 
-                          logRicevuto.timestamp, 
-                          static_cast<int>(logRicevuto.stato),
-                          logRicevuto.baro.altitudine, 
-                          logRicevuto.imu.acc_z, 
-                          logRicevuto.imu.vel_z);
-        }
-    }
-}
-
 void setup() {
     Serial.begin(115200);
-    Serial.println("--- AVVIO SISTEMA AVIONICO (MODULO PARACADUTE) ---");
+    Serial.println("--- AVVIO SISTEMA PARACADUTE ---");
 
     codaIMU = xQueueCreate(10, sizeof(DatiIMU));
     codaBarometro = xQueueCreate(10, sizeof(DatiBarometro));
     codaLogger = xQueueCreate(20, sizeof(PacchettoLog));
 
-    //Avvio task sensori (DA DECOMMENTARE QUANDO IMPLEMENTATI)
+    //Avvio task sensori
     // xTaskCreate(vTaskIMU, "TaskIMU", 2048, NULL, 3, NULL);
     // xTaskCreate(vTaskBarometro, "TaskBaro", 2048, NULL, 3, NULL);
 

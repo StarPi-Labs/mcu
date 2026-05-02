@@ -23,7 +23,7 @@
 
 // Task Timings
 #define IMU_TASK_HZ    100
-#define BARO_TASK_HZ   20
+#define BARO_TASK_HZ   10
 #define LOGGER_TASK_HZ 500
 #define LORA_TASK_HZ   50
 

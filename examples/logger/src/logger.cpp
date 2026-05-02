@@ -15,7 +15,7 @@
 
 // Buffer for the default message queue
 // NOTE: this could be in PSRAM if we had it
-static uint8_t default_queue_buffer[MESSAGE_QUEUE_SIZE * sizeof(message_t)];
+static uint8_t default_queue_buffer[MESSAGE_QUEUE_SIZE * sizeof(message_t)] __attribute__((aligned(4)));
 static StaticQueue_t default_queue_desc;
 
 // default message queue, this is initialized in message_queue_init()

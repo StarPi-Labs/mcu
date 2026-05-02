@@ -27,9 +27,9 @@ ObservedState KalmanFilter::getState() const {
     return ObservedState{
         .altitude = PlaneNavigationFilter_Y.EkfState.h,
         .altitude_rate = 0,
-        .roll = PlaneNavigationFilter_Y.EkfState.rpy[0],
-        .pitch = PlaneNavigationFilter_Y.EkfState.rpy[1],
-        .yaw = PlaneNavigationFilter_Y.EkfState.rpy[2],
+        .roll = PlaneNavigationFilter_Y.EkfState.rpy[0] * 180.0f / M_PI,
+        .pitch = PlaneNavigationFilter_Y.EkfState.rpy[1] * 180.0f / M_PI,
+        .yaw = PlaneNavigationFilter_Y.EkfState.rpy[2] * 180.0f / M_PI,
     };
 }
 
@@ -54,9 +54,9 @@ void KalmanFilter::predict(float omega_x, float omega_y, float omega_z,
     PlaneNavigationFilter_U.init_input.rpy_init[1] = .0f;
     PlaneNavigationFilter_U.init_input.rpy_init[2] = .0f;
 
-    PlaneNavigationFilter_U.HAS_BARO_DATA = false;
-
     PlaneNavigationFilter_step();
+
+    PlaneNavigationFilter_U.HAS_BARO_DATA = false;
 }
 
 void KalmanFilter::update(float pressure_bar, float temperature_kelvin) {

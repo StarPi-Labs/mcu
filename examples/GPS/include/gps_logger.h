@@ -18,3 +18,4 @@ struct ReportGPS {
 };
 
 void taskGPS(void *parameter);
+void vMonitorTask(void *pv);

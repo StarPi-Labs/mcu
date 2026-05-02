@@ -28,7 +28,7 @@ void test_counting_semaphore_release_and_acquire() {
     TEST_ASSERT_TRUE(semaphore.try_acquire());
 }
 
-void test_counting_semaphore_try_acquire_for() {
+void test_binary_semaphore_try_acquire_for() {
     BinarySemaphore semaphore(0);
 
     using namespace std::chrono_literals;
@@ -42,7 +42,7 @@ void test_counting_semaphore_try_acquire_for() {
     TEST_ASSERT_INT64_WITHIN(1, 50, duration.count());
 }
 
-void test_counting_semaphore_try_acquire_until() {
+void test_binary_semaphore_try_acquire_until() {
     BinarySemaphore semaphore(0);
 
     using namespace std::chrono_literals;
@@ -96,8 +96,8 @@ void runUnityTests() {
     UNITY_BEGIN();
     RUN_TEST(test_counting_semaphore_default_initial_count);
     RUN_TEST(test_counting_semaphore_release_and_acquire);
-    RUN_TEST(test_counting_semaphore_try_acquire_for);
-    RUN_TEST(test_counting_semaphore_try_acquire_until);
+    RUN_TEST(test_binary_semaphore_try_acquire_for);
+    RUN_TEST(test_binary_semaphore_try_acquire_until);
     RUN_TEST(test_binary_semaphore_multithreaded);
     RUN_TEST(test_binary_semaphore_max);
     UNITY_END();

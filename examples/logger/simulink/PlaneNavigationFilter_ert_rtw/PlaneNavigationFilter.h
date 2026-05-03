@@ -7,9 +7,9 @@
  *
  * Code generated for Simulink model 'PlaneNavigationFilter'.
  *
- * Model version                  : 1.103
+ * Model version                  : 1.113
  * Simulink Coder version         : 24.2 (R2024b) 21-Jun-2024
- * C/C++ source code generated on : Sat May  2 21:06:10 2026
+ * C/C++ source code generated on : Sun May  3 16:41:48 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: Custom Processor->Custom Processor
@@ -45,8 +45,8 @@ typedef struct {
     real32_T y[864];
     real32_T fv[540];
     real32_T fv1[540];
-    real32_T a__1_m[486];
-    real32_T y_c[486];
+    real32_T a__1_m[468];
+    real32_T y_c[468];
     real32_T a__1_k[360];
     real32_T y_cx[360];
     real32_T a__1_b[342];
@@ -57,12 +57,12 @@ typedef struct {
     real32_T y_g[324];
     real32_T y_g1[324];
     real32_T P[324];                   /* '<S9>/MATLAB Function' */
-    real32_T a__1_me[243];
-    real32_T K[243];
-    real32_T K_n[162];
-    real32_T C[162];
-    real32_T Sy[81];
-    real32_T R[81];
+    real32_T a__1_me[208];
+    real32_T K[208];
+    real32_T K_n[144];
+    real32_T C[144];
+    real32_T Sy[64];
+    real32_T R[64];
     real32_T a__1_p[40];
     real32_T K_l[40];
     real32_T K_j[36];
@@ -83,11 +83,11 @@ typedef struct {
     real32_T b_tau_b[18];
     real32_T work_n[18];
     real32_T y_b[18];
-    real32_T rtb_TmpSignalConversionAtMATLAB[9];
-    real32_T b_tau_ln[9];
-    real32_T work_h[9];
     real32_T R_ib[9];
     real32_T fv3[9];
+    real32_T rtb_TmpSignalConversionAtMATLAB[8];
+    real32_T b_tau_ln[8];
+    real32_T work_h[8];
     real32_T TmpSignalConversionAtMATLABSystemInp[6];
     real32_T Sy_b[4];
     real32_T R_d[4];
@@ -120,18 +120,20 @@ typedef struct {
     real32_T t31;
     real32_T t32;
     real32_T t33;
+    real32_T t47;
+    real32_T t48;
     real32_T t18;
     real32_T t19;
     real32_T t20;
     real32_T t21;
     real32_T t40;
     real32_T t41;
-    real32_T t43;
-    real32_T t50;
-    real32_T t51;
-    real32_T t54;
     real32_T t52;
     real32_T t53;
+    real32_T t56;
+    real32_T t54;
+    real32_T t55;
+    real32_T t48_tmp;
     real32_T atmp;
     real32_T beta1;
     real32_T atmp_j;
@@ -193,6 +195,7 @@ typedef struct {
     EKFNavigationState EkfState;       /* '<Root>/EkfState' */
     EKFNavigationState EkfStateStd;    /* '<Root>/EkfStateStd' */
     EKFStage EKF_STAGE;                /* '<Root>/EKF_STAGE' */
+    boolean_T ekf_good_array[18];      /* '<Root>/ekf_good_array' */
 } ExtY_PlaneNavigationFilter_T;
 
 /* Parameters (default storage) */
@@ -226,7 +229,7 @@ struct P_PlaneNavigationFilter_T_ {
     real32_T zeroh_Value;              /* Computed Parameter: zeroh_Value
                                         * Referenced by: '<S3>/zero h'
                                         */
-    real32_T R1_Value[81];             /* Expression: p.R{1}
+    real32_T R1_Value[64];             /* Expression: p.R{1}
                                         * Referenced by: '<S2>/R1'
                                         */
     real32_T MeasurementFcn1Inputs_Value;

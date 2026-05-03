@@ -50,9 +50,8 @@ void KalmanFilter::predict(float omega_x, float omega_y, float omega_z,
     PlaneNavigationFilter_U.omega_ib[1] = acc_y;
     PlaneNavigationFilter_U.omega_ib[2] = acc_z;
 
-    PlaneNavigationFilter_U.init_input.rpy_init[0] = .0f;
-    PlaneNavigationFilter_U.init_input.rpy_init[1] = .0f;
-    PlaneNavigationFilter_U.init_input.rpy_init[2] = .0f;
+    PlaneNavigationFilter_U.init_input.roll_pitch_init[0] = .0f;
+    PlaneNavigationFilter_U.init_input.roll_pitch_init[1] = .0f;
 
     PlaneNavigationFilter_step();
 

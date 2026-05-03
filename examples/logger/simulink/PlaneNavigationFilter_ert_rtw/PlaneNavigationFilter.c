@@ -7,9 +7,9 @@
  *
  * Code generated for Simulink model 'PlaneNavigationFilter'.
  *
- * Model version                  : 1.103
+ * Model version                  : 1.113
  * Simulink Coder version         : 24.2 (R2024b) 21-Jun-2024
- * C/C++ source code generated on : Sat May  2 21:06:10 2026
+ * C/C++ source code generated on : Sun May  3 16:41:48 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: Custom Processor->Custom Processor
@@ -48,16 +48,16 @@ RT_MODEL_PlaneNavigationFilter_T *const PlaneNavigationFilter_M =
     &PlaneNavigationFilter_M_;
 
 /* Forward declaration for local functions */
-static real32_T PlaneNavigationFilter_xnrm2(int32_T n, const real32_T x[243],
+static real32_T PlaneNavigationFilter_xnrm2(int32_T n, const real32_T x[208],
     int32_T ix0);
-static void PlaneNavigationFilter_qr(const real32_T A[243], real32_T Q[243],
-    real32_T R[81]);
-static void PlaneNavigationFilter_trisolve(const real32_T A[81], real32_T B[162]);
-static void PlaneNavigationFilter_trisolve_d(const real32_T A[81], real32_T B
-    [162]);
-static real32_T PlaneNavigationFilter_xnrm2_d(int32_T n, const real32_T x[486],
+static void PlaneNavigationFilter_qr(const real32_T A[208], real32_T Q[208],
+    real32_T R[64]);
+static void PlaneNavigationFilter_trisolve(const real32_T A[64], real32_T B[144]);
+static void PlaneNavigationFilter_trisolve_d(const real32_T A[64], real32_T B
+    [144]);
+static real32_T PlaneNavigationFilter_xnrm2_d(int32_T n, const real32_T x[468],
     int32_T ix0);
-static void PlaneNavigationFilter_qr_d(const real32_T A[486], real32_T Q[486],
+static void PlaneNavigationFilter_qr_d(const real32_T A[468], real32_T Q[468],
     real32_T R[324]);
 static real32_T PlaneNavigationFilter_xnrm2_dk(int32_T n, const real32_T x[40],
     int32_T ix0);
@@ -92,7 +92,7 @@ int32_T div_nde_s32_floor(int32_T numerator, int32_T denominator)
              != 0) ? -1 : 0) + numerator / denominator;
 }
 
-static real32_T PlaneNavigationFilter_xnrm2(int32_T n, const real32_T x[243],
+static real32_T PlaneNavigationFilter_xnrm2(int32_T n, const real32_T x[208],
     int32_T ix0)
 {
     int32_T k;
@@ -153,8 +153,8 @@ real32_T rt_hypotf_snf(real32_T u0, real32_T u1)
     return y;
 }
 
-static void PlaneNavigationFilter_qr(const real32_T A[243], real32_T Q[243],
-    real32_T R[81])
+static void PlaneNavigationFilter_qr(const real32_T A[208], real32_T Q[208],
+    real32_T R[64])
 {
     int32_T b;
     int32_T d;
@@ -167,27 +167,27 @@ static void PlaneNavigationFilter_qr(const real32_T A[243], real32_T Q[243],
     int32_T lastv;
     real32_T c;
     boolean_T exitg2;
-    for (i = 0; i < 9; i++) {
+    for (i = 0; i < 8; i++) {
         /* Start for MATLABSystem: '<S6>/MATLAB System' */
         PlaneNavigationFilter_B.b_tau_ln[i] = 0.0F;
     }
 
     /* Start for MATLABSystem: '<S6>/MATLAB System' */
-    memcpy(&Q[0], &A[0], 243U * sizeof(real32_T));
-    for (i = 0; i < 9; i++) {
+    memcpy(&Q[0], &A[0], 208U * sizeof(real32_T));
+    for (i = 0; i < 8; i++) {
         /* Start for MATLABSystem: '<S6>/MATLAB System' */
         PlaneNavigationFilter_B.work_h[i] = 0.0F;
     }
 
     /* Start for MATLABSystem: '<S6>/MATLAB System' */
     for (PlaneNavigationFilter_B.iaii_ct = 0; PlaneNavigationFilter_B.iaii_ct <
-            9; PlaneNavigationFilter_B.iaii_ct++) {
-        PlaneNavigationFilter_B.ii_p = PlaneNavigationFilter_B.iaii_ct * 27 +
+            8; PlaneNavigationFilter_B.iaii_ct++) {
+        PlaneNavigationFilter_B.ii_p = PlaneNavigationFilter_B.iaii_ct * 26 +
             PlaneNavigationFilter_B.iaii_ct;
         i = PlaneNavigationFilter_B.ii_p + 2;
         PlaneNavigationFilter_B.atmp_n = Q[PlaneNavigationFilter_B.ii_p];
         PlaneNavigationFilter_B.b_tau_ln[PlaneNavigationFilter_B.iaii_ct] = 0.0F;
-        PlaneNavigationFilter_B.beta1_i = PlaneNavigationFilter_xnrm2(26 -
+        PlaneNavigationFilter_B.beta1_i = PlaneNavigationFilter_xnrm2(25 -
             PlaneNavigationFilter_B.iaii_ct, Q, PlaneNavigationFilter_B.ii_p + 2);
         if (PlaneNavigationFilter_B.beta1_i != 0.0F) {
             c = Q[PlaneNavigationFilter_B.ii_p];
@@ -204,7 +204,7 @@ static void PlaneNavigationFilter_qr(const real32_T A[243], real32_T Q[243],
                     knt++;
                     b = PlaneNavigationFilter_B.ii_p -
                         PlaneNavigationFilter_B.iaii_ct;
-                    for (lastv = i; lastv <= b + 27; lastv++) {
+                    for (lastv = i; lastv <= b + 26; lastv++) {
                         Q[lastv - 1] *= 1.01412048E+31F;
                     }
 
@@ -215,7 +215,7 @@ static void PlaneNavigationFilter_qr(const real32_T A[243], real32_T Q[243],
 
                 PlaneNavigationFilter_B.beta1_i = rt_hypotf_snf
                     (PlaneNavigationFilter_B.atmp_n, PlaneNavigationFilter_xnrm2
-                     (26 - PlaneNavigationFilter_B.iaii_ct, Q,
+                     (25 - PlaneNavigationFilter_B.iaii_ct, Q,
                       PlaneNavigationFilter_B.ii_p + 2));
                 if (PlaneNavigationFilter_B.atmp_n >= 0.0F) {
                     PlaneNavigationFilter_B.beta1_i =
@@ -229,7 +229,7 @@ static void PlaneNavigationFilter_qr(const real32_T A[243], real32_T Q[243],
                 PlaneNavigationFilter_B.atmp_n = 1.0F /
                     (PlaneNavigationFilter_B.atmp_n -
                      PlaneNavigationFilter_B.beta1_i);
-                for (lastv = i; lastv <= b + 27; lastv++) {
+                for (lastv = i; lastv <= b + 26; lastv++) {
                     Q[lastv - 1] *= PlaneNavigationFilter_B.atmp_n;
                 }
 
@@ -246,7 +246,7 @@ static void PlaneNavigationFilter_qr(const real32_T A[243], real32_T Q[243],
                     PlaneNavigationFilter_B.beta1_i);
                 b = PlaneNavigationFilter_B.ii_p -
                     PlaneNavigationFilter_B.iaii_ct;
-                for (lastv = i; lastv <= b + 27; lastv++) {
+                for (lastv = i; lastv <= b + 26; lastv++) {
                     Q[lastv - 1] *= PlaneNavigationFilter_B.atmp_n;
                 }
 
@@ -255,27 +255,27 @@ static void PlaneNavigationFilter_qr(const real32_T A[243], real32_T Q[243],
         }
 
         Q[PlaneNavigationFilter_B.ii_p] = PlaneNavigationFilter_B.atmp_n;
-        if (PlaneNavigationFilter_B.iaii_ct + 1 < 9) {
+        if (PlaneNavigationFilter_B.iaii_ct + 1 < 8) {
             Q[PlaneNavigationFilter_B.ii_p] = 1.0F;
-            knt = PlaneNavigationFilter_B.ii_p + 28;
+            knt = PlaneNavigationFilter_B.ii_p + 27;
             if (PlaneNavigationFilter_B.b_tau_ln[PlaneNavigationFilter_B.iaii_ct]
                 != 0.0F) {
-                lastv = 27 - PlaneNavigationFilter_B.iaii_ct;
+                lastv = 26 - PlaneNavigationFilter_B.iaii_ct;
                 i = PlaneNavigationFilter_B.ii_p -
                     PlaneNavigationFilter_B.iaii_ct;
-                while ((lastv > 0) && (Q[i + 26] == 0.0F)) {
+                while ((lastv > 0) && (Q[i + 25] == 0.0F)) {
                     lastv--;
                     i--;
                 }
 
-                b = 8 - PlaneNavigationFilter_B.iaii_ct;
+                b = 7 - PlaneNavigationFilter_B.iaii_ct;
                 exitg2 = false;
                 while ((!exitg2) && (b > 0)) {
-                    lastc = (b - 1) * 27 + PlaneNavigationFilter_B.ii_p;
-                    jA = lastc + 28;
+                    lastc = (b - 1) * 26 + PlaneNavigationFilter_B.ii_p;
+                    jA = lastc + 27;
                     do {
                         exitg1 = 0;
-                        if (jA <= (lastc + lastv) + 27) {
+                        if (jA <= (lastc + lastv) + 26) {
                             if (Q[jA - 1] != 0.0F) {
                                 exitg1 = 1;
                             } else {
@@ -305,8 +305,8 @@ static void PlaneNavigationFilter_qr(const real32_T A[243], real32_T Q[243],
                                (lastc + 1) * sizeof(real32_T));
                     }
 
-                    b = (27 * lastc + PlaneNavigationFilter_B.ii_p) + 28;
-                    for (iac = knt; iac <= b; iac += 27) {
+                    b = (26 * lastc + PlaneNavigationFilter_B.ii_p) + 27;
+                    for (iac = knt; iac <= b; iac += 26) {
                         c = 0.0F;
                         d = iac + lastv;
                         for (jA = iac; jA < d; jA++) {
@@ -316,7 +316,7 @@ static void PlaneNavigationFilter_qr(const real32_T A[243], real32_T Q[243],
 
                         jA = div_nde_s32_floor((iac -
                                                 PlaneNavigationFilter_B.ii_p) -
-                                               28, 27);
+                                               27, 26);
                         PlaneNavigationFilter_B.work_h[jA] += c;
                     }
                 }
@@ -329,15 +329,15 @@ static void PlaneNavigationFilter_qr(const real32_T A[243], real32_T Q[243],
                         if (c != 0.0F) {
                             c *=
                                 -PlaneNavigationFilter_B.b_tau_ln[PlaneNavigationFilter_B.iaii_ct];
-                            b = jA + 28;
-                            knt = (lastv + jA) + 27;
+                            b = jA + 27;
+                            knt = (lastv + jA) + 26;
                             for (d = b; d <= knt; d++) {
                                 Q[d - 1] += Q[((PlaneNavigationFilter_B.ii_p + d)
-                                               - jA) - 28] * c;
+                                               - jA) - 27] * c;
                             }
                         }
 
-                        jA += 27;
+                        jA += 26;
                     }
                 }
             }
@@ -346,20 +346,20 @@ static void PlaneNavigationFilter_qr(const real32_T A[243], real32_T Q[243],
         }
     }
 
-    for (i = 0; i < 9; i++) {
+    for (i = 0; i < 8; i++) {
         for (PlaneNavigationFilter_B.iaii_ct = 0;
                 PlaneNavigationFilter_B.iaii_ct <= i;
                 PlaneNavigationFilter_B.iaii_ct++) {
             /* Start for MATLABSystem: '<S6>/MATLAB System' */
-            R[PlaneNavigationFilter_B.iaii_ct + 9 * i] = Q[27 * i +
+            R[PlaneNavigationFilter_B.iaii_ct + (i << 3)] = Q[26 * i +
                 PlaneNavigationFilter_B.iaii_ct];
         }
 
         for (PlaneNavigationFilter_B.iaii_ct = i + 2;
-                PlaneNavigationFilter_B.iaii_ct < 10;
+                PlaneNavigationFilter_B.iaii_ct < 9;
                 PlaneNavigationFilter_B.iaii_ct++) {
             /* Start for MATLABSystem: '<S6>/MATLAB System' */
-            R[(PlaneNavigationFilter_B.iaii_ct + 9 * i) - 1] = 0.0F;
+            R[(PlaneNavigationFilter_B.iaii_ct + (i << 3)) - 1] = 0.0F;
         }
 
         /* Start for MATLABSystem: '<S6>/MATLAB System' */
@@ -367,13 +367,13 @@ static void PlaneNavigationFilter_qr(const real32_T A[243], real32_T Q[243],
     }
 
     /* Start for MATLABSystem: '<S6>/MATLAB System' */
-    for (i = 8; i >= 0; i--) {
-        PlaneNavigationFilter_B.iaii_ct = (i * 27 + i) + 27;
-        if (i + 1 < 9) {
-            Q[PlaneNavigationFilter_B.iaii_ct - 27] = 1.0F;
+    for (i = 7; i >= 0; i--) {
+        PlaneNavigationFilter_B.iaii_ct = (i * 26 + i) + 26;
+        if (i + 1 < 8) {
+            Q[PlaneNavigationFilter_B.iaii_ct - 26] = 1.0F;
             knt = PlaneNavigationFilter_B.iaii_ct + 1;
             if (PlaneNavigationFilter_B.b_tau_ln[i] != 0.0F) {
-                lastv = 27 - i;
+                lastv = 26 - i;
                 PlaneNavigationFilter_B.ii_p = (PlaneNavigationFilter_B.iaii_ct
                     - i) - 1;
                 while ((lastv > 0) && (Q[PlaneNavigationFilter_B.ii_p] == 0.0F))
@@ -382,10 +382,10 @@ static void PlaneNavigationFilter_qr(const real32_T A[243], real32_T Q[243],
                     PlaneNavigationFilter_B.ii_p--;
                 }
 
-                b = 8 - i;
+                b = 7 - i;
                 exitg2 = false;
                 while ((!exitg2) && (b > 0)) {
-                    lastc = (b - 1) * 27 + PlaneNavigationFilter_B.iaii_ct;
+                    lastc = (b - 1) * 26 + PlaneNavigationFilter_B.iaii_ct;
                     jA = lastc + 1;
                     do {
                         exitg1 = 0;
@@ -419,18 +419,18 @@ static void PlaneNavigationFilter_qr(const real32_T A[243], real32_T Q[243],
                                (lastc + 1) * sizeof(real32_T));
                     }
 
-                    b = (27 * lastc + PlaneNavigationFilter_B.iaii_ct) + 1;
-                    for (iac = knt; iac <= b; iac += 27) {
+                    b = (26 * lastc + PlaneNavigationFilter_B.iaii_ct) + 1;
+                    for (iac = knt; iac <= b; iac += 26) {
                         c = 0.0F;
                         d = iac + lastv;
                         for (jA = iac; jA < d; jA++) {
                             c += Q[((PlaneNavigationFilter_B.iaii_ct + jA) - iac)
-                                - 27] * Q[jA - 1];
+                                - 26] * Q[jA - 1];
                         }
 
                         jA = div_nde_s32_floor((iac -
                                                 PlaneNavigationFilter_B.iaii_ct)
-                                               - 1, 27);
+                                               - 1, 26);
                         PlaneNavigationFilter_B.work_h[jA] += c;
                     }
                 }
@@ -445,33 +445,33 @@ static void PlaneNavigationFilter_qr(const real32_T A[243], real32_T Q[243],
                             knt = lastv + jA;
                             for (d = b; d <= knt; d++) {
                                 Q[d - 1] += Q[((PlaneNavigationFilter_B.iaii_ct
-                                                + d) - jA) - 28] * c;
+                                                + d) - jA) - 27] * c;
                             }
                         }
 
-                        jA += 27;
+                        jA += 26;
                     }
                 }
             }
         }
 
         b = PlaneNavigationFilter_B.iaii_ct - i;
-        for (lastv = PlaneNavigationFilter_B.iaii_ct - 25; lastv <= b; lastv++)
+        for (lastv = PlaneNavigationFilter_B.iaii_ct - 24; lastv <= b; lastv++)
         {
             Q[lastv - 1] *= -PlaneNavigationFilter_B.b_tau_ln[i];
         }
 
-        Q[PlaneNavigationFilter_B.iaii_ct - 27] = 1.0F -
+        Q[PlaneNavigationFilter_B.iaii_ct - 26] = 1.0F -
             PlaneNavigationFilter_B.b_tau_ln[i];
         for (PlaneNavigationFilter_B.ii_p = 0; PlaneNavigationFilter_B.ii_p < i;
              PlaneNavigationFilter_B.ii_p++) {
             Q[(PlaneNavigationFilter_B.iaii_ct - PlaneNavigationFilter_B.ii_p) -
-                28] = 0.0F;
+                27] = 0.0F;
         }
     }
 }
 
-static void PlaneNavigationFilter_trisolve(const real32_T A[81], real32_T B[162])
+static void PlaneNavigationFilter_trisolve(const real32_T A[64], real32_T B[144])
 {
     int32_T b_j;
     int32_T b_k;
@@ -480,19 +480,19 @@ static void PlaneNavigationFilter_trisolve(const real32_T A[81], real32_T B[162]
     /* Start for MATLABSystem: '<S6>/MATLAB System' */
     for (b_j = 0; b_j < 18; b_j++) {
         int32_T jBcol;
-        jBcol = 9 * b_j - 1;
-        for (b_k = 0; b_k < 9; b_k++) {
+        jBcol = (b_j << 3) - 1;
+        for (b_k = 0; b_k < 8; b_k++) {
             int32_T B_tmp;
             int32_T k;
             int32_T kAcol;
             real32_T B_0;
             k = b_k + 1;
-            kAcol = b_k * 9 - 1;
+            kAcol = (b_k << 3) - 1;
             B_tmp = (b_k + jBcol) + 1;
             B_0 = B[B_tmp];
             if (B_0 != 0.0F) {
                 B[B_tmp] = B_0 / A[(b_k + kAcol) + 1];
-                for (i = k + 1; i < 10; i++) {
+                for (i = k + 1; i < 9; i++) {
                     int32_T tmp;
                     tmp = i + jBcol;
                     B[tmp] -= A[i + kAcol] * B[B_tmp];
@@ -504,8 +504,8 @@ static void PlaneNavigationFilter_trisolve(const real32_T A[81], real32_T B[162]
     /* End of Start for MATLABSystem: '<S6>/MATLAB System' */
 }
 
-static void PlaneNavigationFilter_trisolve_d(const real32_T A[81], real32_T B
-    [162])
+static void PlaneNavigationFilter_trisolve_d(const real32_T A[64], real32_T B
+    [144])
 {
     int32_T b_i;
     int32_T b_j;
@@ -514,12 +514,12 @@ static void PlaneNavigationFilter_trisolve_d(const real32_T A[81], real32_T B
     /* Start for MATLABSystem: '<S6>/MATLAB System' */
     for (b_j = 0; b_j < 18; b_j++) {
         int32_T jBcol;
-        jBcol = 9 * b_j;
-        for (k = 8; k >= 0; k--) {
+        jBcol = b_j << 3;
+        for (k = 7; k >= 0; k--) {
             int32_T kAcol;
             int32_T tmp_0;
             real32_T tmp;
-            kAcol = 9 * k;
+            kAcol = k << 3;
             tmp_0 = k + jBcol;
             tmp = B[tmp_0];
             if (tmp != 0.0F) {
@@ -536,7 +536,7 @@ static void PlaneNavigationFilter_trisolve_d(const real32_T A[81], real32_T B
     /* End of Start for MATLABSystem: '<S6>/MATLAB System' */
 }
 
-static real32_T PlaneNavigationFilter_xnrm2_d(int32_T n, const real32_T x[486],
+static real32_T PlaneNavigationFilter_xnrm2_d(int32_T n, const real32_T x[468],
     int32_T ix0)
 {
     int32_T k;
@@ -575,7 +575,7 @@ static real32_T PlaneNavigationFilter_xnrm2_d(int32_T n, const real32_T x[486],
     return y;
 }
 
-static void PlaneNavigationFilter_qr_d(const real32_T A[486], real32_T Q[486],
+static void PlaneNavigationFilter_qr_d(const real32_T A[468], real32_T Q[468],
     real32_T R[324])
 {
     int32_T b;
@@ -592,16 +592,16 @@ static void PlaneNavigationFilter_qr_d(const real32_T A[486], real32_T Q[486],
 
     /* Start for MATLABSystem: '<S6>/MATLAB System' */
     memset(&PlaneNavigationFilter_B.b_tau_b[0], 0, 18U * sizeof(real32_T));
-    memcpy(&Q[0], &A[0], 486U * sizeof(real32_T));
+    memcpy(&Q[0], &A[0], 468U * sizeof(real32_T));
     memset(&PlaneNavigationFilter_B.work_n[0], 0, 18U * sizeof(real32_T));
     for (PlaneNavigationFilter_B.iaii_h = 0; PlaneNavigationFilter_B.iaii_h < 18;
          PlaneNavigationFilter_B.iaii_h++) {
-        PlaneNavigationFilter_B.ii_c = PlaneNavigationFilter_B.iaii_h * 27 +
+        PlaneNavigationFilter_B.ii_c = PlaneNavigationFilter_B.iaii_h * 26 +
             PlaneNavigationFilter_B.iaii_h;
         i = PlaneNavigationFilter_B.ii_c + 2;
         PlaneNavigationFilter_B.atmp_jz = Q[PlaneNavigationFilter_B.ii_c];
         PlaneNavigationFilter_B.b_tau_b[PlaneNavigationFilter_B.iaii_h] = 0.0F;
-        PlaneNavigationFilter_B.beta1_o = PlaneNavigationFilter_xnrm2_d(26 -
+        PlaneNavigationFilter_B.beta1_o = PlaneNavigationFilter_xnrm2_d(25 -
             PlaneNavigationFilter_B.iaii_h, Q, PlaneNavigationFilter_B.ii_c + 2);
         if (PlaneNavigationFilter_B.beta1_o != 0.0F) {
             c = Q[PlaneNavigationFilter_B.ii_c];
@@ -618,7 +618,7 @@ static void PlaneNavigationFilter_qr_d(const real32_T A[486], real32_T Q[486],
                     knt++;
                     b = PlaneNavigationFilter_B.ii_c -
                         PlaneNavigationFilter_B.iaii_h;
-                    for (lastv = i; lastv <= b + 27; lastv++) {
+                    for (lastv = i; lastv <= b + 26; lastv++) {
                         Q[lastv - 1] *= 1.01412048E+31F;
                     }
 
@@ -629,7 +629,7 @@ static void PlaneNavigationFilter_qr_d(const real32_T A[486], real32_T Q[486],
 
                 PlaneNavigationFilter_B.beta1_o = rt_hypotf_snf
                     (PlaneNavigationFilter_B.atmp_jz,
-                     PlaneNavigationFilter_xnrm2_d(26 -
+                     PlaneNavigationFilter_xnrm2_d(25 -
                       PlaneNavigationFilter_B.iaii_h, Q,
                       PlaneNavigationFilter_B.ii_c + 2));
                 if (PlaneNavigationFilter_B.atmp_jz >= 0.0F) {
@@ -644,7 +644,7 @@ static void PlaneNavigationFilter_qr_d(const real32_T A[486], real32_T Q[486],
                 PlaneNavigationFilter_B.atmp_jz = 1.0F /
                     (PlaneNavigationFilter_B.atmp_jz -
                      PlaneNavigationFilter_B.beta1_o);
-                for (lastv = i; lastv <= b + 27; lastv++) {
+                for (lastv = i; lastv <= b + 26; lastv++) {
                     Q[lastv - 1] *= PlaneNavigationFilter_B.atmp_jz;
                 }
 
@@ -662,7 +662,7 @@ static void PlaneNavigationFilter_qr_d(const real32_T A[486], real32_T Q[486],
                     PlaneNavigationFilter_B.beta1_o);
                 b = PlaneNavigationFilter_B.ii_c -
                     PlaneNavigationFilter_B.iaii_h;
-                for (lastv = i; lastv <= b + 27; lastv++) {
+                for (lastv = i; lastv <= b + 26; lastv++) {
                     Q[lastv - 1] *= PlaneNavigationFilter_B.atmp_jz;
                 }
 
@@ -674,13 +674,13 @@ static void PlaneNavigationFilter_qr_d(const real32_T A[486], real32_T Q[486],
         Q[PlaneNavigationFilter_B.ii_c] = PlaneNavigationFilter_B.atmp_jz;
         if (PlaneNavigationFilter_B.iaii_h + 1 < 18) {
             Q[PlaneNavigationFilter_B.ii_c] = 1.0F;
-            knt = PlaneNavigationFilter_B.ii_c + 28;
+            knt = PlaneNavigationFilter_B.ii_c + 27;
             if (PlaneNavigationFilter_B.b_tau_b[PlaneNavigationFilter_B.iaii_h]
                     != 0.0F) {
-                lastv = 27 - PlaneNavigationFilter_B.iaii_h;
+                lastv = 26 - PlaneNavigationFilter_B.iaii_h;
                 i = PlaneNavigationFilter_B.ii_c -
                     PlaneNavigationFilter_B.iaii_h;
-                while ((lastv > 0) && (Q[i + 26] == 0.0F)) {
+                while ((lastv > 0) && (Q[i + 25] == 0.0F)) {
                     lastv--;
                     i--;
                 }
@@ -688,11 +688,11 @@ static void PlaneNavigationFilter_qr_d(const real32_T A[486], real32_T Q[486],
                 b = 17 - PlaneNavigationFilter_B.iaii_h;
                 exitg2 = false;
                 while ((!exitg2) && (b > 0)) {
-                    lastc = (b - 1) * 27 + PlaneNavigationFilter_B.ii_c;
-                    jA = lastc + 28;
+                    lastc = (b - 1) * 26 + PlaneNavigationFilter_B.ii_c;
+                    jA = lastc + 27;
                     do {
                         exitg1 = 0;
-                        if (jA <= (lastc + lastv) + 27) {
+                        if (jA <= (lastc + lastv) + 26) {
                             if (Q[jA - 1] != 0.0F) {
                                 exitg1 = 1;
                             } else {
@@ -722,8 +722,8 @@ static void PlaneNavigationFilter_qr_d(const real32_T A[486], real32_T Q[486],
                                (lastc + 1) * sizeof(real32_T));
                     }
 
-                    b = (27 * lastc + PlaneNavigationFilter_B.ii_c) + 28;
-                    for (iac = knt; iac <= b; iac += 27) {
+                    b = (26 * lastc + PlaneNavigationFilter_B.ii_c) + 27;
+                    for (iac = knt; iac <= b; iac += 26) {
                         c = 0.0F;
                         d = iac + lastv;
                         for (jA = iac; jA < d; jA++) {
@@ -733,7 +733,7 @@ static void PlaneNavigationFilter_qr_d(const real32_T A[486], real32_T Q[486],
 
                         jA = div_nde_s32_floor((iac -
                                                 PlaneNavigationFilter_B.ii_c) -
-                                               28, 27);
+                                               27, 26);
                         PlaneNavigationFilter_B.work_n[jA] += c;
                     }
                 }
@@ -746,15 +746,15 @@ static void PlaneNavigationFilter_qr_d(const real32_T A[486], real32_T Q[486],
                         if (c != 0.0F) {
                             c *=
                                 -PlaneNavigationFilter_B.b_tau_b[PlaneNavigationFilter_B.iaii_h];
-                            b = jA + 28;
-                            knt = (lastv + jA) + 27;
+                            b = jA + 27;
+                            knt = (lastv + jA) + 26;
                             for (d = b; d <= knt; d++) {
                                 Q[d - 1] += Q[((PlaneNavigationFilter_B.ii_c + d)
-                                               - jA) - 28] * c;
+                                               - jA) - 27] * c;
                             }
                         }
 
-                        jA += 27;
+                        jA += 26;
                     }
                 }
             }
@@ -767,7 +767,7 @@ static void PlaneNavigationFilter_qr_d(const real32_T A[486], real32_T Q[486],
         for (PlaneNavigationFilter_B.iaii_h = 0; PlaneNavigationFilter_B.iaii_h <=
              i; PlaneNavigationFilter_B.iaii_h++) {
             /* Start for MATLABSystem: '<S6>/MATLAB System' */
-            R[PlaneNavigationFilter_B.iaii_h + 18 * i] = Q[27 * i +
+            R[PlaneNavigationFilter_B.iaii_h + 18 * i] = Q[26 * i +
                 PlaneNavigationFilter_B.iaii_h];
         }
 
@@ -784,12 +784,12 @@ static void PlaneNavigationFilter_qr_d(const real32_T A[486], real32_T Q[486],
 
     /* Start for MATLABSystem: '<S6>/MATLAB System' */
     for (i = 17; i >= 0; i--) {
-        PlaneNavigationFilter_B.iaii_h = (i * 27 + i) + 27;
+        PlaneNavigationFilter_B.iaii_h = (i * 26 + i) + 26;
         if (i + 1 < 18) {
-            Q[PlaneNavigationFilter_B.iaii_h - 27] = 1.0F;
+            Q[PlaneNavigationFilter_B.iaii_h - 26] = 1.0F;
             knt = PlaneNavigationFilter_B.iaii_h + 1;
             if (PlaneNavigationFilter_B.b_tau_b[i] != 0.0F) {
-                lastv = 27 - i;
+                lastv = 26 - i;
                 PlaneNavigationFilter_B.ii_c = (PlaneNavigationFilter_B.iaii_h -
                     i) - 1;
                 while ((lastv > 0) && (Q[PlaneNavigationFilter_B.ii_c] == 0.0F))
@@ -801,7 +801,7 @@ static void PlaneNavigationFilter_qr_d(const real32_T A[486], real32_T Q[486],
                 b = 17 - i;
                 exitg2 = false;
                 while ((!exitg2) && (b > 0)) {
-                    lastc = (b - 1) * 27 + PlaneNavigationFilter_B.iaii_h;
+                    lastc = (b - 1) * 26 + PlaneNavigationFilter_B.iaii_h;
                     jA = lastc + 1;
                     do {
                         exitg1 = 0;
@@ -835,18 +835,18 @@ static void PlaneNavigationFilter_qr_d(const real32_T A[486], real32_T Q[486],
                                (lastc + 1) * sizeof(real32_T));
                     }
 
-                    b = (27 * lastc + PlaneNavigationFilter_B.iaii_h) + 1;
-                    for (iac = knt; iac <= b; iac += 27) {
+                    b = (26 * lastc + PlaneNavigationFilter_B.iaii_h) + 1;
+                    for (iac = knt; iac <= b; iac += 26) {
                         c = 0.0F;
                         d = iac + lastv;
                         for (jA = iac; jA < d; jA++) {
                             c += Q[((PlaneNavigationFilter_B.iaii_h + jA) - iac)
-                                - 27] * Q[jA - 1];
+                                - 26] * Q[jA - 1];
                         }
 
                         jA = div_nde_s32_floor((iac -
                                                 PlaneNavigationFilter_B.iaii_h)
-                                               - 1, 27);
+                                               - 1, 26);
                         PlaneNavigationFilter_B.work_n[jA] += c;
                     }
                 }
@@ -861,27 +861,27 @@ static void PlaneNavigationFilter_qr_d(const real32_T A[486], real32_T Q[486],
                             knt = lastv + jA;
                             for (d = b; d <= knt; d++) {
                                 Q[d - 1] += Q[((PlaneNavigationFilter_B.iaii_h +
-                                                d) - jA) - 28] * c;
+                                                d) - jA) - 27] * c;
                             }
                         }
 
-                        jA += 27;
+                        jA += 26;
                     }
                 }
             }
         }
 
         b = PlaneNavigationFilter_B.iaii_h - i;
-        for (lastv = PlaneNavigationFilter_B.iaii_h - 25; lastv <= b; lastv++) {
+        for (lastv = PlaneNavigationFilter_B.iaii_h - 24; lastv <= b; lastv++) {
             Q[lastv - 1] *= -PlaneNavigationFilter_B.b_tau_b[i];
         }
 
-        Q[PlaneNavigationFilter_B.iaii_h - 27] = 1.0F -
+        Q[PlaneNavigationFilter_B.iaii_h - 26] = 1.0F -
             PlaneNavigationFilter_B.b_tau_b[i];
         for (PlaneNavigationFilter_B.ii_c = 0; PlaneNavigationFilter_B.ii_c < i;
              PlaneNavigationFilter_B.ii_c++) {
             Q[(PlaneNavigationFilter_B.iaii_h - PlaneNavigationFilter_B.ii_c) -
-                28] = 0.0F;
+                27] = 0.0F;
         }
     }
 }
@@ -1739,7 +1739,7 @@ static void EKFCorrectorAdditive_getMeasurementJacob(real32_T Rs, const real32_T
     /* BaroMeasJacSym */
     /*     H = BaroMeasJacSym(IN1) */
     /*     This function was generated by the Symbolic Math Toolbox version 24.2. */
-    /*     10-Apr-2026 23:03:41 */
+    /*     03-May-2026 03:01:40 */
     t2 = 1.0F / x[15];
     beta1 = -(t2 * x[7] * 0.0065F) + 1.0F;
     t6 = rt_powf_snf(beta1, 4.25588F);
@@ -2637,16 +2637,17 @@ static void PlaneNavigation_nav_state_trans_dt_100Hz(const real32_T state[18],
     x_next[7] = (-((state[0] * PlaneNavigationFilter_B.R_ib[2] + state[1] *
                     PlaneNavigationFilter_B.R_ib[5]) + state[2] * cy) + w[7]) *
         0.01F + state[7];
-    x_next[0] = (((((state[6] * -sp_tmp + PlaneNavigationFilter_B.fv4[0]) + u[0])
-                   + w[18]) - state[8]) + w[0]) * 0.01F + state[0];
+    x_next[0] = (((((-(state[6] * -sp_tmp) + PlaneNavigationFilter_B.fv4[0]) +
+                    u[0]) + w[18]) - state[8]) + w[0]) * 0.01F + state[0];
     x_next[8] = (w[8] + w[24]) * 0.01F + state[8];
     x_next[11] = (w[11] + w[27]) * 0.01F + state[11];
-    x_next[1] = (((((sr_tmp * cp_tmp * state[6] + PlaneNavigationFilter_B.fv4[1])
-                    + u[1]) + w[19]) - state[9]) + w[1]) * 0.01F + state[1];
+    x_next[1] = (((((-(sr_tmp * cp_tmp * state[6]) +
+                     PlaneNavigationFilter_B.fv4[1]) + u[1]) + w[19]) - state[9])
+                 + w[1]) * 0.01F + state[1];
     x_next[9] = (w[9] + w[25]) * 0.01F + state[9];
     x_next[12] = (w[12] + w[28]) * 0.01F + state[12];
-    x_next[2] = (((((cy * state[6] + PlaneNavigationFilter_B.fv4[2]) + u[2]) +
-                   w[20]) - state[10]) + w[2]) * 0.01F + state[2];
+    x_next[2] = (((((-(cy * state[6]) + PlaneNavigationFilter_B.fv4[2]) + u[2])
+                   + w[20]) - state[10]) + w[2]) * 0.01F + state[2];
     x_next[10] = (w[10] + w[26]) * 0.01F + state[10];
     x_next[13] = (w[13] + w[29]) * 0.01F + state[13];
     x_next[14] = w[14] * 0.01F + state[14];
@@ -2663,26 +2664,24 @@ void PlaneNavigationFilter_step(void)
     boolean_T ekf_good;
     boolean_T rtb_INIT_MEAS_EN;
     boolean_T tmp;
-    static const int8_T A_1[162] = { 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    static const int8_T A_1[144] = { 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
+        0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-        0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0 };
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
     static const int8_T A_2[36] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1 };
 
-    static const int8_T tmp_0[162] = { 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    static const int8_T tmp_0[144] = { 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        1, 0, 0, 0 };
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 1, 0, 0, 0 };
 
     static const int8_T tmp_1[36] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 };
@@ -2847,17 +2846,24 @@ void PlaneNavigationFilter_step(void)
         PlaneNavigationFilter_B.ekf_state_std[17];
 
     /* Chart: '<Root>/EKF Logic' incorporates:
+     *  Delay: '<Root>/Delay'
      *  Inport: '<Root>/ARM_CMD'
      */
     if (PlaneNavigationFilter_DW.is_active_c3_PlaneNavigationFilter == 0) {
         PlaneNavigationFilter_DW.is_active_c3_PlaneNavigationFilter = 1U;
+        for (PlaneNavigationFilter_B.i = 0; PlaneNavigationFilter_B.i < 18;
+                PlaneNavigationFilter_B.i++) {
+            PlaneNavigationFilter_Y.ekf_good_array[PlaneNavigationFilter_B.i] =
+                (PlaneNavigationFilter_DW.Delay_DSTATE[PlaneNavigationFilter_B.i]
+                 <=
+                 PlaneNavigationFilter_P.ekf_std_init_thresholds[PlaneNavigationFilter_B.i]);
+        }
+
         ekf_good = true;
         PlaneNavigationFilter_B.b_k = 0;
         exitg1 = false;
         while ((!exitg1) && (PlaneNavigationFilter_B.b_k < 18)) {
-            if (!(PlaneNavigationFilter_DW.Delay_DSTATE[PlaneNavigationFilter_B.b_k]
-                  <=
-                    PlaneNavigationFilter_P.ekf_std_init_thresholds[PlaneNavigationFilter_B.b_k]))
+            if (!PlaneNavigationFilter_Y.ekf_good_array[PlaneNavigationFilter_B.b_k])
             {
                 ekf_good = false;
                 exitg1 = true;
@@ -2874,16 +2880,24 @@ void PlaneNavigationFilter_step(void)
         PlaneNavigationFilter_DW.is_EKF_LOGIC = PlaneNavigationFilter_IN_IDLE;
         rtb_INIT_MEAS_EN = false;
 
-        /* Outport: '<Root>/EKF_STAGE' */
+        /* Outport: '<Root>/EKF_STAGE' incorporates:
+         *  Delay: '<Root>/Delay'
+         */
         PlaneNavigationFilter_Y.EKF_STAGE = IDLE;
     } else {
+        for (PlaneNavigationFilter_B.i = 0; PlaneNavigationFilter_B.i < 18;
+                PlaneNavigationFilter_B.i++) {
+            PlaneNavigationFilter_Y.ekf_good_array[PlaneNavigationFilter_B.i] =
+                (PlaneNavigationFilter_DW.Delay_DSTATE[PlaneNavigationFilter_B.i]
+                 <=
+                 PlaneNavigationFilter_P.ekf_std_init_thresholds[PlaneNavigationFilter_B.i]);
+        }
+
         ekf_good = true;
         PlaneNavigationFilter_B.i = 0;
         exitg1 = false;
         while ((!exitg1) && (PlaneNavigationFilter_B.i < 18)) {
-            if (!(PlaneNavigationFilter_DW.Delay_DSTATE[PlaneNavigationFilter_B.i]
-                  <=
-                    PlaneNavigationFilter_P.ekf_std_init_thresholds[PlaneNavigationFilter_B.i]))
+            if (!PlaneNavigationFilter_Y.ekf_good_array[PlaneNavigationFilter_B.i])
             {
                 ekf_good = false;
                 exitg1 = true;
@@ -2919,7 +2933,7 @@ void PlaneNavigationFilter_step(void)
                 PlaneNavigationFilter_DW.durationCounter_1 = 0U;
             }
 
-            if (PlaneNavigationFilter_DW.durationCounter_1 > 100U) {
+            if (PlaneNavigationFilter_DW.durationCounter_1 > 20000U) {
                 PlaneNavigationFilter_DW.durationCounter_2 = 0U;
                 PlaneNavigationFilter_DW.is_EKF_LOGIC =
                     PlaneNavigationFilter_IN_EKF_ACTIVE;
@@ -2982,19 +2996,19 @@ void PlaneNavigationFilter_step(void)
          *  DataStoreRead: '<S6>/Data Store ReadP'
          */
         /*  vx, vy, vz */
-        /*  rpy */
+        /*  roll and pitch */
         /*  h */
         /*  T0 */
         /*  P0 */
-        for (PlaneNavigationFilter_B.i = 0; PlaneNavigationFilter_B.i < 9;
+        for (PlaneNavigationFilter_B.i = 0; PlaneNavigationFilter_B.i < 8;
                 PlaneNavigationFilter_B.i++) {
             PlaneNavigationFilter_B.coffset = PlaneNavigationFilter_B.i * 18 - 1;
             memset(&PlaneNavigationFilter_B.K_n[PlaneNavigationFilter_B.coffset
                    + 1], 0, 18U * sizeof(real32_T));
             for (PlaneNavigationFilter_B.b_k = 0; PlaneNavigationFilter_B.b_k <
                     18; PlaneNavigationFilter_B.b_k++) {
-                PlaneNavigationFilter_B.bkj_m = A_1[PlaneNavigationFilter_B.b_k *
-                    9 + PlaneNavigationFilter_B.i];
+                PlaneNavigationFilter_B.bkj_m = A_1[(PlaneNavigationFilter_B.b_k
+                    << 3) + PlaneNavigationFilter_B.i];
                 for (PlaneNavigationFilter_B.c_i = 0;
                         PlaneNavigationFilter_B.c_i < 18;
                         PlaneNavigationFilter_B.c_i++) {
@@ -3009,35 +3023,37 @@ void PlaneNavigationFilter_step(void)
             }
         }
 
-        for (PlaneNavigationFilter_B.i = 0; PlaneNavigationFilter_B.i < 9;
+        for (PlaneNavigationFilter_B.i = 0; PlaneNavigationFilter_B.i < 8;
                 PlaneNavigationFilter_B.i++) {
             /* Start for MATLABSystem: '<S6>/MATLAB System' incorporates:
              *  Constant: '<S2>/R1'
              * */
-            memcpy(&PlaneNavigationFilter_B.K[PlaneNavigationFilter_B.i * 27],
+            memcpy(&PlaneNavigationFilter_B.K[PlaneNavigationFilter_B.i * 26],
                    &PlaneNavigationFilter_B.K_n[PlaneNavigationFilter_B.i * 18],
                    18U * sizeof(real32_T));
             for (PlaneNavigationFilter_B.coffset = 0;
-                    PlaneNavigationFilter_B.coffset < 9;
+                    PlaneNavigationFilter_B.coffset < 8;
                     PlaneNavigationFilter_B.coffset++) {
-                PlaneNavigationFilter_B.K[(PlaneNavigationFilter_B.coffset + 27 *
+                PlaneNavigationFilter_B.K[(PlaneNavigationFilter_B.coffset + 26 *
                     PlaneNavigationFilter_B.i) + 18] =
-                    PlaneNavigationFilter_P.R1_Value[9 *
-                    PlaneNavigationFilter_B.coffset + PlaneNavigationFilter_B.i];
+                    PlaneNavigationFilter_P.R1_Value
+                    [(PlaneNavigationFilter_B.coffset << 3) +
+                    PlaneNavigationFilter_B.i];
             }
         }
 
         /* MATLABSystem: '<S6>/MATLAB System' */
         PlaneNavigationFilter_qr(PlaneNavigationFilter_B.K,
             PlaneNavigationFilter_B.a__1_me, PlaneNavigationFilter_B.R);
-        for (PlaneNavigationFilter_B.i = 0; PlaneNavigationFilter_B.i < 9;
+        for (PlaneNavigationFilter_B.i = 0; PlaneNavigationFilter_B.i < 8;
                 PlaneNavigationFilter_B.i++) {
             for (PlaneNavigationFilter_B.coffset = 0;
-                    PlaneNavigationFilter_B.coffset < 9;
+                    PlaneNavigationFilter_B.coffset < 8;
                     PlaneNavigationFilter_B.coffset++) {
-                PlaneNavigationFilter_B.Sy[PlaneNavigationFilter_B.coffset + 9 *
-                    PlaneNavigationFilter_B.i] = PlaneNavigationFilter_B.R[9 *
-                    PlaneNavigationFilter_B.coffset + PlaneNavigationFilter_B.i];
+                PlaneNavigationFilter_B.Sy[PlaneNavigationFilter_B.coffset +
+                    (PlaneNavigationFilter_B.i << 3)] =
+                    PlaneNavigationFilter_B.R[(PlaneNavigationFilter_B.coffset <<
+                    3) + PlaneNavigationFilter_B.i];
             }
         }
 
@@ -3065,7 +3081,7 @@ void PlaneNavigationFilter_step(void)
             }
         }
 
-        for (PlaneNavigationFilter_B.i = 0; PlaneNavigationFilter_B.i < 9;
+        for (PlaneNavigationFilter_B.i = 0; PlaneNavigationFilter_B.i < 8;
                 PlaneNavigationFilter_B.i++) {
             for (PlaneNavigationFilter_B.coffset = 0;
                     PlaneNavigationFilter_B.coffset < 18;
@@ -3081,27 +3097,28 @@ void PlaneNavigationFilter_step(void)
                         PlaneNavigationFilter_B.i + PlaneNavigationFilter_B.b_k];
                 }
 
-                PlaneNavigationFilter_B.K_n[PlaneNavigationFilter_B.i + 9 *
-                    PlaneNavigationFilter_B.coffset] =
+                PlaneNavigationFilter_B.K_n[PlaneNavigationFilter_B.i +
+                    (PlaneNavigationFilter_B.coffset << 3)] =
                     PlaneNavigationFilter_B.t8;
             }
         }
 
         /* MATLABSystem: '<S6>/MATLAB System' */
         memcpy(&PlaneNavigationFilter_B.C[0], &PlaneNavigationFilter_B.K_n[0],
-               162U * sizeof(real32_T));
+               144U * sizeof(real32_T));
 
         /* Start for MATLABSystem: '<S6>/MATLAB System' */
         PlaneNavigationFilter_trisolve(PlaneNavigationFilter_B.Sy,
             PlaneNavigationFilter_B.C);
-        for (PlaneNavigationFilter_B.i = 0; PlaneNavigationFilter_B.i < 9;
+        for (PlaneNavigationFilter_B.i = 0; PlaneNavigationFilter_B.i < 8;
                 PlaneNavigationFilter_B.i++) {
             for (PlaneNavigationFilter_B.coffset = 0;
-                    PlaneNavigationFilter_B.coffset < 9;
+                    PlaneNavigationFilter_B.coffset < 8;
                     PlaneNavigationFilter_B.coffset++) {
-                PlaneNavigationFilter_B.R[PlaneNavigationFilter_B.coffset + 9 *
-                    PlaneNavigationFilter_B.i] = PlaneNavigationFilter_B.Sy[9 *
-                    PlaneNavigationFilter_B.coffset + PlaneNavigationFilter_B.i];
+                PlaneNavigationFilter_B.R[PlaneNavigationFilter_B.coffset +
+                    (PlaneNavigationFilter_B.i << 3)] =
+                    PlaneNavigationFilter_B.Sy[(PlaneNavigationFilter_B.coffset <<
+                    3) + PlaneNavigationFilter_B.i];
             }
         }
 
@@ -3109,18 +3126,19 @@ void PlaneNavigationFilter_step(void)
             PlaneNavigationFilter_B.C);
 
         /* MATLABSystem: '<S6>/MATLAB System' */
-        for (PlaneNavigationFilter_B.i = 0; PlaneNavigationFilter_B.i < 9;
+        for (PlaneNavigationFilter_B.i = 0; PlaneNavigationFilter_B.i < 8;
                 PlaneNavigationFilter_B.i++) {
             for (PlaneNavigationFilter_B.coffset = 0;
                     PlaneNavigationFilter_B.coffset < 18;
                     PlaneNavigationFilter_B.coffset++) {
                 PlaneNavigationFilter_B.K_n[PlaneNavigationFilter_B.coffset + 18
-                    * PlaneNavigationFilter_B.i] = PlaneNavigationFilter_B.C[9 *
-                    PlaneNavigationFilter_B.coffset + PlaneNavigationFilter_B.i];
+                    * PlaneNavigationFilter_B.i] = PlaneNavigationFilter_B.C
+                    [(PlaneNavigationFilter_B.coffset << 3) +
+                    PlaneNavigationFilter_B.i];
             }
         }
 
-        for (PlaneNavigationFilter_B.i = 0; PlaneNavigationFilter_B.i < 162;
+        for (PlaneNavigationFilter_B.i = 0; PlaneNavigationFilter_B.i < 144;
                 PlaneNavigationFilter_B.i++) {
             /* Start for MATLABSystem: '<S6>/MATLAB System' */
             PlaneNavigationFilter_B.C[PlaneNavigationFilter_B.i] =
@@ -3137,12 +3155,13 @@ void PlaneNavigationFilter_step(void)
                     PlaneNavigationFilter_B.coffset++) {
                 PlaneNavigationFilter_B.t8 = 0.0F;
                 for (PlaneNavigationFilter_B.b_k = 0;
-                        PlaneNavigationFilter_B.b_k < 9;
+                        PlaneNavigationFilter_B.b_k < 8;
                         PlaneNavigationFilter_B.b_k++) {
                     PlaneNavigationFilter_B.t8 += PlaneNavigationFilter_B.C[18 *
                         PlaneNavigationFilter_B.b_k +
-                        PlaneNavigationFilter_B.coffset] * (real32_T)A_1[9 *
-                        PlaneNavigationFilter_B.i + PlaneNavigationFilter_B.b_k];
+                        PlaneNavigationFilter_B.coffset] * (real32_T)A_1
+                        [(PlaneNavigationFilter_B.i << 3) +
+                        PlaneNavigationFilter_B.b_k];
                 }
 
                 PlaneNavigationFilter_B.A[PlaneNavigationFilter_B.coffset + 18 *
@@ -3181,7 +3200,7 @@ void PlaneNavigationFilter_step(void)
             }
         }
 
-        for (PlaneNavigationFilter_B.i = 0; PlaneNavigationFilter_B.i < 9;
+        for (PlaneNavigationFilter_B.i = 0; PlaneNavigationFilter_B.i < 8;
                 PlaneNavigationFilter_B.i++) {
             for (PlaneNavigationFilter_B.coffset = 0;
                     PlaneNavigationFilter_B.coffset < 18;
@@ -3191,17 +3210,18 @@ void PlaneNavigationFilter_step(void)
                  * */
                 PlaneNavigationFilter_B.t8 = 0.0F;
                 for (PlaneNavigationFilter_B.b_k = 0;
-                        PlaneNavigationFilter_B.b_k < 9;
+                        PlaneNavigationFilter_B.b_k < 8;
                         PlaneNavigationFilter_B.b_k++) {
                     PlaneNavigationFilter_B.t8 += PlaneNavigationFilter_B.K_n[18
                         * PlaneNavigationFilter_B.b_k +
                         PlaneNavigationFilter_B.coffset] *
-                        PlaneNavigationFilter_P.R1_Value[9 *
-                        PlaneNavigationFilter_B.i + PlaneNavigationFilter_B.b_k];
+                        PlaneNavigationFilter_P.R1_Value
+                        [(PlaneNavigationFilter_B.i << 3) +
+                        PlaneNavigationFilter_B.b_k];
                 }
 
-                PlaneNavigationFilter_B.C[PlaneNavigationFilter_B.i + 9 *
-                    PlaneNavigationFilter_B.coffset] =
+                PlaneNavigationFilter_B.C[PlaneNavigationFilter_B.i +
+                    (PlaneNavigationFilter_B.coffset << 3)] =
                     PlaneNavigationFilter_B.t8;
             }
         }
@@ -3209,15 +3229,15 @@ void PlaneNavigationFilter_step(void)
         for (PlaneNavigationFilter_B.i = 0; PlaneNavigationFilter_B.i < 18;
                 PlaneNavigationFilter_B.i++) {
             /* Start for MATLABSystem: '<S6>/MATLAB System' */
-            memcpy(&PlaneNavigationFilter_B.y_c[PlaneNavigationFilter_B.i * 27],
+            memcpy(&PlaneNavigationFilter_B.y_c[PlaneNavigationFilter_B.i * 26],
                    &PlaneNavigationFilter_B.y_cv[PlaneNavigationFilter_B.i * 18],
                    18U * sizeof(real32_T));
             for (PlaneNavigationFilter_B.coffset = 0;
-                    PlaneNavigationFilter_B.coffset < 9;
+                    PlaneNavigationFilter_B.coffset < 8;
                     PlaneNavigationFilter_B.coffset++) {
                 PlaneNavigationFilter_B.y_c[(PlaneNavigationFilter_B.coffset +
-                    27 * PlaneNavigationFilter_B.i) + 18] =
-                    PlaneNavigationFilter_B.C[9 * PlaneNavigationFilter_B.i +
+                    26 * PlaneNavigationFilter_B.i) + 18] =
+                    PlaneNavigationFilter_B.C[(PlaneNavigationFilter_B.i << 3) +
                     PlaneNavigationFilter_B.coffset];
             }
         }
@@ -3236,27 +3256,24 @@ void PlaneNavigationFilter_step(void)
         PlaneNavigationFilter_B.rtb_TmpSignalConversionAtMATLAB[0] =
             PlaneNavigationFilter_P.zerovel_Value[0] -
             PlaneNavigationFilter_DW.x[0];
-        PlaneNavigationFilter_B.rtb_TmpSignalConversionAtMATLAB[3] =
-            PlaneNavigationFilter_U.init_input.rpy_init[0] -
-            PlaneNavigationFilter_DW.x[3];
         PlaneNavigationFilter_B.rtb_TmpSignalConversionAtMATLAB[1] =
             PlaneNavigationFilter_P.zerovel_Value[1] -
             PlaneNavigationFilter_DW.x[1];
-        PlaneNavigationFilter_B.rtb_TmpSignalConversionAtMATLAB[4] =
-            PlaneNavigationFilter_U.init_input.rpy_init[1] -
-            PlaneNavigationFilter_DW.x[4];
         PlaneNavigationFilter_B.rtb_TmpSignalConversionAtMATLAB[2] =
             PlaneNavigationFilter_P.zerovel_Value[2] -
             PlaneNavigationFilter_DW.x[2];
+        PlaneNavigationFilter_B.rtb_TmpSignalConversionAtMATLAB[3] =
+            PlaneNavigationFilter_U.init_input.roll_pitch_init[0] -
+            PlaneNavigationFilter_DW.x[3];
+        PlaneNavigationFilter_B.rtb_TmpSignalConversionAtMATLAB[4] =
+            PlaneNavigationFilter_U.init_input.roll_pitch_init[1] -
+            PlaneNavigationFilter_DW.x[4];
         PlaneNavigationFilter_B.rtb_TmpSignalConversionAtMATLAB[5] =
-            PlaneNavigationFilter_U.init_input.rpy_init[2] -
-            PlaneNavigationFilter_DW.x[5];
-        PlaneNavigationFilter_B.rtb_TmpSignalConversionAtMATLAB[6] =
             PlaneNavigationFilter_P.zeroh_Value - PlaneNavigationFilter_DW.x[7];
-        PlaneNavigationFilter_B.rtb_TmpSignalConversionAtMATLAB[7] =
+        PlaneNavigationFilter_B.rtb_TmpSignalConversionAtMATLAB[6] =
             PlaneNavigationFilter_U.init_input.T0 - PlaneNavigationFilter_DW.x
             [15];
-        PlaneNavigationFilter_B.rtb_TmpSignalConversionAtMATLAB[8] =
+        PlaneNavigationFilter_B.rtb_TmpSignalConversionAtMATLAB[7] =
             PlaneNavigationFilter_U.init_input.P0 - PlaneNavigationFilter_DW.x
             [14];
         for (PlaneNavigationFilter_B.i = 0; PlaneNavigationFilter_B.i < 18;
@@ -3280,7 +3297,7 @@ void PlaneNavigationFilter_step(void)
              * */
             PlaneNavigationFilter_B.t8 = 0.0F;
             for (PlaneNavigationFilter_B.coffset = 0;
-                    PlaneNavigationFilter_B.coffset < 9;
+                    PlaneNavigationFilter_B.coffset < 8;
                     PlaneNavigationFilter_B.coffset++) {
                 PlaneNavigationFilter_B.t8 += PlaneNavigationFilter_B.K_n[18 *
                     PlaneNavigationFilter_B.coffset + PlaneNavigationFilter_B.i]
@@ -3739,7 +3756,7 @@ void PlaneNavigationFilter_step(void)
     /* StateTrans100HzJacSym */
     /*     [Jx,Jw] = StateTrans100HzJacSym(IN1,IN2,IN3) */
     /*     This function was generated by the Symbolic Math Toolbox version 24.2. */
-    /*     10-Apr-2026 23:03:41 */
+    /*     03-May-2026 03:01:40 */
     PlaneNavigationFilter_B.bkj = cosf(PlaneNavigationFilter_DW.x[3]);
     PlaneNavigationFilter_B.t3 = cosf(PlaneNavigationFilter_DW.x[4]);
     PlaneNavigationFilter_B.t4 = cosf(PlaneNavigationFilter_DW.x[5]);
@@ -3772,6 +3789,11 @@ void PlaneNavigationFilter_step(void)
     PlaneNavigationFilter_B.t31 = PlaneNavigationFilter_B.bkj / 100.0F;
     PlaneNavigationFilter_B.t32 = PlaneNavigationFilter_B.t5 / 100.0F;
     PlaneNavigationFilter_B.t33 = PlaneNavigationFilter_B.t6 / 100.0F;
+    PlaneNavigationFilter_B.t47 = PlaneNavigationFilter_B.bkj *
+        PlaneNavigationFilter_B.t3 * -0.01F;
+    PlaneNavigationFilter_B.t48_tmp = PlaneNavigationFilter_B.t3 *
+        PlaneNavigationFilter_B.t5;
+    PlaneNavigationFilter_B.t48 = PlaneNavigationFilter_B.t48_tmp * -0.01F;
     PlaneNavigationFilter_B.t18 = PlaneNavigationFilter_B.t6 *
         PlaneNavigationFilter_B.t11;
     PlaneNavigationFilter_B.t19 = PlaneNavigationFilter_B.t6 *
@@ -3784,17 +3806,15 @@ void PlaneNavigationFilter_step(void)
         PlaneNavigationFilter_B.t17;
     PlaneNavigationFilter_B.t41 = PlaneNavigationFilter_B.t5 *
         PlaneNavigationFilter_B.t16;
-    PlaneNavigationFilter_B.t43 = PlaneNavigationFilter_B.t3 *
-        PlaneNavigationFilter_B.t31;
-    PlaneNavigationFilter_B.t50 = PlaneNavigationFilter_B.t12 +
+    PlaneNavigationFilter_B.t52 = PlaneNavigationFilter_B.t12 +
         PlaneNavigationFilter_B.t20;
-    PlaneNavigationFilter_B.t51 = PlaneNavigationFilter_B.t13 +
+    PlaneNavigationFilter_B.t53 = PlaneNavigationFilter_B.t13 +
         PlaneNavigationFilter_B.t19;
-    PlaneNavigationFilter_B.t54 = PlaneNavigationFilter_B.t40 +
+    PlaneNavigationFilter_B.t56 = PlaneNavigationFilter_B.t40 +
         PlaneNavigationFilter_B.t41;
-    PlaneNavigationFilter_B.t52 = PlaneNavigationFilter_B.t11 -
+    PlaneNavigationFilter_B.t54 = PlaneNavigationFilter_B.t11 -
         PlaneNavigationFilter_B.t21;
-    PlaneNavigationFilter_B.t53 = PlaneNavigationFilter_B.t14 -
+    PlaneNavigationFilter_B.t55 = PlaneNavigationFilter_B.t14 -
         PlaneNavigationFilter_B.t18;
     PlaneNavigationFilter_B.t16 = PlaneNavigationFilter_B.bkj *
         PlaneNavigationFilter_B.t16 - PlaneNavigationFilter_B.t5 *
@@ -3851,7 +3871,10 @@ void PlaneNavigationFilter_step(void)
     PlaneNavigationFilter_B.t24 = PlaneNavigationFilter_B.t3 *
         PlaneNavigationFilter_B.t7;
 
-    /* MATLABSystem: '<S10>/MATLAB System' */
+    /* MATLABSystem: '<S10>/MATLAB System' incorporates:
+     *  DataStoreRead: '<S10>/Data Store ReadP'
+     *  DataStoreRead: '<S10>/Data Store ReadX'
+     */
     PlaneNavigationFilter_B.y_cv[34] = PlaneNavigationFilter_B.t24 * -0.01F;
     PlaneNavigationFilter_B.y_cv[35] = PlaneNavigationFilter_B.t11 / 100.0F -
         PlaneNavigationFilter_B.t21 / 100.0F;
@@ -3864,13 +3887,7 @@ void PlaneNavigationFilter_step(void)
     PlaneNavigationFilter_B.y_cv[40] = 0.0F;
     PlaneNavigationFilter_B.y_cv[41] = 0.0F;
     PlaneNavigationFilter_B.y_cv[42] = 0.0F;
-
-    /* Start for MATLABSystem: '<S10>/MATLAB System' */
-    PlaneNavigationFilter_B.t22 = PlaneNavigationFilter_B.bkj *
-        PlaneNavigationFilter_B.t3;
-
-    /* MATLABSystem: '<S10>/MATLAB System' */
-    PlaneNavigationFilter_B.y_cv[43] = PlaneNavigationFilter_B.t22 * -0.01F;
+    PlaneNavigationFilter_B.y_cv[43] = PlaneNavigationFilter_B.t47;
     PlaneNavigationFilter_B.y_cv[44] = 0.0F;
     PlaneNavigationFilter_B.y_cv[45] = 0.0F;
     PlaneNavigationFilter_B.y_cv[46] = 0.0F;
@@ -3880,20 +3897,12 @@ void PlaneNavigationFilter_step(void)
     PlaneNavigationFilter_B.y_cv[50] = 0.0F;
     PlaneNavigationFilter_B.y_cv[51] = 0.0F;
     PlaneNavigationFilter_B.y_cv[52] = PlaneNavigationFilter_B.t33;
-
-    /* Start for MATLABSystem: '<S10>/MATLAB System' */
-    PlaneNavigationFilter_B.t23 = PlaneNavigationFilter_B.t3 *
-        PlaneNavigationFilter_B.t5;
-
-    /* MATLABSystem: '<S10>/MATLAB System' incorporates:
-     *  DataStoreRead: '<S10>/Data Store ReadX'
-     */
-    PlaneNavigationFilter_B.y_cv[53] = PlaneNavigationFilter_B.t23 * -0.01F;
+    PlaneNavigationFilter_B.y_cv[53] = PlaneNavigationFilter_B.t48;
     PlaneNavigationFilter_B.y_cv[54] = 0.0F;
-    PlaneNavigationFilter_B.y_cv[55] = PlaneNavigationFilter_B.t43 *
+    PlaneNavigationFilter_B.y_cv[55] = PlaneNavigationFilter_B.t47 *
         PlaneNavigationFilter_DW.x[6];
-    PlaneNavigationFilter_B.y_cv[56] = PlaneNavigationFilter_B.t23 *
-        PlaneNavigationFilter_DW.x[6] * -0.01F;
+    PlaneNavigationFilter_B.y_cv[56] = PlaneNavigationFilter_B.t3 *
+        PlaneNavigationFilter_B.t32 * PlaneNavigationFilter_DW.x[6];
     PlaneNavigationFilter_B.y_cv[57] = PlaneNavigationFilter_B.t8 *
         PlaneNavigationFilter_B.t16 / 100.0F + 1.0F;
     PlaneNavigationFilter_B.y_cv[58] = PlaneNavigationFilter_B.t40 * -0.01F -
@@ -3901,10 +3910,10 @@ void PlaneNavigationFilter_step(void)
     PlaneNavigationFilter_B.y_cv[59] = PlaneNavigationFilter_B.t15 *
         PlaneNavigationFilter_B.t16 / 100.0F;
     PlaneNavigationFilter_B.y_cv[60] = 0.0F;
-    PlaneNavigationFilter_B.y_cv[61] = (PlaneNavigationFilter_B.t50 *
-        PlaneNavigationFilter_DW.x[0] * -0.01F - PlaneNavigationFilter_B.t52 *
-        PlaneNavigationFilter_DW.x[1] / 100.0F) + PlaneNavigationFilter_B.t23 *
-        PlaneNavigationFilter_B.t27;
+    PlaneNavigationFilter_B.y_cv[61] = (PlaneNavigationFilter_B.t52 *
+        PlaneNavigationFilter_DW.x[0] * -0.01F - PlaneNavigationFilter_B.t54 *
+        PlaneNavigationFilter_DW.x[1] / 100.0F) +
+        PlaneNavigationFilter_B.t48_tmp * PlaneNavigationFilter_B.t27;
     PlaneNavigationFilter_B.y_cv[62] = 0.0F;
     PlaneNavigationFilter_B.y_cv[63] = 0.0F;
     PlaneNavigationFilter_B.y_cv[64] = 0.0F;
@@ -3914,46 +3923,29 @@ void PlaneNavigationFilter_step(void)
     PlaneNavigationFilter_B.y_cv[68] = 0.0F;
     PlaneNavigationFilter_B.y_cv[69] = 0.0F;
     PlaneNavigationFilter_B.y_cv[70] = 0.0F;
-    PlaneNavigationFilter_B.y_cv[71] = (PlaneNavigationFilter_B.t51 *
-        PlaneNavigationFilter_DW.x[1] * -0.01F - PlaneNavigationFilter_B.t53 *
-        PlaneNavigationFilter_DW.x[0] / 100.0F) - PlaneNavigationFilter_B.t22 *
-        PlaneNavigationFilter_DW.x[2] / 100.0F;
+    PlaneNavigationFilter_B.y_cv[71] = (PlaneNavigationFilter_B.t47 *
+        PlaneNavigationFilter_DW.x[2] - PlaneNavigationFilter_B.t53 *
+        PlaneNavigationFilter_DW.x[1] / 100.0F) - PlaneNavigationFilter_B.t55 *
+        PlaneNavigationFilter_DW.x[0] / 100.0F;
     PlaneNavigationFilter_B.y_cv[72] = PlaneNavigationFilter_B.t3 *
-        PlaneNavigationFilter_DW.x[6] * -0.01F;
-
-    /* Start for MATLABSystem: '<S10>/MATLAB System' */
-    PlaneNavigationFilter_B.t22 = PlaneNavigationFilter_B.t5 *
-        PlaneNavigationFilter_B.t6;
-
-    /* MATLABSystem: '<S10>/MATLAB System' incorporates:
-     *  DataStoreRead: '<S10>/Data Store ReadX'
-     */
-    PlaneNavigationFilter_B.y_cv[73] = PlaneNavigationFilter_B.t22 *
-        PlaneNavigationFilter_DW.x[6] * -0.01F;
-
-    /* Start for MATLABSystem: '<S10>/MATLAB System' */
-    PlaneNavigationFilter_B.t23 = PlaneNavigationFilter_B.bkj *
-        PlaneNavigationFilter_B.t6;
-
-    /* MATLABSystem: '<S10>/MATLAB System' incorporates:
-     *  DataStoreRead: '<S10>/Data Store ReadP'
-     *  DataStoreRead: '<S10>/Data Store ReadX'
-     */
-    PlaneNavigationFilter_B.y_cv[74] = PlaneNavigationFilter_B.t23 *
-        PlaneNavigationFilter_DW.x[6] * -0.01F;
+        PlaneNavigationFilter_DW.x[6] / 100.0F;
+    PlaneNavigationFilter_B.y_cv[73] = PlaneNavigationFilter_B.t6 *
+        PlaneNavigationFilter_B.t32 * PlaneNavigationFilter_DW.x[6];
+    PlaneNavigationFilter_B.y_cv[74] = PlaneNavigationFilter_B.t6 *
+        PlaneNavigationFilter_B.t31 * PlaneNavigationFilter_DW.x[6];
     PlaneNavigationFilter_B.y_cv[75] = (PlaneNavigationFilter_B.t8 *
-        PlaneNavigationFilter_B.t8 + 1.0F) * PlaneNavigationFilter_B.t54 /
+        PlaneNavigationFilter_B.t8 + 1.0F) * PlaneNavigationFilter_B.t56 /
         100.0F;
     PlaneNavigationFilter_B.y_cv[76] = 1.0F;
     PlaneNavigationFilter_B.y_cv[77] = PlaneNavigationFilter_B.t15 *
         PlaneNavigationFilter_B.t15 * PlaneNavigationFilter_B.t33 *
-        PlaneNavigationFilter_B.t54;
+        PlaneNavigationFilter_B.t56;
     PlaneNavigationFilter_B.y_cv[78] = 0.0F;
-    PlaneNavigationFilter_B.y_cv[79] = (PlaneNavigationFilter_B.t3 *
-        PlaneNavigationFilter_B.t11 * PlaneNavigationFilter_B.t25 +
-        PlaneNavigationFilter_B.t23 * PlaneNavigationFilter_B.t27) -
-        PlaneNavigationFilter_B.t3 * PlaneNavigationFilter_B.t12 *
-        PlaneNavigationFilter_DW.x[1] / 100.0F;
+    PlaneNavigationFilter_B.y_cv[79] = (PlaneNavigationFilter_B.bkj *
+        PlaneNavigationFilter_B.t6 * PlaneNavigationFilter_B.t27 +
+        PlaneNavigationFilter_B.t3 * PlaneNavigationFilter_B.t11 *
+        PlaneNavigationFilter_B.t25) - PlaneNavigationFilter_B.t3 *
+        PlaneNavigationFilter_B.t12 * PlaneNavigationFilter_DW.x[1] / 100.0F;
     PlaneNavigationFilter_B.y_cv[80] = 0.0F;
     PlaneNavigationFilter_B.y_cv[81] = 0.0F;
     PlaneNavigationFilter_B.y_cv[82] = 0.0F;
@@ -3967,11 +3959,11 @@ void PlaneNavigationFilter_step(void)
         PlaneNavigationFilter_B.t3 * PlaneNavigationFilter_B.t27) -
         PlaneNavigationFilter_B.t4 * PlaneNavigationFilter_B.t6 *
         PlaneNavigationFilter_DW.x[0] / 100.0F;
-    PlaneNavigationFilter_B.y_cv[89] = (PlaneNavigationFilter_B.t3 *
-        PlaneNavigationFilter_B.t13 * PlaneNavigationFilter_B.t25 +
-        PlaneNavigationFilter_B.t22 * PlaneNavigationFilter_B.t27) -
-        PlaneNavigationFilter_B.t3 * PlaneNavigationFilter_B.t14 *
-        PlaneNavigationFilter_DW.x[1] / 100.0F;
+    PlaneNavigationFilter_B.y_cv[89] = (PlaneNavigationFilter_B.t5 *
+        PlaneNavigationFilter_B.t6 * PlaneNavigationFilter_B.t27 +
+        PlaneNavigationFilter_B.t3 * PlaneNavigationFilter_B.t13 *
+        PlaneNavigationFilter_B.t25) - PlaneNavigationFilter_B.t3 *
+        PlaneNavigationFilter_B.t14 * PlaneNavigationFilter_DW.x[1] / 100.0F;
     PlaneNavigationFilter_B.y_cv[90] = 0.0F;
     PlaneNavigationFilter_B.y_cv[91] = 0.0F;
     PlaneNavigationFilter_B.y_cv[92] = 0.0F;
@@ -3980,7 +3972,7 @@ void PlaneNavigationFilter_step(void)
     PlaneNavigationFilter_B.y_cv[95] = 1.0F;
     PlaneNavigationFilter_B.y_cv[96] = 0.0F;
     PlaneNavigationFilter_B.y_cv[97] = PlaneNavigationFilter_B.residue *
-        PlaneNavigationFilter_B.t53 - PlaneNavigationFilter_B.t51 *
+        PlaneNavigationFilter_B.t55 - PlaneNavigationFilter_B.t53 *
         PlaneNavigationFilter_DW.x[0] / 100.0F;
     PlaneNavigationFilter_B.y_cv[98] = 0.0F;
     PlaneNavigationFilter_B.y_cv[99] = 0.0F;
@@ -3994,12 +3986,11 @@ void PlaneNavigationFilter_step(void)
         PlaneNavigationFilter_DW.x[1] * -0.01F - PlaneNavigationFilter_B.t24 *
         PlaneNavigationFilter_DW.x[0] / 100.0F;
     PlaneNavigationFilter_B.y_cv[107] = PlaneNavigationFilter_B.t25 *
-        PlaneNavigationFilter_B.t52 - PlaneNavigationFilter_B.t50 *
+        PlaneNavigationFilter_B.t54 - PlaneNavigationFilter_B.t52 *
         PlaneNavigationFilter_DW.x[1] / 100.0F;
-    PlaneNavigationFilter_B.y_cv[108] = -PlaneNavigationFilter_B.t33;
-    PlaneNavigationFilter_B.y_cv[109] = PlaneNavigationFilter_B.t3 *
-        PlaneNavigationFilter_B.t32;
-    PlaneNavigationFilter_B.y_cv[110] = PlaneNavigationFilter_B.t43;
+    PlaneNavigationFilter_B.y_cv[108] = PlaneNavigationFilter_B.t33;
+    PlaneNavigationFilter_B.y_cv[109] = PlaneNavigationFilter_B.t48;
+    PlaneNavigationFilter_B.y_cv[110] = PlaneNavigationFilter_B.t47;
     PlaneNavigationFilter_B.y_cv[111] = 0.0F;
     PlaneNavigationFilter_B.y_cv[112] = 0.0F;
     PlaneNavigationFilter_B.y_cv[113] = 0.0F;

@@ -7,9 +7,9 @@
 #include "imu.h"
 #include "barometer.h"
 #include "lora.h"
-#include "KalmanFilter2.hpp"
+#include "KalmanFilter.hpp"
 
-
+KalmanFilter kf;
 SPIClass SPI2(FSPI);
 TwoWire I2C1(0);
 
@@ -37,7 +37,12 @@ void setup(void)
 	SPI2.begin(SPI2_SCK, SPI2_MISO, SPI2_MOSI, -1);
 	// TODO: Set speed
 
-	message_queue_init();
+	if (!message_queue_init()) {
+		while (true) {
+			Serial.println("Error initializing message queue");
+			delay(500);
+		}
+	}
 
 	imu_setup();
 
@@ -82,7 +87,6 @@ TASK imu_task(TaskDescriptor_t *self)
 {
 	self->last_wake = xTaskGetTickCount();
 	FIFO_Sample sample;
-	KalmanFilter& kf = KalmanFilter::getInstance();
 	message_t msg;
 
 	while (true) {
@@ -114,7 +118,6 @@ TASK barometer_task(TaskDescriptor_t *self)
 {
 	self->last_wake = xTaskGetTickCount();
 	BaroData sample1, sample2;
-	KalmanFilter& kf = KalmanFilter::getInstance();
 	message_t msg;
 
 	while (true) {
@@ -128,8 +131,8 @@ TASK barometer_task(TaskDescriptor_t *self)
 		);
 		message_queue_enqueue(&msg, 100);
 
-		msg = MESSAGE(LOG_STR("[KF]: State"), (int32_t)kf.getKFState());
-			message_queue_enqueue(&msg, 100);
+//		msg = MESSAGE(LOG_STR("[KF]: State"), (int32_t)kf.getKFState());
+//		message_queue_enqueue(&msg, 100);
 
 		TASK_WAIT_HZ(self, BARO_TASK_HZ);
 	}

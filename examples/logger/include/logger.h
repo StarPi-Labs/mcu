@@ -25,7 +25,7 @@ struct ivec3 {
 };
 
 // TODO: align or pack this struct
-typedef struct {
+typedef struct __attribute__((aligned(4))) {
 	uint64_t timestamp; // unix timestamp in microseconds
 	message_type_t type;
 	const char *description;
@@ -148,9 +148,6 @@ typedef QueueHandle_t message_queue_t;
 
 // Number of elements in a queue
 #define MESSAGE_QUEUE_SIZE 128
-
-// The symbol of the message queue
-extern message_queue_t DEFAULT_QUEUE;
 
 // Function declarations
 bool message_queue_init();

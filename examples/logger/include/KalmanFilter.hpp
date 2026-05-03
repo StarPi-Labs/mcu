@@ -51,6 +51,8 @@ private:
     // Threshold separating boost from coast (vertical accel in m/s²)
     static constexpr float a_boost = 15.0f * g0;
 
+
+    public:
     KalmanFilter()
     {
         x[0] = 0.0f; x[1] = 0.0f;
@@ -63,15 +65,6 @@ private:
     }
 
     ~KalmanFilter() {}
-
-public:
-    static KalmanFilter& getInstance()
-    {
-        static unsigned char mem[sizeof(KalmanFilter)];
-        static KalmanFilter* pt = nullptr;
-        if (!pt) pt = new (mem) KalmanFilter();
-        return *pt;
-    }
 
     ObservedState getState() const
     {

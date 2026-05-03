@@ -19,7 +19,7 @@ static uint8_t default_queue_buffer[MESSAGE_QUEUE_SIZE * sizeof(message_t)] __at
 static StaticQueue_t default_queue_desc;
 
 // default message queue, this is initialized in message_queue_init()
-message_queue_t DEFAULT_QUEUE = NULL;
+static message_queue_t DEFAULT_QUEUE = NULL;
 
 
 // initialize the default message queue, this should be called before using any

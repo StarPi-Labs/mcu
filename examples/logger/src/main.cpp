@@ -123,7 +123,7 @@ TASK barometer_task(TaskDescriptor_t *self)
 	while (true) {
 		barometer_read(&sample1, &sample2);
 
-		kf.update(sample1.pressure, sample1.temperature + 273.15f);
+		kf.update(sample1.pressure*1e-3f, sample1.temperature + 273.15f);
 
 		msg = MESSAGE(
 			LOG_STR("[BARO]: Altitude"),

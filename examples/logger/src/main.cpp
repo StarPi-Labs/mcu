@@ -7,7 +7,7 @@
 #include "imu.h"
 #include "barometer.h"
 #include "lora.h"
-#include "KalmanFilter.hpp"
+#include "KalmanFilter2.hpp"
 
 
 SPIClass SPI2(FSPI);
@@ -116,7 +116,6 @@ TASK barometer_task(TaskDescriptor_t *self)
 	BaroData sample1, sample2;
 	KalmanFilter& kf = KalmanFilter::getInstance();
 	message_t msg;
-	KFState last_kf_state = kf.getKFState();
 
 	while (true) {
 		barometer_read(&sample1, &sample2);
@@ -129,12 +128,8 @@ TASK barometer_task(TaskDescriptor_t *self)
 		);
 		message_queue_enqueue(&msg, 100);
 
-		KFState current_kf_state = kf.getKFState();
-		if (current_kf_state != last_kf_state) {
-			msg = MESSAGE(LOG_STR("[KF]: State"), (int32_t)current_kf_state);
+		msg = MESSAGE(LOG_STR("[KF]: State"), (int32_t)kf.getKFState());
 			message_queue_enqueue(&msg, 100);
-			last_kf_state = current_kf_state;
-		}
 
 		TASK_WAIT_HZ(self, BARO_TASK_HZ);
 	}

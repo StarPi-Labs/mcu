@@ -27,9 +27,9 @@ ObservedState KalmanFilter::getState() const {
     return ObservedState{
         .altitude = PlaneNavigationFilter_Y.EkfState.h,
         .altitude_rate = 0,
-        .roll = PlaneNavigationFilter_Y.EkfState.rpy[0] * 180.0f / M_PI,
-        .pitch = PlaneNavigationFilter_Y.EkfState.rpy[1] * 180.0f / M_PI,
-        .yaw = PlaneNavigationFilter_Y.EkfState.rpy[2] * 180.0f / M_PI,
+        .roll = PlaneNavigationFilter_Y.EkfState.rpy[0] * 180.0f / (float)M_PI,
+        .pitch = PlaneNavigationFilter_Y.EkfState.rpy[1] * 180.0f / (float)M_PI,
+        .yaw = PlaneNavigationFilter_Y.EkfState.rpy[2] * 180.0f / (float)M_PI,
     };
 }
 

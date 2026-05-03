@@ -70,9 +70,9 @@ public:
   /// memory management
   ~SList() = default;
 
-  // Prevent copying (for embedded systems with limited memory)
-  SList(const SList&) = delete;
-  SList& operator=(const SList&) = delete;
+  // Allow copying (shallow copy of pointers, caller must manage node lifetimes)
+  SList(const SList&) = default;
+  SList& operator=(const SList&) = default;
 
   // Allow moving
   SList(SList&& other) noexcept
@@ -109,10 +109,11 @@ public:
   node_type* pop_front()
   {
     assert(m_head && "List is empty");
-    auto* temp = m_head;
+    node_type* removed = m_head;
     m_head = m_head->next;
-    temp->next = nullptr;
-    return temp;
+
+    removed->next = nullptr;
+    return removed;
   }
 
   /**
@@ -142,7 +143,7 @@ public:
   {
     size_t count = 0;
 
-    for (auto* curr = m_head; curr != nullptr; curr = curr->next)
+    for (node_type* curr = m_head; curr != nullptr; curr = curr->next)
       ++count;
 
     return count;
@@ -158,13 +159,14 @@ public:
    * @brief Insert node after iterator position in O(1)
    * Caller owns the node and is responsible for deallocation
    */
-  iterator insert_after(iterator pos, node_type* node)
+  iterator insert_after(const_iterator pos, node_type* node)
   {
     assert(node && "Node is null");
 
     if (pos.m_current) {
-      node->next = pos.m_current->next;
-      pos.m_current->next = node;
+      node_type* current = const_cast<node_type*>(pos.m_current);
+      node->next = current->next;
+      current->next = node;
     } else {
       node->next = m_head;
       m_head = node;
@@ -176,15 +178,46 @@ public:
    * @brief Remove node after iterator position in O(1)
    * Returns the removed node (caller must delete it)
    */
-  node_type* erase_after(iterator pos)
+  node_type* erase_after(const_iterator pos)
   {
     assert(pos.m_current && "Iterator is invalid");
     assert(pos.m_current->next && "Iterator is at end");
 
-    auto* temp = pos.m_current->next;
-    pos.m_current->next = temp->next;
-    temp->next = nullptr;
-    return temp;
+    node_type* current = const_cast<node_type*>(pos.m_current);
+    node_type* removed = current->next;
+    current->next = removed->next;
+    removed->next = nullptr;
+    return removed;
+  }
+
+  /**
+   * @brief Swap contents with another SList
+   */
+  void swap(SList& other) noexcept
+  {
+    using std::swap;
+    swap(m_head, other.m_head);
+  }
+
+  /**
+   * @brief Get maximum size
+   */
+  size_t max_size() const { return static_cast<size_t>(-1); }
+
+  /**
+   * @brief Reverse the order of elements
+   */
+  void reverse() noexcept
+  {
+    node_type* prev = nullptr;
+    node_type* current = m_head;
+    while (current) {
+      node_type* next = current->next;
+      current->next = prev;
+      prev = current;
+      current = next;
+    }
+    m_head = prev;
   }
 
   // Iterators
@@ -296,6 +329,7 @@ public:
     }
 
   private:
+    friend class SList;
     const node_type* m_current;
   };
 
@@ -318,10 +352,14 @@ public:
   using pointer = T*;
   using reference = T&;
   using const_reference = const T&;
+  using size_type = std::size_t;
   using node_type = DNode<T>;
 
   class iterator;
   class const_iterator;
+
+  using reverse_iterator = std::reverse_iterator<iterator>;
+  using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
   DTailList()
       : m_head(nullptr), m_tail(nullptr)
@@ -364,11 +402,10 @@ public:
     node->next = m_head;
     node->prev = nullptr;
 
-    if (m_head) {
+    if (m_head)
       m_head->prev = node;
-    } else {
+    else
       m_tail = node;
-    }
     m_head = node;
   }
 
@@ -397,7 +434,7 @@ public:
   node_type* pop_front()
   {
     assert(m_head && "List is empty");
-    auto* temp = m_head;
+    node_type* removed = m_head;
     m_head = m_head->next;
 
     if (m_head)
@@ -405,9 +442,9 @@ public:
     else
       m_tail = nullptr;
 
-    temp->next = nullptr;
-    temp->prev = nullptr;
-    return temp;
+    removed->next = nullptr;
+    removed->prev = nullptr;
+    return removed;
   }
 
   /**
@@ -417,7 +454,7 @@ public:
   node_type* pop_back()
   {
     assert(m_tail && "List is empty");
-    auto* temp = m_tail;
+    node_type* removed = m_tail;
     m_tail = m_tail->prev;
 
     if (m_tail)
@@ -425,9 +462,8 @@ public:
     else
       m_head = nullptr;
 
-    temp->next = nullptr;
-    temp->prev = nullptr;
-    return temp;
+    removed->prev = removed->next = nullptr;
+    return removed;
   }
 
   /**
@@ -464,14 +500,18 @@ public:
   bool empty() const { return m_head == nullptr; }
 
   /**
+   * @brief Get maximum size
+   */
+  size_type max_size() const { return static_cast<size_type>(-1); }
+
+  /**
    * @brief Get number of elements
    */
   size_t size() const
   {
     size_t count = 0;
-    for (auto* curr = m_head; curr != nullptr; curr = curr->next) {
+    for (node_type* curr = m_head; curr != nullptr; curr = curr->next)
       ++count;
-    }
     return count;
   }
 
@@ -489,7 +529,7 @@ public:
    * @brief Insert node before iterator position in O(1)
    * Caller owns the node and is responsible for deallocation
    */
-  iterator insert(iterator pos, node_type* node)
+  iterator insert(const_iterator pos, node_type* node)
   {
     assert(node && "Node is null");
 
@@ -501,11 +541,11 @@ public:
     node->next = pos.m_current;
     node->prev = pos.m_current->prev;
 
-    if (pos.m_current->prev) {
+    if (pos.m_current->prev)
       pos.m_current->prev->next = node;
-    } else {
+    else
       m_head = node;
-    }
+
     pos.m_current->prev = node;
     return iterator(node);
   }
@@ -514,38 +554,86 @@ public:
    * @brief Remove node at iterator position in O(1)
    * Returns the removed node (caller must delete it)
    */
-  node_type* erase(iterator pos)
+  node_type* erase(const_iterator pos)
   {
     assert(pos.m_current && "Iterator is invalid");
 
-    node_type* temp = pos.m_current;
-    node_type* next = pos.m_current->next;
+    node_type* removed = const_cast<node_type*>(pos.m_current);
 
-    if (pos.m_current->prev) {
-      pos.m_current->prev->next = pos.m_current->next;
+    if (removed->prev) {
+      removed->prev->next = removed->next;
     } else {
-      m_head = pos.m_current->next;
+      m_head = removed->next;
     }
 
-    if (pos.m_current->next) {
-      pos.m_current->next->prev = pos.m_current->prev;
+    if (removed->next) {
+      removed->next->prev = removed->prev;
     } else {
-      m_tail = pos.m_current->prev;
+      m_tail = removed->prev;
     }
 
-    temp->next = nullptr;
-    temp->prev = nullptr;
-    return temp;
+    removed->next = nullptr;
+    removed->prev = nullptr;
+    return removed;
+  }
+
+  /**
+   * @brief Swap contents with another DTailList
+   */
+  void swap(DTailList& other) noexcept
+  {
+    using std::swap;
+    swap(m_head, other.m_head);
+    swap(m_tail, other.m_tail);
+  }
+
+  /**
+   * @brief Reverse the order of elements
+   */
+  void reverse() noexcept
+  {
+    m_tail = m_head;
+
+    node_type* current = m_head;
+    node_type* previous = nullptr;
+    while (current) {
+      node_type* next = current->next;
+      current->next = previous;
+      current->prev = next;
+      previous = current;
+      current = next;
+    }
+    m_head = previous;
   }
 
   // Iterators
   iterator begin() { return iterator(m_head); }
-  const_iterator begin() const { return const_iterator(m_head); }
-  const_iterator cbegin() const { return const_iterator(m_head); }
+  const_iterator begin() const { return const_iterator(m_head, this); }
+  const_iterator cbegin() const { return const_iterator(m_head, this); }
 
-  iterator end() { return iterator(nullptr); }
-  const_iterator end() const { return const_iterator(nullptr); }
-  const_iterator cend() const { return const_iterator(nullptr); }
+  reverse_iterator rbegin() { return reverse_iterator(end()); }
+  const_reverse_iterator rbegin() const
+  {
+    return const_reverse_iterator(end());
+  }
+  const_reverse_iterator crbegin() const
+  {
+    return const_reverse_iterator(cend());
+  }
+
+  iterator end() { return iterator(nullptr, this); }
+  const_iterator end() const { return const_iterator(nullptr, this); }
+  const_iterator cend() const { return const_iterator(nullptr, this); }
+
+  reverse_iterator rend() { return reverse_iterator(begin()); }
+  const_reverse_iterator rend() const
+  {
+    return const_reverse_iterator(begin());
+  }
+  const_reverse_iterator crend() const
+  {
+    return const_reverse_iterator(cbegin());
+  }
 
   class iterator
   {
@@ -557,11 +645,11 @@ public:
     using iterator_category = std::bidirectional_iterator_tag;
 
     iterator()
-        : m_current(nullptr)
+        : m_current(nullptr), m_owner(nullptr)
     {
     }
-    explicit iterator(node_type* node)
-        : m_current(node)
+    explicit iterator(node_type* node, const DTailList* owner = nullptr)
+        : m_current(node), m_owner(owner)
     {
     }
 
@@ -584,8 +672,11 @@ public:
 
     iterator& operator--()
     {
-      if (m_current)
+      if (m_current) {
         m_current = m_current->prev;
+      } else if (m_owner) {
+        m_current = m_owner->m_tail;
+      }
       return *this;
     }
 
@@ -608,7 +699,9 @@ public:
 
   private:
     friend class DTailList;
+    friend class const_iterator;
     node_type* m_current;
+    const DTailList* m_owner;
   };
 
   class const_iterator
@@ -621,15 +714,16 @@ public:
     using iterator_category = std::bidirectional_iterator_tag;
 
     const_iterator()
-        : m_current(nullptr)
+        : m_current(nullptr), m_owner(nullptr)
     {
     }
-    explicit const_iterator(const node_type* node)
-        : m_current(node)
+    explicit const_iterator(const node_type* node,
+                            const DTailList* owner = nullptr)
+        : m_current(node), m_owner(owner)
     {
     }
     const_iterator(const iterator& other)
-        : m_current(other.m_current)
+        : m_current(other.m_current), m_owner(other.m_owner)
     {
     }
 
@@ -652,8 +746,11 @@ public:
 
     const_iterator& operator--()
     {
-      if (m_current)
+      if (m_current) {
         m_current = m_current->prev;
+      } else if (m_owner) {
+        m_current = m_owner->m_tail;
+      }
       return *this;
     }
 
@@ -675,7 +772,9 @@ public:
     }
 
   private:
+    friend class DTailList;
     const node_type* m_current;
+    const DTailList* m_owner;
   };
 
 private:
@@ -750,14 +849,14 @@ public:
   {
     assert(m_head && "List is empty");
 
-    auto* temp = m_head;
+    node_type* removed = m_head;
     m_head = m_head->next;
 
     if (!m_head)
       m_tail = nullptr;
 
-    temp->next = nullptr;
-    return temp;
+    removed->next = nullptr;
+    return removed;
   }
 
   // O(n) for singly list (no prev pointer)
@@ -765,17 +864,17 @@ public:
   {
     assert(m_head && "List is empty");
     if (m_head == m_tail) {
-      auto* temp = m_head;
+      node_type* removed = m_head;
       m_head = m_tail = nullptr;
-      return temp;
+      return removed;
     }
     node_type* prev = m_head;
     while (prev->next != m_tail)
       prev = prev->next;
-    auto* temp = m_tail;
+    node_type* removed = m_tail;
     prev->next = nullptr;
     m_tail = prev;
-    return temp;
+    return removed;
   }
 
   reference front()
@@ -805,21 +904,21 @@ public:
   size_t size() const
   {
     size_t count = 0;
-    for (auto* curr = m_head; curr != nullptr; curr = curr->next) {
+    for (node_type* curr = m_head; curr != nullptr; curr = curr->next)
       ++count;
-    }
     return count;
   }
 
   void clear() { m_head = m_tail = nullptr; }
 
-  iterator insert_after(iterator pos, node_type* node)
+  iterator insert_after(const_iterator pos, node_type* node)
   {
     assert(node && "Node is null");
 
     if (pos.m_current) {
-      node->next = pos.m_current->next;
-      pos.m_current->next = node;
+      node_type* current = const_cast<node_type*>(pos.m_current);
+      node->next = current->next;
+      current->next = node;
       if (!node->next)
         m_tail = node;
     } else {
@@ -831,16 +930,49 @@ public:
     return iterator(node);
   }
 
-  node_type* erase_after(iterator pos)
+  node_type* erase_after(const_iterator pos)
   {
     assert(pos.m_current && "Iterator is invalid");
     assert(pos.m_current->next && "Iterator is at end");
-    auto* temp = pos.m_current->next;
-    pos.m_current->next = temp->next;
-    if (!pos.m_current->next)
-      m_tail = pos.m_current;
-    temp->next = nullptr;
-    return temp;
+    node_type* current = const_cast<node_type*>(pos.m_current);
+    node_type* removed = current->next;
+    current->next = removed->next;
+    if (!current->next)
+      m_tail = current;
+    removed->next = nullptr;
+    return removed;
+  }
+
+  /**
+   * @brief Swap contents with another STailList
+   */
+  void swap(STailList& other) noexcept
+  {
+    using std::swap;
+    swap(m_head, other.m_head);
+    swap(m_tail, other.m_tail);
+  }
+
+  /**
+   * @brief Get maximum size
+   */
+  size_t max_size() const { return static_cast<size_t>(-1); }
+
+  /**
+   * @brief Reverse the order of elements
+   */
+  void reverse() noexcept
+  {
+    m_tail = m_head;
+    node_type* prev = nullptr;
+    node_type* current = m_head;
+    while (current) {
+      node_type* next = current->next;
+      current->next = prev;
+      prev = current;
+      current = next;
+    }
+    m_head = prev;
   }
 
   iterator begin() { return iterator(m_head); }
@@ -897,6 +1029,7 @@ public:
 
   private:
     friend class STailList;
+    friend class const_iterator;
     node_type* m_current;
   };
 
@@ -949,6 +1082,7 @@ public:
     }
 
   private:
+    friend class STailList;
     const node_type* m_current;
   };
 
@@ -966,10 +1100,14 @@ public:
   using pointer = T*;
   using reference = T&;
   using const_reference = const T&;
+  using size_type = std::size_t;
   using node_type = DNode<T>;
 
   class iterator;
   class const_iterator;
+
+  using reverse_iterator = std::reverse_iterator<iterator>;
+  using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
   DList()
       : m_head(nullptr)
@@ -1032,13 +1170,13 @@ public:
   node_type* pop_front()
   {
     assert(m_head && "List is empty");
-    auto* temp = m_head;
+    node_type* removed = m_head;
     m_head = m_head->next;
     if (m_head)
       m_head->prev = nullptr;
-    temp->next = nullptr;
-    temp->prev = nullptr;
-    return temp;
+    removed->next = nullptr;
+    removed->prev = nullptr;
+    return removed;
   }
 
   // O(n) because there's no stored tail
@@ -1046,13 +1184,16 @@ public:
   {
     assert(m_head && "List is empty");
     if (!m_head->next) {
-      auto* temp = m_head;
+      node_type* removed = m_head;
       m_head = nullptr;
-      return temp;
+      removed->prev = removed->next = nullptr;
+      return removed;
     }
     node_type* curr = m_head;
+
     while (curr->next)
       curr = curr->next;
+
     node_type* prev = curr->prev;
     prev->next = nullptr;
     curr->prev = nullptr;
@@ -1090,11 +1231,16 @@ public:
 
   bool empty() const { return m_head == nullptr; }
 
+  /**
+   * @brief Get maximum size
+   */
+  size_type max_size() const { return static_cast<size_type>(-1); }
+
   size_t size() const
   {
     size_t count = 0;
 
-    for (auto* curr = m_head; curr != nullptr; curr = curr->next)
+    for (node_type* curr = m_head; curr != nullptr; curr = curr->next)
       ++count;
 
     return count;
@@ -1102,7 +1248,7 @@ public:
 
   void clear() { m_head = nullptr; }
 
-  iterator insert(iterator pos, node_type* node)
+  iterator insert(const_iterator pos, node_type* node)
   {
     assert(node && "Node is null");
     if (pos.m_current == nullptr) {
@@ -1114,46 +1260,95 @@ public:
       return iterator(curr);
     }
 
-    node->next = pos.m_current;
-    node->prev = pos.m_current->prev;
+    node_type* current = const_cast<node_type*>(pos.m_current);
 
-    if (pos.m_current->prev) {
-      pos.m_current->prev->next = node;
+    node->next = current;
+    node->prev = current->prev;
+
+    if (current->prev) {
+      current->prev->next = node;
     } else {
       m_head = node;
     }
-    pos.m_current->prev = node;
+    current->prev = node;
     return iterator(node);
   }
 
-  node_type* erase(iterator pos)
+  node_type* erase(const_iterator pos)
   {
     assert(pos.m_current && "Iterator is invalid");
 
-    node_type* temp = pos.m_current;
+    node_type* removed = const_cast<node_type*>(pos.m_current);
 
-    if (pos.m_current->prev) {
-      pos.m_current->prev->next = pos.m_current->next;
+    if (removed->prev) {
+      removed->prev->next = removed->next;
     } else {
-      m_head = pos.m_current->next;
+      m_head = removed->next;
     }
 
-    if (pos.m_current->next) {
-      pos.m_current->next->prev = pos.m_current->prev;
+    if (removed->next) {
+      removed->next->prev = removed->prev;
     }
 
-    temp->next = nullptr;
-    temp->prev = nullptr;
-    return temp;
+    removed->next = nullptr;
+    removed->prev = nullptr;
+    return removed;
   }
 
-  iterator begin() { return iterator(m_head); }
-  const_iterator begin() const { return const_iterator(m_head); }
-  const_iterator cbegin() const { return const_iterator(m_head); }
+  /**
+   * @brief Swap contents with another DList
+   */
+  void swap(DList& other) noexcept
+  {
+    using std::swap;
+    swap(m_head, other.m_head);
+  }
 
-  iterator end() { return iterator(nullptr); }
-  const_iterator end() const { return const_iterator(nullptr); }
-  const_iterator cend() const { return const_iterator(nullptr); }
+  /**
+   * @brief Reverse the order of elements
+   */
+  void reverse() noexcept
+  {
+    node_type* current = m_head;
+    node_type* new_head = nullptr;
+
+    while (current) {
+      node_type* next = current->next;
+      std::swap(current->next, current->prev);
+      new_head = current;
+      current = next;
+    }
+
+    m_head = new_head;
+  }
+
+  iterator begin() { return iterator(m_head, this); }
+  const_iterator begin() const { return const_iterator(m_head, this); }
+  const_iterator cbegin() const { return const_iterator(m_head, this); }
+
+  reverse_iterator rbegin() { return reverse_iterator(end()); }
+  const_reverse_iterator rbegin() const
+  {
+    return const_reverse_iterator(end());
+  }
+  const_reverse_iterator crbegin() const
+  {
+    return const_reverse_iterator(cend());
+  }
+
+  iterator end() { return iterator(nullptr, this); }
+  const_iterator end() const { return const_iterator(nullptr, this); }
+  const_iterator cend() const { return const_iterator(nullptr, this); }
+
+  reverse_iterator rend() { return reverse_iterator(begin()); }
+  const_reverse_iterator rend() const
+  {
+    return const_reverse_iterator(begin());
+  }
+  const_reverse_iterator crend() const
+  {
+    return const_reverse_iterator(cbegin());
+  }
 
   class iterator
   {
@@ -1165,11 +1360,11 @@ public:
     using iterator_category = std::bidirectional_iterator_tag;
 
     iterator()
-        : m_current(nullptr)
+        : m_current(nullptr), m_owner(nullptr)
     {
     }
-    explicit iterator(node_type* node)
-        : m_current(node)
+    explicit iterator(node_type* node, const DList* owner = nullptr)
+        : m_current(node), m_owner(owner)
     {
     }
 
@@ -1192,8 +1387,11 @@ public:
 
     iterator& operator--()
     {
-      if (m_current)
+      if (m_current) {
         m_current = m_current->prev;
+      } else if (m_owner) {
+        m_current = m_owner->tail_node();
+      }
       return *this;
     }
 
@@ -1215,7 +1413,9 @@ public:
 
   private:
     friend class DList;
+    friend class const_iterator;
     node_type* m_current;
+    const DList* m_owner;
   };
 
   class const_iterator
@@ -1228,15 +1428,15 @@ public:
     using iterator_category = std::bidirectional_iterator_tag;
 
     const_iterator()
-        : m_current(nullptr)
+        : m_current(nullptr), m_owner(nullptr)
     {
     }
-    explicit const_iterator(const node_type* node)
-        : m_current(node)
+    explicit const_iterator(const node_type* node, const DList* owner = nullptr)
+        : m_current(node), m_owner(owner)
     {
     }
     const_iterator(const iterator& other)
-        : m_current(other.m_current)
+        : m_current(other.m_current), m_owner(other.m_owner)
     {
     }
 
@@ -1259,8 +1459,11 @@ public:
 
     const_iterator& operator--()
     {
-      if (m_current)
+      if (m_current) {
         m_current = m_current->prev;
+      } else if (m_owner) {
+        m_current = m_owner->tail_node();
+      }
       return *this;
     }
 
@@ -1281,10 +1484,20 @@ public:
     }
 
   private:
+    friend class DList;
     const node_type* m_current;
+    const DList* m_owner;
   };
 
 private:
   node_type* m_head;
+
+  node_type* tail_node() const
+  {
+    node_type* curr = m_head;
+    while (curr && curr->next)
+      curr = curr->next;
+    return curr;
+  }
 };
 } // namespace freertos::helpers

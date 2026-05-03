@@ -16,13 +16,9 @@ enum KFState {
 };
 
 class KalmanFilter {
-private:
+public:
 	KalmanFilter();
 	~KalmanFilter();
-	int a;
-
-public:
-        static KalmanFilter& getInstance();
 
 	// ===== FUNZIONI PER LA SIMULAZIONE =====
 

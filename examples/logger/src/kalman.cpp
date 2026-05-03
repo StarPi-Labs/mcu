@@ -14,15 +14,6 @@ KalmanFilter::~KalmanFilter() {
     //PlaneNavigationFilter_terminate();
 }
 
-KalmanFilter& KalmanFilter::getInstance() {
-    static KalmanFilter* pt = nullptr;
-    static unsigned char kf_mem[sizeof(KalmanFilter)];
-    if (!pt) {
-        pt = new (kf_mem) KalmanFilter();
-    }
-    return *pt;
-}
-
 ObservedState KalmanFilter::getState() const {
     return ObservedState{
         .altitude = PlaneNavigationFilter_Y.EkfState.h,

@@ -32,7 +32,10 @@ void KalmanFilter::predict(float omega_x, float omega_y, float omega_z,
                            float acc_x, float acc_y, float acc_z) 
 {
     PlaneNavigationFilter_U.ARM_CMD = true;
-    PlaneNavigationFilter_U.GPS_POS_EN = false;
+    PlaneNavigationFilter_U.GPS_POS_EN = true;
+
+    PlaneNavigationFilter_U.xy_pos[0] = 0.0f; // unused
+    PlaneNavigationFilter_U.xy_pos[1] = 0.0f; // unused
 
     PlaneNavigationFilter_U.acc_b[0] = omega_x;
     PlaneNavigationFilter_U.acc_b[1] = omega_y;

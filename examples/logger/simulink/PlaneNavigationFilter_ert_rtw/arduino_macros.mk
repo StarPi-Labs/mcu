@@ -40,3 +40,5 @@ UNOR4_GCC_VERSION = 7-2017q4
 export UNOR4_GCC_VERSION
 UNOR4_TOOLS_VERSION = 1.9.1-arduino5
 export UNOR4_TOOLS_VERSION
+ARDUINO_PACKAGES_TOOLS_ROOT = /home/enrico/Documents/MATLAB/SupportPackages/R2024b/3P.instrset/arduinoide.instrset/aCLI/data/packages/arduino
+export ARDUINO_PACKAGES_TOOLS_ROOT

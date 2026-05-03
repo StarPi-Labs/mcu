@@ -7,9 +7,9 @@
  *
  * Code generated for Simulink model 'PlaneNavigationFilter'.
  *
- * Model version                  : 1.102
+ * Model version                  : 1.103
  * Simulink Coder version         : 24.2 (R2024b) 21-Jun-2024
- * C/C++ source code generated on : Thu Apr 30 22:23:55 2026
+ * C/C++ source code generated on : Sat May  2 21:06:10 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: Custom Processor->Custom Processor
@@ -3587,8 +3587,11 @@ void PlaneNavigationFilter_step(void)
     /* Outputs for Enabled SubSystem: '<S2>/Correct3' incorporates:
      *  EnablePort: '<S8>/Enable'
      */
-    /* Inport: '<Root>/HAS_BARO_DATA' */
-    if (PlaneNavigationFilter_U.HAS_BARO_DATA) {
+    /* Logic: '<Root>/AND1' incorporates:
+     *  Inport: '<Root>/HAS_BARO_DATA'
+     *  Logic: '<Root>/NOT'
+     */
+    if (PlaneNavigationFilter_U.HAS_BARO_DATA && (!rtb_INIT_MEAS_EN)) {
         /* MATLABSystem: '<S8>/MATLAB System' incorporates:
          *  Constant: '<S2>/R3'
          *  DataStoreRead: '<S8>/Data Store ReadP'
@@ -3707,6 +3710,7 @@ void PlaneNavigationFilter_step(void)
         }
     }
 
+    /* End of Logic: '<Root>/AND1' */
     /* End of Outputs for SubSystem: '<S2>/Correct3' */
 
     /* Outputs for Atomic SubSystem: '<S2>/Predict' */

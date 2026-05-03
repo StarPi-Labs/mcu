@@ -84,8 +84,14 @@ private:
                  float acc_x,   float acc_y,   float acc_z)
     {
         // Madgwick normalises acceleration internally; pass in g
-        madgwick.updateIMU(omega_x, omega_y, omega_z,
-                           acc_x / g0, acc_y / g0, acc_z / g0);
+        madgwick.updateIMU(
+            omega_x * 57.29578f,
+            omega_y * 57.29578f,
+            omega_z * 57.29578f,
+            acc_x / g0,
+            acc_y / g0,
+            acc_z / g0
+        );
 
         // Gain scheduling on vertical acceleration magnitude
         float a_vert = acc_z;

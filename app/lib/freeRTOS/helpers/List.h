@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cassert>
+#include <concepts>
 #include <cstddef>
 #include <iterator>
 #include <utility>
@@ -15,12 +16,10 @@ template <typename T> struct SNode {
   T data;
   SNode* next = nullptr;
 
-  explicit SNode(const T& value)
-      : data(value)
-  {
-  }
-  explicit SNode(T&& value)
-      : data(std::move(value))
+  template <typename... Args>
+    requires std::constructible_from<T, Args...>
+  explicit SNode(Args&&... args)
+      : data(std::forward<Args>(args)...)
   {
   }
 };
@@ -33,12 +32,10 @@ template <typename T> struct DNode {
   DNode* next = nullptr;
   DNode* prev = nullptr;
 
-  explicit DNode(const T& value)
-      : data(value)
-  {
-  }
-  explicit DNode(T&& value)
-      : data(std::move(value))
+  template <typename... Args>
+    requires std::constructible_from<T, Args...>
+  explicit DNode(Args&&... args)
+      : data(std::forward<Args>(args)...)
   {
   }
 };
@@ -64,7 +61,11 @@ public:
   class const_iterator;
 
   // Default constructor and destructor
-  SList() : m_head(nullptr) {}
+  SList()
+      : m_head(nullptr)
+  {
+  }
+
   /// @brief Destructor does NOT delete nodes - caller is responsible for node
   /// memory management
   ~SList() = default;
@@ -122,6 +123,7 @@ public:
     assert(m_head && "List is empty");
     return m_head->data;
   }
+
   const_reference front() const
   {
     assert(m_head && "List is empty");

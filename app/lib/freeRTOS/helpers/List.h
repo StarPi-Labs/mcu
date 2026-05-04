@@ -236,6 +236,7 @@ public:
     using value_type = T;
     using pointer = T*;
     using reference = T&;
+    using iterator_concept = std::forward_iterator_tag;
     using iterator_category = std::forward_iterator_tag;
 
     iterator()
@@ -247,8 +248,8 @@ public:
     {
     }
 
-    reference operator*() { return m_current->data; }
-    pointer operator->() { return &m_current->data; }
+    reference operator*() const { return m_current->data; }
+    pointer operator->() const { return &m_current->data; }
 
     iterator& operator++()
     {
@@ -283,9 +284,10 @@ public:
   {
   public:
     using difference_type = std::ptrdiff_t;
-    using value_type = const T;
+    using value_type = T;
     using pointer = const T*;
     using reference = const T&;
+    using iterator_concept = std::forward_iterator_tag;
     using iterator_category = std::forward_iterator_tag;
 
     const_iterator()
@@ -642,6 +644,7 @@ public:
     using value_type = T;
     using pointer = T*;
     using reference = T&;
+    using iterator_concept = std::bidirectional_iterator_tag;
     using iterator_category = std::bidirectional_iterator_tag;
 
     iterator()
@@ -653,8 +656,8 @@ public:
     {
     }
 
-    reference operator*() { return m_current->data; }
-    pointer operator->() { return &m_current->data; }
+    reference operator*() const { return m_current->data; }
+    pointer operator->() const { return &m_current->data; }
 
     iterator& operator++()
     {
@@ -708,9 +711,10 @@ public:
   {
   public:
     using difference_type = std::ptrdiff_t;
-    using value_type = const T;
+    using value_type = T;
     using pointer = const T*;
     using reference = const T&;
+    using iterator_concept = std::bidirectional_iterator_tag;
     using iterator_category = std::bidirectional_iterator_tag;
 
     const_iterator()
@@ -990,6 +994,7 @@ public:
     using value_type = T;
     using pointer = T*;
     using reference = T&;
+    using iterator_concept = std::forward_iterator_tag;
     using iterator_category = std::forward_iterator_tag;
 
     iterator()
@@ -1037,9 +1042,10 @@ public:
   {
   public:
     using difference_type = std::ptrdiff_t;
-    using value_type = const T;
+    using value_type = T;
     using pointer = const T*;
     using reference = const T&;
+    using iterator_concept = std::forward_iterator_tag;
     using iterator_category = std::forward_iterator_tag;
 
     const_iterator()
@@ -1357,6 +1363,7 @@ public:
     using value_type = T;
     using pointer = T*;
     using reference = T&;
+    using iterator_concept = std::bidirectional_iterator_tag;
     using iterator_category = std::bidirectional_iterator_tag;
 
     iterator()
@@ -1422,9 +1429,10 @@ public:
   {
   public:
     using difference_type = std::ptrdiff_t;
-    using value_type = const T;
+    using value_type = T;
     using pointer = const T*;
     using reference = const T&;
+    using iterator_concept = std::bidirectional_iterator_tag;
     using iterator_category = std::bidirectional_iterator_tag;
 
     const_iterator()

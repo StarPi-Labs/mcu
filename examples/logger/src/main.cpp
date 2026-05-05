@@ -30,6 +30,7 @@ DECLARE_STATIC_TASK(imu_task);
 DECLARE_STATIC_TASK(barometer_task);
 DECLARE_STATIC_TASK(lora_task);
 DECLARE_STATIC_TASK(logger_task);
+DECLARE_STATIC_TASK(gc_task);
 
 
 void setup(void)
@@ -60,12 +61,14 @@ void setup(void)
 	INIT_STATIC_TASK(barometer_task, "barometer", NULL, tskIDLE_PRIORITY, 0);
 	INIT_STATIC_TASK(logger_task, "logger", NULL, tskIDLE_PRIORITY, 1);
 	INIT_STATIC_TASK(lora_task, "lora", NULL, tskIDLE_PRIORITY, 1);
+	INIT_STATIC_TASK(gc_task, "gc", NULL, tskIDLE_PRIORITY, 1);
 
  	if (
 	    !TASK_IS_INITIALIZED(imu_task) ||
 	    !TASK_IS_INITIALIZED(barometer_task) ||
 	    !TASK_IS_INITIALIZED(logger_task) ||
-	    !TASK_IS_INITIALIZED(lora_task)) {
+	    !TASK_IS_INITIALIZED(lora_task) ||
+	    !TASK_IS_INITIALIZED(gc_task)) {
 		while (true) {
 			Serial.println("Error creating tasks");
 			delay(500);
@@ -93,7 +96,6 @@ TASK imu_task(TaskDescriptor_t *self)
 {
 	self->last_wake = xTaskGetTickCount();
 	FIFO_Sample sample;
-	message_t msg;
 	orientation.begin(IMU_TASK_HZ);
 
 	while (true) {
@@ -118,15 +120,13 @@ TASK imu_task(TaskDescriptor_t *self)
 				false // TODO: airbrake trigger
 			);
 
-			msg = MESSAGE(
-				LOG_STR("[IMU]: Orientation"),
+			LOG(DEST_UART, "[IMU]: Orientation",
 				(struct vec3){
 					orientation.getRoll(),
 					orientation.getPitch(),
 					orientation.getYaw(),
 				}
 			);
-			message_queue_enqueue(&msg, 100);
 
 			xSemaphoreGive(spi_semaphore);
 		}
@@ -139,7 +139,6 @@ TASK barometer_task(TaskDescriptor_t *self)
 {
 	self->last_wake = xTaskGetTickCount();
 	BaroData sample1, sample2;
-	message_t msg;
 
 	while (true) {
 		barometer_read(&sample1, &sample2);
@@ -150,11 +149,7 @@ TASK barometer_task(TaskDescriptor_t *self)
 		// Update the altitude and vertical velocity estimation with the barometer data
 		altitude.update(alt);
 
-		msg = MESSAGE(
-			LOG_STR("[BARO]: Altitude"),
-			altitude.getState()[0]
-		);
-		message_queue_enqueue(&msg, 100);
+		LOG(DEST_UART, "[BARO]: Altitude", altitude.getState()[0]);
 
 		TASK_WAIT_HZ(self, BARO_TASK_HZ);
 	}
@@ -182,6 +177,7 @@ TASK lora_task(TaskDescriptor_t *self)
 }
 
 
+// UART consumer
 TASK logger_task(TaskDescriptor_t *self)
 {
 	self->last_wake = xTaskGetTickCount();
@@ -191,11 +187,35 @@ TASK logger_task(TaskDescriptor_t *self)
 	while(true) {
 		// no timeout since this task needs to run at a fixed frequency,
 		// if there is no message we just skip this iteration
-		while (message_queue_dequeue(&recv, 0)) {
+		while (message_queue_dequeue(&recv, 0, DEST_UART)) {
 			format_message_to_string(&recv, buf, sizeof(buf));
 			Serial.println(buf);
 		}
 
 		TASK_WAIT_HZ(self, LOGGER_TASK_HZ);
+	}
+}
+
+
+// Garbage collector task
+TASK gc_task(TaskDescriptor_t *self)
+{
+	self->last_wake = xTaskGetTickCount();
+	
+	while(true) {
+		if (message_queue_full(DEST_UART)) {
+			message_queue_reset(DEST_UART);
+			ERR(DEST_ALL, "UART queue got full");
+		}
+		if (message_queue_full(DEST_SD)) {
+			message_queue_reset(DEST_SD);
+			ERR(DEST_ALL, "SD queue got full");
+		}
+		if (message_queue_full(DEST_LORA)) {
+			message_queue_reset(DEST_LORA);
+			ERR(DEST_ALL, "LORA queue got full");
+		}
+
+		TASK_WAIT_SEC(self, 10);
 	}
 }

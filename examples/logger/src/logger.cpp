@@ -13,31 +13,76 @@
 // The logger is designed to be used in a producer-consumer pattern.
 
 
-// Buffer for the default message queue
-// NOTE: this could be in PSRAM if we had it
-static uint8_t default_queue_buffer[MESSAGE_QUEUE_SIZE * sizeof(message_t)];
-static StaticQueue_t default_queue_desc;
-
-// default message queue, this is initialized in message_queue_init()
-message_queue_t DEFAULT_QUEUE = NULL;
+// Buffers for the message queues
+// NOTE: these could be in PSRAM if we had it
+// UART queue
+static uint8_t uart_queue_buffer[MESSAGE_QUEUE_SIZE * sizeof(message_t)];
+static StaticQueue_t uart_queue_desc;
+static QueueHandle_t uart_queue;
+// SD card queue
+static uint8_t sd_queue_buffer[MESSAGE_QUEUE_SIZE * sizeof(message_t)];
+static StaticQueue_t sd_queue_desc;
+static QueueHandle_t sd_queue;
+// LoRa queue
+static uint8_t lora_queue_buffer[MESSAGE_QUEUE_SIZE * sizeof(message_t)];
+static StaticQueue_t lora_queue_desc;
+static QueueHandle_t lora_queue;
 
 
 // initialize the default message queue, this should be called before using any
 // of the other message queue functions
 bool message_queue_init()
 {
-	DEFAULT_QUEUE = xQueueCreateStatic(MESSAGE_QUEUE_SIZE, sizeof(message_t), default_queue_buffer, &default_queue_desc);
-	if (DEFAULT_QUEUE == NULL) return false;
+	uart_queue = xQueueCreateStatic(MESSAGE_QUEUE_SIZE, sizeof(message_t), uart_queue_buffer, &uart_queue_desc);
+	if (uart_queue == NULL) return false;
+	sd_queue = xQueueCreateStatic(MESSAGE_QUEUE_SIZE, sizeof(message_t), sd_queue_buffer, &sd_queue_desc);
+	if (sd_queue == NULL) return false;
+	lora_queue = xQueueCreateStatic(MESSAGE_QUEUE_SIZE, sizeof(message_t), lora_queue_buffer, &lora_queue_desc);
+	if (lora_queue == NULL) return false;
+	
 	return true;
 }
 
+bool message_queue_full(message_dest_t dest)
+{
+	switch(dest) {
+	case DEST_UART:
+		return uxQueueSpacesAvailable(uart_queue) <= 0;
+		break;
+	case DEST_SD:
+		return uxQueueSpacesAvailable(sd_queue) <= 0;
+		break;
+	case DEST_LORA:
+		return uxQueueSpacesAvailable(lora_queue) <= 0;
+		break;
+	default:
+		return false;
+	}
+}
 
 // reset the message queue, this should be called with caution as it will discard
 // all messages in the queue
-bool message_queue_reset()
+bool message_queue_reset(message_dest_t dest)
 {
-	if (DEFAULT_QUEUE == NULL) return false;
-	xQueueReset(DEFAULT_QUEUE);
+	switch(dest) {
+	case DEST_UART:
+		xQueueReset(uart_queue);
+		break;
+	case DEST_SD:
+		xQueueReset(sd_queue);
+		break;
+	case DEST_LORA:
+		xQueueReset(lora_queue);
+		break;
+	case DEST_ALL:
+		xQueueReset(uart_queue);
+		xQueueReset(sd_queue);
+		xQueueReset(lora_queue);
+		break;
+	default:
+		break;
+	}
+
 	return true;
 }
 
@@ -46,28 +91,75 @@ bool message_queue_reset()
 // ISR context
 bool message_queue_enqueue(message_t *message, TickType_t timeout)
 {
-	if (DEFAULT_QUEUE == NULL || message == NULL) return false;
-	if (xQueueSend(DEFAULT_QUEUE, message, timeout) != pdPASS) return false;
-	return true;
+	if (message == NULL) return false;
+	bool err = false;
+
+	if (message->dest & DEST_UART) {
+		err |= xQueueSend(uart_queue, message, timeout) != pdPASS;
+	}
+
+	if (message->dest & DEST_SD) {
+		err |= xQueueSend(sd_queue, message, timeout) != pdPASS;
+	}
+
+	if (message->dest & DEST_LORA) {
+		err |= xQueueSend(lora_queue, message, timeout) != pdPASS;
+	}
+
+	return !err;
 }
 
 
 // pop the message from the front of the queue, this should not be called from
 // an ISR context
-bool message_queue_dequeue(message_t *message, TickType_t timeout)
+bool message_queue_dequeue(message_t *message, TickType_t timeout, message_dest_t dest)
 {
-	if (DEFAULT_QUEUE == NULL || message == NULL) return false;
-	if (xQueueReceive(DEFAULT_QUEUE, message, timeout) != pdPASS) return false;
+	if (dest == DEST_ALL || message == NULL) return false;
+	
+	QueueHandle_t handle = NULL;
+	switch (dest) {
+	case DEST_UART:
+		handle = uart_queue;	
+		break;
+	case DEST_SD:
+		handle = sd_queue;
+		break;
+	case DEST_LORA:
+		handle = lora_queue;
+		break;
+	case DEST_NONE:
+	default:
+		return true;
+		break;
+	}
+	if (xQueueReceive(handle, message, timeout) != pdPASS) return false;
 	return true;
 }
 
 
 // peek at the message at the front of the queue without removing it, this should
 // not be called from an ISR context
-bool message_queue_peek(message_t *message, TickType_t timeout)
+bool message_queue_peek(message_t *message, TickType_t timeout, message_dest_t dest)
 {
-	if (DEFAULT_QUEUE == NULL || message == NULL) return false;
-	if (xQueuePeek(DEFAULT_QUEUE, message, timeout) != pdPASS) return false;
+	if (dest == DEST_ALL || message == NULL) return false;
+	
+	QueueHandle_t handle = NULL;
+	switch (dest) {
+	case DEST_UART:
+		handle = uart_queue;	
+		break;
+	case DEST_SD:
+		handle = sd_queue;
+		break;
+	case DEST_LORA:
+		handle = lora_queue;
+		break;
+	case DEST_NONE:
+	default:
+		return true;
+		break;
+	}
+	if (xQueuePeek(handle, message, timeout) != pdPASS) return false;
 	return true;
 }
 

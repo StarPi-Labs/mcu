@@ -25,7 +25,7 @@ void lora_setup (void)
 {
 	int state = radio.begin();
 	if (state != RADIOLIB_ERR_NONE) {
-		LOG("failed to initialize radio, code", state);
+		LOG(DEST_UART, "failed to initialize radio, code", state);
 		while (true);
 	}
 
@@ -53,11 +53,11 @@ void lora_setup (void)
 void lora_start_transmission(uint8_t* data, size_t size)
 {
 	if (data == NULL || size == 0) {
-		ERR("Invalid data or size for LoRa transmission");
+		ERR(DEST_UART, "Invalid data or size for LoRa transmission");
 		return;
 	}
 	if (size > sizeof(LoRaPayload)) {
-		ERR("LoRa payload size exceeds maximum");
+		ERR(DEST_UART, "LoRa payload size exceeds maximum");
 		return;
 	}
 	// TODO: check if the radio is busy and return an error if it is, for now we just assume it is always ready
@@ -72,7 +72,7 @@ bool lora_is_transmission_done(void)
 		if (tx_state == RADIOLIB_ERR_NONE) {
 			//Serial.println(F("transmission finished!"));
 		} else {
-			ERR("transmission failed", tx_state);
+			ERR(DEST_UART, "transmission failed", tx_state);
 		}
 
 		radio.finishTransmit();

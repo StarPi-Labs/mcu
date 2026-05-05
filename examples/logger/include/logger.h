@@ -24,10 +24,19 @@ struct ivec3 {
 	int32_t x, y, z;
 };
 
+enum message_dest_t : uint8_t {
+	DEST_NONE = 0,
+	DEST_UART = 1 << 0,
+	DEST_SD   = 1 << 1,
+	DEST_LORA = 1 << 2,
+	DEST_ALL  = 0xFF,
+};
+
 // TODO: align or pack this struct
 typedef struct {
 	uint64_t timestamp; // unix timestamp in microseconds
 	message_type_t type;
+	uint8_t dest;
 	const char *description;
 	union {
 		int32_t i32;
@@ -52,112 +61,75 @@ static inline uint64_t get_timestamp(void)
 }
 
 
-#ifdef __cplusplus
-
-// Overloads MUST be outside extern "C" because C doesn't support overloading
-inline message_t create_msg_impl(const char* str) {
+inline message_t message_create(const char* str, uint8_t dest) {
 	message_t msg = {};
 	msg.timestamp = get_timestamp();
 	msg.type = MSG_NONE;
+	msg.dest = dest;
 	msg.description = str;
 	return msg;
 }
 
-inline message_t create_msg_impl(const char* str, int32_t data) {
-	message_t msg = create_msg_impl(str);
+inline message_t message_create(const char* str, uint8_t dest, int32_t data) {
+	message_t msg = message_create(str, dest);
 	msg.type = MSG_INT32;
 	msg.data.i32 = data;
 	return msg;
 }
 
-inline message_t create_msg_impl(const char* str, uint32_t data) {
-	message_t msg = create_msg_impl(str);
+inline message_t message_create(const char* str, uint8_t dest, uint32_t data) {
+	message_t msg = message_create(str, dest);
 	msg.type = MSG_UINT32;
 	msg.data.u32 = data;
 	return msg;
 }
 
-inline message_t create_msg_impl(const char* str, float data) {
-	message_t msg = create_msg_impl(str);
+inline message_t message_create(const char* str, uint8_t dest, float data) {
+	message_t msg = message_create(str, dest);
 	msg.type = MSG_FLOAT;
 	msg.data.f = data;
 	return msg;
 }
 
-inline message_t create_msg_impl(const char* str, double data) {
-	message_t msg = create_msg_impl(str);
+inline message_t message_create(const char* str, uint8_t dest, double data) {
+	message_t msg = message_create(str, dest);
 	msg.type = MSG_DOUBLE;
 	msg.data.d = data;
 	return msg;
 }
 
-inline message_t create_msg_impl(const char* str, const char* data) {
-	message_t msg = create_msg_impl(str);
+inline message_t message_create(const char* str, uint8_t dest, const char* data) {
+	message_t msg = message_create(str, dest);
 	msg.type = MSG_STRING;
 	msg.data.str = data;
 	return msg;
 }
 
-inline message_t create_msg_impl(const char* str, struct vec3 data) {
-	message_t msg = create_msg_impl(str);
+inline message_t message_create(const char* str, uint8_t dest, struct vec3 data) {
+	message_t msg = message_create(str, dest);
 	msg.type = MSG_VEC3;
 	msg.data.v3 = data;
 	return msg;
 }
 
-inline message_t create_msg_impl(const char* str, struct ivec3 data) {
-	message_t msg = create_msg_impl(str);
+inline message_t message_create(const char* str, uint8_t dest, struct ivec3 data) {
+	message_t msg = message_create(str, dest);
 	msg.type = MSG_IVEC3;
 	msg.data.iv3 = data;
 	return msg;
 }
 
-// The unified C++ macro
-#define MESSAGE(...) create_msg_impl(__VA_ARGS__)
-
-// ============================================================================
-// 3. C11 IMPLEMENTATION (Using _Generic)
-// ============================================================================
-#else
-
-#define MESSAGE_WITH_DATA(str, val) _Generic((val), \
-	int32_t:      (message_t){.timestamp = get_timestamp(), .type = MSG_INT32,  .description = (str), .data.i32 = (val)}, \
-	uint32_t:     (message_t){.timestamp = get_timestamp(), .type = MSG_UINT32, .description = (str), .data.u32 = (val)}, \
-	int64_t:      (message_t){.timestamp = get_timestamp(), .type = MSG_INT64,  .description = (str), .data.i64 = (val)}, \
-	uint64_t:     (message_t){.timestamp = get_timestamp(), .type = MSG_UINT64, .description = (str), .data.u64 = (val)}, \
-	float:        (message_t){.timestamp = get_timestamp(), .type = MSG_FLOAT,  .description = (str), .data.f   = (val)}, \
-	double:       (message_t){.timestamp = get_timestamp(), .type = MSG_DOUBLE, .description = (str), .data.d   = (val)}, \
-	char*:        (message_t){.timestamp = get_timestamp(), .type = MSG_STRING, .description = (str), .data.str = (val)}, \
-	const char*:  (message_t){.timestamp = get_timestamp(), .type = MSG_STRING, .description = (str), .data.str = (val)}, \
-	struct vec3:  (message_t){.timestamp = get_timestamp(), .type = MSG_VEC3,   .description = (str), .data.v3  = (val)}, \
-	struct ivec3: (message_t){.timestamp = get_timestamp(), .type = MSG_IVEC3,  .description = (str), .data.iv3 = (val)} \
-)
-
-#define MESSAGE_NO_DATA(str) (message_t){.timestamp = get_timestamp(), .type = MSG_NONE, .description = (str)}
-
-#define MESSAGE_CHOOSER(_1, _2, NAME, ...) NAME
-
-// The unified C macro
-#define MESSAGE(...) MESSAGE_CHOOSER(__VA_ARGS__, MESSAGE_WITH_DATA, MESSAGE_NO_DATA, dummy)(__VA_ARGS__)
-
-#endif // __cplusplus
-
-// TODO: for now this is a simple wrapper around FreeRTOS queues
-// https://www.freertos.org/Documentation/02-Kernel/04-API-references/06-Queues
-typedef QueueHandle_t message_queue_t;
-
 // Number of elements in a queue
 #define MESSAGE_QUEUE_SIZE 128
 
-// The symbol of the message queue
-extern message_queue_t DEFAULT_QUEUE;
 
 // Function declarations
 bool message_queue_init();
-bool message_queue_reset();
+bool message_queue_reset(message_dest_t dest);
 bool message_queue_enqueue(message_t *message, TickType_t timeout);
-bool message_queue_dequeue(message_t *message, TickType_t timeout);
-bool message_queue_peek(message_t *message, TickType_t timeout);
+bool message_queue_dequeue(message_t *message, TickType_t timeout, message_dest_t dest);
+bool message_queue_peek(message_t *message, TickType_t timeout, message_dest_t dest);
+bool message_queue_full(message_dest_t dest);
 int format_message_to_string(const message_t *msg, char *buf, size_t size);
 
 
@@ -170,17 +142,17 @@ int format_message_to_string(const message_t *msg, char *buf, size_t size);
 #define TO_XSTR(s) TO_STR(s)
 #define TO_STR(s) #s
 #define ERR_TIMEOUT 0
-#define ERR(str, ...) do { \
-	message_t msg = MESSAGE(ERR_STR(str) __VA_OPT__(,) __VA_ARGS__); \
+#define ERR(dest, str, ...) do { \
+	message_t msg = message_create(ERR_STR(str), (dest) __VA_OPT__(,) __VA_ARGS__); \
 	message_queue_enqueue(&msg, ERR_TIMEOUT); \
 } while(0)
 
-#define WARN(str, ...) do { \
-	message_t msg = MESSAGE(WARN_STR(str) __VA_OPT__(,) __VA_ARGS__); \
+#define WARN(dest, str, ...) do { \
+	message_t msg = message_create(WARN_STR(str), (dest) __VA_OPT__(,) __VA_ARGS__); \
 	message_queue_enqueue(&msg, ERR_TIMEOUT); \
 } while(0)
 
-#define LOG(str, ...) do { \
-	message_t msg = MESSAGE(LOG_STR(str) __VA_OPT__(,) __VA_ARGS__); \
+#define LOG(dest, str, ...) do { \
+	message_t msg = message_create(LOG_STR(str), (dest) __VA_OPT__(,) __VA_ARGS__); \
 	message_queue_enqueue(&msg, ERR_TIMEOUT); \
 } while(0)

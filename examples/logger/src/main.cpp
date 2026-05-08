@@ -8,6 +8,7 @@
 #include "imu.h"
 #include "barometer.h"
 #include "lora.h"
+#include "sdcard.h"
 #include "KalmanFilter.hpp"
 
 
@@ -31,6 +32,7 @@ DECLARE_STATIC_TASK(barometer_task);
 DECLARE_STATIC_TASK(lora_task);
 DECLARE_STATIC_TASK(logger_task);
 DECLARE_STATIC_TASK(gc_task);
+DECLARE_STATIC_TASK(sd_task);
 
 
 void setup(void)
@@ -56,11 +58,26 @@ void setup(void)
 	barometer_setup();
 	lora_setup();
 
+	if (!sdcard_init()) {
+		while (true) {
+			Serial.println("SD init failed");
+			delay(500);
+		}
+	}
 
-	INIT_STATIC_TASK(imu_task, "imu", NULL, tskIDLE_PRIORITY, 0);
-	INIT_STATIC_TASK(barometer_task, "barometer", NULL, tskIDLE_PRIORITY, 0);
+	// creates folder /session_<session_num>
+	if (!sdcard_start_session()) {
+		while (true) {
+			Serial.println("Error creating the SD session folder");
+			delay(500);
+		}
+	}
+
+	INIT_STATIC_TASK(imu_task, "imu", NULL, tskIDLE_PRIORITY + 10, 0);
+	INIT_STATIC_TASK(barometer_task, "barometer", NULL, tskIDLE_PRIORITY + 9, 0);
 	INIT_STATIC_TASK(logger_task, "logger", NULL, tskIDLE_PRIORITY, 1);
-	INIT_STATIC_TASK(lora_task, "lora", NULL, tskIDLE_PRIORITY, 1);
+	INIT_STATIC_TASK(lora_task, "lora", NULL, tskIDLE_PRIORITY + 10, 1);
+	INIT_STATIC_TASK(sd_task, "sd", NULL, tskIDLE_PRIORITY + 9, 1);
 	INIT_STATIC_TASK(gc_task, "gc", NULL, tskIDLE_PRIORITY, 1);
 
  	if (
@@ -68,6 +85,7 @@ void setup(void)
 	    !TASK_IS_INITIALIZED(barometer_task) ||
 	    !TASK_IS_INITIALIZED(logger_task) ||
 	    !TASK_IS_INITIALIZED(lora_task) ||
+		!TASK_IS_INITIALIZED(sd_task) ||
 	    !TASK_IS_INITIALIZED(gc_task)) {
 		while (true) {
 			Serial.println("Error creating tasks");
@@ -193,6 +211,24 @@ TASK logger_task(TaskDescriptor_t *self)
 		}
 
 		TASK_WAIT_HZ(self, LOGGER_TASK_HZ);
+	}
+}
+
+
+// SD consumer
+TASK sd_task(TaskDescriptor_t *self)
+{
+	self->last_wake = xTaskGetTickCount();
+	message_t recv;
+	static char buf[256];
+	
+	while(true) {
+		while (message_queue_dequeue(&recv, 0, DEST_SD)) {
+			format_message_to_string(&recv, buf, sizeof(buf));
+			sdcard_log_text(buf);
+		}
+
+		TASK_WAIT_HZ(self, SD_TASK_HZ);
 	}
 }
 

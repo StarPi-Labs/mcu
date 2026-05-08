@@ -163,9 +163,11 @@ public:
   /// If no threads are waiting, the function does nothing.
   void notify_one() noexcept
   {
+    using namespace implementation;
+
     std::lock_guard internalLock(m_waitersMutex);
 
-    for (implementation::CVWaiter& waiter : m_waiters) {
+    for (CVWaiter& waiter : m_waiters) {
       if (!waiter.signaled) {
         waiter.signaled = true;
         waiter.semaphore.release();
@@ -178,14 +180,15 @@ public:
   /// If no threads are waiting, the function does nothing.
   void notify_all() noexcept
   {
+    using namespace implementation;
+
     std::lock_guard internalLock(m_waitersMutex);
 
-    for (implementation::CVWaiter& waiter : m_waiters) {
+    for (CVWaiter& waiter : m_waiters)
       if (!waiter.signaled) {
         waiter.signaled = true;
         waiter.semaphore.release();
       }
-    }
   }
 
   /// @brief Blocks the current thread until woken up by notify_one() or
@@ -199,9 +202,11 @@ public:
     requires BasicLockable<Lock>
   void wait(Lock& lock)
   {
+    using namespace implementation;
+
     typename WaitersContainer::node_type node;
     typename WaitersContainer::iterator it;
-    implementation::CVWaiter& waiter = node.data;
+    CVWaiter& waiter = node.data;
 
     {
       std::lock_guard internalLock(m_waitersMutex);
@@ -284,9 +289,11 @@ public:
   wait_until(Lock& lock,
              const std::chrono::time_point<Clock, Duration>& absTime)
   {
+    using namespace implementation;
+
     typename WaitersContainer::node_type node;
     typename WaitersContainer::iterator it;
-    implementation::CVWaiter& waiter = node.data;
+    CVWaiter& waiter = node.data;
 
     {
       std::lock_guard internalLock(m_waitersMutex);

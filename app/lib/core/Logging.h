@@ -72,19 +72,16 @@ inline freertos::Mutex g_logMutex;
 inline freertos::ConditionVariable g_cvLogFull, g_cvLogEmpty;
 } // namespace implementation
 
-/**
- * @brief Logs (prints) a formatted message with a prefix.
- *
- * It is not intended to be used directly, but via macros:
- * mcu_log_debug, mcu_log_info, mcu_log_warning, mcu_log_error,
- mcu_log_critical.
-
- * @param logLevel The log level string (e.g. "[DEBUG]").
- * @param format The format string (uses std::format_string,
- * for info on syntax @see
- https://en.cppreference.com/w/cpp/utility/format/spec.html).
- * @param args... Variable arguments to format into the string.
- */
+/// @brief Logs (prints) a formatted message with a prefix.
+///
+/// It is not intended to be used directly, but via macros:
+/// mcu_log_debug, mcu_log_info, mcu_log_warning, mcu_log_error,
+/// mcu_log_critical.
+/// @param logLevel The log level string (e.g. "[DEBUG]").
+/// @param format The format string (uses std::format_string,
+/// for info on syntax @see
+/// https://en.cppreference.com/w/cpp/utility/format/spec.html).
+/// @param args... Variable arguments to format into the string.
 template <typename... Args>
 inline void
 logf(const std::string_view& logLevel,
@@ -125,32 +122,25 @@ logf(const std::string_view& logLevel,
   g_cvLogEmpty.notify_one();
 }
 
-/**
- * @brief FreeRTOS task to manage printing log messages.
- *
- * This task takes formatted messages from `g_logBuffer`
- * and sends them to all registered handlers in `g_logHandlers`.
- *
- * @param pvParams Task parameters (not used in this case).
- */
+/// @brief FreeRTOS task to manage printing log messages.
+///
+/// This task takes formatted messages from `g_logBuffer`
+/// and sends them to all registered handlers in `g_logHandlers`.
+/// @param pvParams Task parameters (not used in this case).
 void vTaskLogger(void* pvParams);
 
-/**
- * @brief Forces immediate printing of all log messages currently in the buffer.
- */
+/// @brief Forces immediate printing of all log messages currently in the
+/// buffer.
 void flush();
 
 } // namespace mcu
 
 #if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_DEBUG
-/**
- * @brief Logs a message at DEBUG level.
- * If enabled, adds the [DEBUG] prefix to the head of the log.
- * Compiled and executed only if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_DEBUG.
- *
- * @param format Format string compatible with std::format.
- * @param ... Any arguments to format.
- */
+/// @brief Logs a message at DEBUG level.
+/// If enabled, adds the [DEBUG] prefix to the head of the log.
+/// Compiled and executed only if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_DEBUG.
+/// @param format Format string compatible with std::format.
+/// @param ... Any arguments to format.
 #define mcu_log_debug(format, ...)                                             \
   ::mcu::logf(::mcu::LOG_PREFIX_DEBUG, format __VA_OPT__(, ) __VA_ARGS__)
 #else
@@ -158,14 +148,11 @@ void flush();
 #endif
 
 #if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_INFO
-/**
- * @brief Logs a message at INFO level.
- * If enabled, adds the [INFO] prefix to the head of the log.
- * Compiled and executed only if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_INFO.
- *
- * @param format Format string compatible with std::format.
- * @param ... Any arguments to format.
- */
+/// @brief Logs a message at INFO level.
+/// If enabled, adds the [INFO] prefix to the head of the log.
+/// Compiled and executed only if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_INFO.
+/// @param format Format string compatible with std::format.
+/// @param ... Any arguments to format.
 #define mcu_log_info(format, ...)                                              \
   ::mcu::logf(::mcu::LOG_PREFIX_INFO, format __VA_OPT__(, ) __VA_ARGS__)
 #else
@@ -173,14 +160,11 @@ void flush();
 #endif
 
 #if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_WARNING
-/**
- * @brief Logs a message at WARNING level.
- * If enabled, adds the [WARNING] prefix to the head of the log.
- * Compiled and executed only if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_WARNING.
- *
- * @param format Format string compatible with std::format.
- * @param ... Optional arguments to format.
- */
+/// @brief Logs a message at WARNING level.
+/// If enabled, adds the [WARNING] prefix to the head of the log.
+/// Compiled and executed only if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_WARNING.
+/// @param format Format string compatible with std::format.
+/// @param ... Optional arguments to format.
 #define mcu_log_warning(format, ...)                                           \
   ::mcu::logf(::mcu::LOG_PREFIX_WARNING, format __VA_OPT__(, ) __VA_ARGS__)
 #else
@@ -188,14 +172,11 @@ void flush();
 #endif
 
 #if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_ERROR
-/**
- * @brief Logs a message at ERROR level.
- * If enabled, adds the [ERROR] prefix to the head of the log.
- * Compiled and executed only if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_ERROR.
- *
- * @param format Format string compatible with std::format.
- * @param ... Optional arguments to format.
- */
+/// @brief Logs a message at ERROR level.
+/// If enabled, adds the [ERROR] prefix to the head of the log.
+/// Compiled and executed only if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_ERROR.
+/// @param format Format string compatible with std::format.
+/// @param ... Optional arguments to format.
 #define mcu_log_error(format, ...)                                             \
   ::mcu::logf(::mcu::LOG_PREFIX_ERROR, format __VA_OPT__(, ) __VA_ARGS__)
 #else
@@ -203,14 +184,11 @@ void flush();
 #endif
 
 #if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_CRITICAL
-/**
- * @brief Logs a message at CRITICAL level.
- * If enabled, adds the [CRITICAL] prefix to the head of the log.
- * Compiled and executed only if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_CRITICAL.
- *
- * @param format Format string compatible with std::format.
- * @param ... Optional arguments to format.
- */
+/// @brief Logs a message at CRITICAL level.
+/// If enabled, adds the [CRITICAL] prefix to the head of the log.
+/// Compiled and executed only if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_CRITICAL.
+/// @param format Format string compatible with std::format.
+/// @param ... Optional arguments to format.
 #define mcu_log_critical(format, ...)                                          \
   ::mcu::logf(::mcu::LOG_PREFIX_CRITICAL, format __VA_OPT__(, ) __VA_ARGS__)
 #else

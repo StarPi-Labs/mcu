@@ -9,9 +9,7 @@
 namespace freertos::helpers
 {
 
-/**
- * @brief Node for singly-linked list
- */
+/// @brief Node for singly-linked list
 template <typename T> struct SNode {
   T data;
   SNode* next = nullptr;
@@ -24,9 +22,7 @@ template <typename T> struct SNode {
   }
 };
 
-/**
- * @brief Node for doubly-linked list
- */
+/// @brief Node for doubly-linked list
 template <typename T> struct DNode {
   T data;
   DNode* next = nullptr;
@@ -40,13 +36,11 @@ template <typename T> struct DNode {
   }
 };
 
-/**
- * @brief Singly-linked list with STL-like interface
- *
- * Provides O(1) insertion/deletion at front, O(n) elsewhere.
- * Caller controls node allocation - list only manages pointers.
- * This allows custom allocators, stack allocation, or pre-allocated pools.
- */
+/// @brief Singly-linked list with STL-like interface
+///
+/// Provides O(1) insertion/deletion at front, O(n) elsewhere.
+/// Caller controls node allocation - list only manages pointers.
+/// This allows custom allocators, stack allocation, or pre-allocated pools.
 template <typename T> class SList
 {
 public:
@@ -91,10 +85,8 @@ public:
     return *this;
   }
 
-  /**
-   * @brief Insert node at front in O(1)
-   * Caller owns the node and is responsible for deallocation
-   */
+  /// @brief Insert node at front in O(1)
+  /// Caller owns the node and is responsible for deallocation
   void push_front(node_type* node)
   {
     assert(node && "Node is null");
@@ -102,10 +94,8 @@ public:
     m_head = node;
   }
 
-  /**
-   * @brief Remove node at front in O(1)
-   * Returns the removed node (caller must delete it)
-   */
+  /// @brief Remove node at front in O(1)
+  /// Returns the removed node (caller must delete it)
   node_type* pop_front()
   {
     assert(m_head && "List is empty");
@@ -116,9 +106,7 @@ public:
     return removed;
   }
 
-  /**
-   * @brief Access front element
-   */
+  /// @brief Access front element
   reference front()
   {
     assert(m_head && "List is empty");
@@ -131,14 +119,10 @@ public:
     return m_head->data;
   }
 
-  /**
-   * @brief Check if list is empty
-   */
+  /// @brief Check if list is empty
   bool empty() const { return m_head == nullptr; }
 
-  /**
-   * @brief Get number of elements
-   */
+  /// @brief Get number of elements
   size_t size() const
   {
     size_t count = 0;
@@ -149,16 +133,12 @@ public:
     return count;
   }
 
-  /**
-   * @brief Unlink all nodes from list (does NOT delete them)
-   * Caller is responsible for deleting nodes
-   */
+  /// @brief Unlink all nodes from list (does NOT delete them)
+  /// Caller is responsible for deleting nodes
   void clear() { m_head = nullptr; }
 
-  /**
-   * @brief Insert node after iterator position in O(1)
-   * Caller owns the node and is responsible for deallocation
-   */
+  /// @brief Insert node after iterator position in O(1)
+  /// Caller owns the node and is responsible for deallocation
   iterator insert_after(const_iterator pos, node_type* node)
   {
     assert(node && "Node is null");
@@ -174,10 +154,8 @@ public:
     return iterator(node);
   }
 
-  /**
-   * @brief Remove node after iterator position in O(1)
-   * Returns the removed node (caller must delete it)
-   */
+  /// @brief Remove node after iterator position in O(1)
+  /// Returns the removed node (caller must delete it)
   node_type* erase_after(const_iterator pos)
   {
     assert(pos.m_current && "Iterator is invalid");
@@ -190,23 +168,17 @@ public:
     return removed;
   }
 
-  /**
-   * @brief Swap contents with another SList
-   */
+  /// @brief Swap contents with another SList
   void swap(SList& other) noexcept
   {
     using std::swap;
     swap(m_head, other.m_head);
   }
 
-  /**
-   * @brief Get maximum size
-   */
+  /// @brief Get maximum size
   size_t max_size() const { return static_cast<size_t>(-1); }
 
-  /**
-   * @brief Reverse the order of elements
-   */
+  /// @brief Reverse the order of elements
   void reverse() noexcept
   {
     node_type* prev = nullptr;
@@ -339,14 +311,12 @@ private:
   node_type* m_head;
 };
 
-/**
- * @brief Doubly-linked list with STL-like interface
- *
- * Provides O(1) insertion/deletion at both ends and O(n) elsewhere.
- * Supports bidirectional iteration.
- * Caller controls node allocation - list only manages pointers.
- * This allows custom allocators, stack allocation, or pre-allocated pools.
- */
+/// @brief Doubly-linked list with STL-like interface
+///
+/// Provides O(1) insertion/deletion at both ends and O(n) elsewhere.
+/// Supports bidirectional iteration.
+/// Caller controls node allocation - list only manages pointers.
+/// This allows custom allocators, stack allocation, or pre-allocated pools.
 template <typename T> class DTailList
 {
 public:
@@ -393,10 +363,8 @@ public:
     return *this;
   }
 
-  /**
-   * @brief Insert node at front in O(1)
-   * Caller owns the node and is responsible for deallocation
-   */
+  /// @brief Insert node at front in O(1)
+  /// Caller owns the node and is responsible for deallocation
   void push_front(node_type* node)
   {
     assert(node && "Node is null");
@@ -411,10 +379,8 @@ public:
     m_head = node;
   }
 
-  /**
-   * @brief Insert node at back in O(1)
-   * Caller owns the node and is responsible for deallocation
-   */
+  /// @brief Insert node at back in O(1)
+  /// Caller owns the node and is responsible for deallocation
   void push_back(node_type* node)
   {
     assert(node && "Node is null");
@@ -429,10 +395,8 @@ public:
     m_tail = node;
   }
 
-  /**
-   * @brief Remove node at front in O(1)
-   * Returns the removed node (caller must delete it)
-   */
+  /// @brief Remove node at front in O(1)
+  /// Returns the removed node (caller must delete it)
   node_type* pop_front()
   {
     assert(m_head && "List is empty");
@@ -449,10 +413,8 @@ public:
     return removed;
   }
 
-  /**
-   * @brief Remove node at back in O(1)
-   * Returns the removed node (caller must delete it)
-   */
+  /// @brief Remove node at back in O(1)
+  /// Returns the removed node (caller must delete it)
   node_type* pop_back()
   {
     assert(m_tail && "List is empty");
@@ -468,9 +430,7 @@ public:
     return removed;
   }
 
-  /**
-   * @brief Access front element
-   */
+  /// @brief Access front element
   reference front()
   {
     assert(m_head && "List is empty");
@@ -482,9 +442,7 @@ public:
     return m_head->data;
   }
 
-  /**
-   * @brief Access back element
-   */
+  /// @brief Access back element
   reference back()
   {
     assert(m_tail && "List is empty");
@@ -496,19 +454,13 @@ public:
     return m_tail->data;
   }
 
-  /**
-   * @brief Check if list is empty
-   */
+  /// @brief Check if list is empty
   bool empty() const { return m_head == nullptr; }
 
-  /**
-   * @brief Get maximum size
-   */
+  /// @brief Get maximum size
   size_type max_size() const { return static_cast<size_type>(-1); }
 
-  /**
-   * @brief Get number of elements
-   */
+  /// @brief Get number of elements
   size_t size() const
   {
     size_t count = 0;
@@ -517,20 +469,16 @@ public:
     return count;
   }
 
-  /**
-   * @brief Unlink all nodes from list (does NOT delete them)
-   * Caller is responsible for deleting nodes
-   */
+  /// @brief Unlink all nodes from list (does NOT delete them)
+  /// Caller is responsible for deleting nodes
   void clear()
   {
     m_head = nullptr;
     m_tail = nullptr;
   }
 
-  /**
-   * @brief Insert node before iterator position in O(1)
-   * Caller owns the node and is responsible for deallocation
-   */
+  /// @brief Insert node before iterator position in O(1)
+  /// Caller owns the node and is responsible for deallocation
   iterator insert(const_iterator pos, node_type* node)
   {
     assert(node && "Node is null");
@@ -552,10 +500,8 @@ public:
     return iterator(node);
   }
 
-  /**
-   * @brief Remove node at iterator position in O(1)
-   * Returns the removed node (caller must delete it)
-   */
+  /// @brief Remove node at iterator position in O(1)
+  /// Returns the removed node (caller must delete it)
   node_type* erase(const_iterator pos)
   {
     assert(pos.m_current && "Iterator is invalid");
@@ -579,9 +525,7 @@ public:
     return removed;
   }
 
-  /**
-   * @brief Swap contents with another DTailList
-   */
+  /// @brief Swap contents with another DTailList
   void swap(DTailList& other) noexcept
   {
     using std::swap;
@@ -589,9 +533,7 @@ public:
     swap(m_tail, other.m_tail);
   }
 
-  /**
-   * @brief Reverse the order of elements
-   */
+  /// @brief Reverse the order of elements
   void reverse() noexcept
   {
     m_tail = m_head;
@@ -867,17 +809,23 @@ public:
   node_type* pop_back()
   {
     assert(m_head && "List is empty");
+
     if (m_head == m_tail) {
       node_type* removed = m_head;
       m_head = m_tail = nullptr;
       return removed;
     }
+
     node_type* prev = m_head;
+
     while (prev->next != m_tail)
       prev = prev->next;
+
     node_type* removed = m_tail;
+
     prev->next = nullptr;
     m_tail = prev;
+
     return removed;
   }
 
@@ -947,9 +895,7 @@ public:
     return removed;
   }
 
-  /**
-   * @brief Swap contents with another STailList
-   */
+  /// @brief Swap contents with another STailList
   void swap(STailList& other) noexcept
   {
     using std::swap;
@@ -957,14 +903,10 @@ public:
     swap(m_tail, other.m_tail);
   }
 
-  /**
-   * @brief Get maximum size
-   */
+  /// @brief Get maximum size
   size_t max_size() const { return static_cast<size_t>(-1); }
 
-  /**
-   * @brief Reverse the order of elements
-   */
+  /// @brief Reverse the order of elements
   void reverse() noexcept
   {
     m_tail = m_head;
@@ -1237,9 +1179,7 @@ public:
 
   bool empty() const { return m_head == nullptr; }
 
-  /**
-   * @brief Get maximum size
-   */
+  /// @brief Get maximum size
   size_type max_size() const { return static_cast<size_type>(-1); }
 
   size_t size() const
@@ -1301,18 +1241,14 @@ public:
     return removed;
   }
 
-  /**
-   * @brief Swap contents with another DList
-   */
+  /// @brief Swap contents with another DList
   void swap(DList& other) noexcept
   {
     using std::swap;
     swap(m_head, other.m_head);
   }
 
-  /**
-   * @brief Reverse the order of elements
-   */
+  /// @brief Reverse the order of elements
   void reverse() noexcept
   {
     node_type* current = m_head;

@@ -131,8 +131,9 @@ PriorityWaitersQueue::reference PriorityWaitersQueue::peek()
 
 void PriorityWaitersQueue::remove(iterator it)
 {
-  configASSERT(it.m_owner == this);
-  configASSERT(it.m_priority < configMAX_PRIORITIES);
+  configASSERT(it.m_owner == this &&
+               "Iterator does not belong to this container");
+  configASSERT(it.m_priority < configMAX_PRIORITIES && "Iterator is at end");
   m_lists[it.m_priority].erase(it.m_inner);
 }
 

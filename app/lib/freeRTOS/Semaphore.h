@@ -6,68 +6,68 @@
 namespace freertos
 {
 
-/**
- * @brief Native FreeRTOS semaphore storage and handle wrapper.
- */
+/// @brief Native FreeRTOS semaphore storage and handle wrapper.
 struct NativeSemaphore_t {
   StaticSemaphore_t buffer;
   SemaphoreHandle_t handle;
 };
 
-/**
- * @brief Fixed-capacity counting semaphore backed by FreeRTOS.
- *
- * @tparam maxCount Maximum number of tokens the semaphore can hold.
- *
- * The class exposes a standard semaphore API:
- * - @ref acquire blocks until a token is available.
- * - @ref try_acquire attempts to take a token without blocking.
- * - @ref try_acquire_for and @ref try_acquire_until provide timed waits.
- * - @ref release returns a token to the semaphore.
- */
+/// @brief Fixed-capacity counting semaphore backed by FreeRTOS.
+///
+/// @tparam maxCount Maximum number of tokens the semaphore can hold.
+///
+/// The class exposes a standard semaphore API:
+/// - @ref acquire blocks until a token is available.
+/// - @ref try_acquire attempts to take a token without blocking.
+/// - @ref try_acquire_for and @ref try_acquire_until provide timed waits.
+/// - @ref release returns a token to the semaphore.
 template <UBaseType_t maxCount> class CountingSemaphore
 {
 public:
-  /**
-   * @brief Creates the semaphore with an optional initial token count.
-   *
-   * @param initialCount Initial number of available tokens.
-   *                     Defaults to @p maxCount.
-   */
-  CountingSemaphore(UBaseType_t initialCount = maxCount);
+  /// @brief Creates the semaphore with an optional initial token count.
+  ///
+  /// @param initialCount Initial number of available tokens.
+  ///                     Defaults to @p maxCount.
+  CountingSemaphore(UBaseType_t initialCount = maxCount)
+      : m_semaphore({.handle = xSemaphoreCreateCountingStatic(
+                         maxCount, initialCount, &m_semaphore.buffer)})
+  {
+    configASSERT(initialCount <= maxCount);
+    configASSERT(m_semaphore.handle != nullptr && "Failed to create semaphore");
+  }
 
-  /**
-   * @brief Destroys the underlying FreeRTOS semaphore.
-   */
-  ~CountingSemaphore();
+  /// @brief Destroys the underlying FreeRTOS semaphore.
+  ~CountingSemaphore() { vSemaphoreDelete(m_semaphore.handle); }
 
   // Prevent copying to avoid accidental double-deletion of FreeRTOS handles
   CountingSemaphore(const CountingSemaphore&) = delete;
   CountingSemaphore& operator=(const CountingSemaphore&) = delete;
 
-  /**
-   * @brief Adds one token to the semaphore.
-   */
-  void release();
+  /// @brief Adds one token to the semaphore.
+  void release()
+  {
+    bool result = xSemaphoreGive(m_semaphore.handle) == pdTRUE;
+    configASSERT(result && "Failed to release semaphore");
+    (void)result;
+  }
 
-  /**
-   * @brief Blocks until a token becomes available.
-   */
-  void acquire();
+  /// @brief Blocks until a token becomes available.
+  void acquire()
+  {
+    bool result = xSemaphoreTake(m_semaphore.handle, portMAX_DELAY) == pdTRUE;
+    configASSERT(result && "Failed to acquire semaphore");
+    (void)result;
+  }
 
-  /**
-   * @brief Attempts to acquire a token without blocking.
-   *
-   * @return true if a token was acquired, false otherwise.
-   */
-  bool try_acquire();
+  /// @brief Attempts to acquire a token without blocking.
+  ///
+  /// @return true if a token was acquired, false otherwise.
+  bool try_acquire() { return xSemaphoreTake(m_semaphore.handle, 0) == pdTRUE; }
 
-  /**
-   * @brief Attempts to acquire a token for a relative duration.
-   *
-   * @param relativeTime Maximum time to wait.
-   * @return true if a token was acquired, false otherwise.
-   */
+  /// @brief Attempts to acquire a token for a relative duration.
+  ///
+  /// @param relativeTime Maximum time to wait.
+  /// @return true if a token was acquired, false otherwise.
   template <typename Rep, typename Period>
   bool try_acquire_for(const std::chrono::duration<Rep, Period>& relativeTime)
   {
@@ -80,12 +80,10 @@ public:
     return xSemaphoreTake(m_semaphore.handle, ticks + 1) == pdTRUE;
   }
 
-  /**
-   * @brief Attempts to acquire a token until an absolute time point.
-   *
-   * @param absoluteTime Deadline to wait for.
-   * @return true if a token was acquired, false otherwise.
-   */
+  /// @brief Attempts to acquire a token until an absolute time point.
+  ///
+  /// @param absoluteTime Deadline to wait for.
+  /// @return true if a token was acquired, false otherwise.
   template <typename Clock, typename Duration = typename Clock::duration>
   bool try_acquire_until(
       const std::chrono::time_point<Clock, Duration>& absoluteTime)
@@ -99,51 +97,13 @@ public:
     return try_acquire_for(relativeTime);
   }
 
-  /**
-   * @brief Returns the maximum capacity of the semaphore.
-   */
+  /// @brief Returns the maximum capacity of the semaphore.
   static constexpr UBaseType_t max() { return maxCount; }
 
 private:
   NativeSemaphore_t m_semaphore;
 };
 
-/**
- * @brief Binary semaphore alias.
- */
+/// @brief Binary semaphore alias.
 using BinarySemaphore = CountingSemaphore<1>;
-
-template <UBaseType_t maxCount>
-CountingSemaphore<maxCount>::CountingSemaphore(UBaseType_t initialCount)
-    : m_semaphore({.handle = xSemaphoreCreateCountingStatic(
-                       maxCount, initialCount, &m_semaphore.buffer)})
-{
-  configASSERT(initialCount <= maxCount);
-  configASSERT(m_semaphore.handle != nullptr && "Failed to create semaphore");
-}
-
-template <UBaseType_t maxCount>
-CountingSemaphore<maxCount>::~CountingSemaphore()
-{
-  vSemaphoreDelete(m_semaphore.handle);
-}
-
-template <UBaseType_t maxCount> void CountingSemaphore<maxCount>::release()
-{
-  bool result = xSemaphoreGive(m_semaphore.handle) == pdTRUE;
-  configASSERT(result && "Failed to release semaphore");
-  (void)result;
-}
-
-template <UBaseType_t maxCount> void CountingSemaphore<maxCount>::acquire()
-{
-  bool result = xSemaphoreTake(m_semaphore.handle, portMAX_DELAY) == pdTRUE;
-  configASSERT(result && "Failed to acquire semaphore");
-  (void)result;
-}
-
-template <UBaseType_t maxCount> bool CountingSemaphore<maxCount>::try_acquire()
-{
-  return xSemaphoreTake(m_semaphore.handle, 0) == pdTRUE;
-}
 } // namespace freertos

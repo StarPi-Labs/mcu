@@ -24,32 +24,24 @@ concept TimedLockable = Lockable<T> && requires(T a) {
   { a.try_lock_until(std::chrono::steady_clock::now()) } -> std::same_as<bool>;
 };
 
-/**
- * @brief Wrapper for FreeRTOS mutex
- * Implements: BasicLockable, Lockable, TimedLockable
- */
+/// @brief Wrapper for FreeRTOS mutex
+/// Implements: BasicLockable, Lockable, TimedLockable
 class Mutex
 {
 public:
   Mutex();
   ~Mutex();
 
-  /**
-   * @brief Acquires the mutex, blocking the thread until it is available.
-   */
+  /// @brief Acquires the mutex, blocking the thread until it is available.
   void lock();
 
-  /**
-   * @brief Attempts to acquire the mutex without blocking.
-   * @return true if the mutex was acquired, false otherwise.
-   */
+  /// @brief Attempts to acquire the mutex without blocking.
+  /// @return true if the mutex was acquired, false otherwise.
   bool try_lock();
 
-  /**
-   * @brief Attempts to acquire the mutex for a specific time.
-   * @param relativeTime the wait time.
-   * @return true if the mutex was acquired, false otherwise.
-   */
+  /// @brief Attempts to acquire the mutex for a specific time.
+  /// @param relativeTime the wait time.
+  /// @return true if the mutex was acquired, false otherwise.
   template <typename Rep, typename Period = std::ratio<1>>
   bool try_lock_for(const std::chrono::duration<Rep, Period>& relativeTime)
   {
@@ -62,11 +54,9 @@ public:
     return xSemaphoreTake(m_mutex.handle, ticks + 1) == pdTRUE;
   }
 
-  /**
-   * @brief Attempts to acquire the mutex until a specific time.
-   * @param absoluteTime the absolute expiration time.
-   * @return true if the mutex was acquired, false otherwise.
-   */
+  /// @brief Attempts to acquire the mutex until a specific time.
+  /// @param absoluteTime the absolute expiration time.
+  /// @return true if the mutex was acquired, false otherwise.
   template <typename Clock, typename Duration = typename Clock::duration>
   bool
   try_lock_until(const std::chrono::time_point<Clock, Duration>& absoluteTime)
@@ -80,9 +70,7 @@ public:
     return try_lock_for(relativeTime);
   }
 
-  /**
-   * @brief Releases the mutex.
-   */
+  /// @brief Releases the mutex.
   void unlock();
 
 private:

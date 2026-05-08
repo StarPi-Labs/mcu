@@ -13,7 +13,6 @@
 
 #ifndef MCU_LOG_BUFFER_SIZE
 // Size of the buffer for log messages.
-// NOTE: It must be at least as large as the longest prefix.
 #define MCU_LOG_BUFFER_SIZE 4096
 #endif
 
@@ -34,17 +33,31 @@
 
 namespace mcu
 {
-// Prefixes
+//  ----- Prefixes ------
 constexpr std::string_view LOG_PREFIX_DEBUG = "[DEBUG]: ";
+static_assert(LOG_PREFIX_DEBUG.size() < MCU_LOG_BUFFER_SIZE);
+
 constexpr std::string_view LOG_PREFIX_INFO = "[INFO]: ";
+static_assert(LOG_PREFIX_INFO.size() < MCU_LOG_BUFFER_SIZE);
+
 constexpr std::string_view LOG_PREFIX_WARNING = "[WARNING]: ";
+static_assert(LOG_PREFIX_WARNING.size() < MCU_LOG_BUFFER_SIZE);
+
 constexpr std::string_view LOG_PREFIX_ERROR = "[ERROR]: ";
+static_assert(LOG_PREFIX_ERROR.size() < MCU_LOG_BUFFER_SIZE);
+
 constexpr std::string_view LOG_PREFIX_CRITICAL = "[CRITICAL]: ";
+static_assert(LOG_PREFIX_CRITICAL.size() < MCU_LOG_BUFFER_SIZE);
+
+// ----- Implementation ------
 
 namespace LogTargets
 {
-using LogHandler = std::function<void(std::string_view)>;
+using LogHandler =
+    std::function<void(std::string_view)>; ///< Type for log handler functions.
 
+/// @brief Structure representing a log target, which includes a log handler
+/// function and its associated FreeRTOS task priority.
 struct LogTarget {
   LogHandler handler;
   UBaseType_t priority;
@@ -57,10 +70,8 @@ const LogTarget ARDUINO_SERIAL = {
     tskIDLE_PRIORITY + 1};
 } // namespace LogTargets
 
-// Log targets to which the message is sent after
-// formatting, note it is not intended to be modified at runtime
-// but only during program initialization (e.g. setup())
-inline std::vector<LogTargets::LogTarget> g_logTargets;
+inline std::vector<LogTargets::LogTarget>
+    g_logTargets; ///< List of log targets to which formatted messages are sent.
 
 namespace implementation
 {

@@ -20,7 +20,7 @@ void customHandler(std::string_view msg)
 void test_logging_basic()
 {
   mcu_log_info("test {}", 123);
-  mcu::flush();
+  mcu::log::flush();
 
   TEST_ASSERT_EQUAL_STRING("[INFO]: test 123", g_capturedOutput.c_str());
 }
@@ -29,7 +29,7 @@ void test_logging_multiple_messages()
 {
   mcu_log_info("test {}", 1);
   mcu_log_warning("test {}", 2);
-  mcu::flush();
+  mcu::log::flush();
 
   TEST_ASSERT_EQUAL_STRING("[INFO]: test 1[WARNING]: test 2",
                            g_capturedOutput.c_str());
@@ -37,7 +37,7 @@ void test_logging_multiple_messages()
 
 void runUnityTests()
 {
-  mcu::g_logTargets.push_back({customHandler, tskIDLE_PRIORITY + 1});
+  mcu::log::g_targets.push_back({customHandler, tskIDLE_PRIORITY + 1});
 
   UNITY_BEGIN();
   RUN_TEST(test_logging_basic);

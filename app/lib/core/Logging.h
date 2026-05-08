@@ -4,6 +4,7 @@
 #include <ConditionVariable.h>
 #include <Mutex.h>
 #include <array>
+#include <chrono>
 #include <condition_variable>
 #include <cstdio>
 #include <cstring>
@@ -31,57 +32,54 @@
 #define MCU_LOG_LEVEL MCU_LOG_LEVEL_INFO
 #endif
 
-namespace mcu
+namespace mcu::log
 {
-//  ----- Prefixes ------
-constexpr std::string_view LOG_PREFIX_DEBUG = "[DEBUG]: ";
-static_assert(LOG_PREFIX_DEBUG.size() < MCU_LOG_BUFFER_SIZE);
+namespace implementation
+{
+using Buffer = std::array<char, MCU_LOG_BUFFER_SIZE>;
+inline std::array<Buffer, 2> g_buffers;
+inline std::uint8_t g_activeIndex = 0;
+inline std::size_t g_bufferOffset = 0;
+inline freertos::Mutex g_mutex;
+inline freertos::ConditionVariable g_cvBufferFull, g_cvBufferEmpty;
+} // namespace implementation
 
-constexpr std::string_view LOG_PREFIX_INFO = "[INFO]: ";
-static_assert(LOG_PREFIX_INFO.size() < MCU_LOG_BUFFER_SIZE);
+// ----- Public API ------
+//  ----- Prefixes -------
+constexpr std::string_view PREFIX_DEBUG = "[DEBUG]: ";
+static_assert(PREFIX_DEBUG.size() < MCU_LOG_BUFFER_SIZE);
 
-constexpr std::string_view LOG_PREFIX_WARNING = "[WARNING]: ";
-static_assert(LOG_PREFIX_WARNING.size() < MCU_LOG_BUFFER_SIZE);
+constexpr std::string_view PREFIX_INFO = "[INFO]: ";
+static_assert(PREFIX_INFO.size() < MCU_LOG_BUFFER_SIZE);
 
-constexpr std::string_view LOG_PREFIX_ERROR = "[ERROR]: ";
-static_assert(LOG_PREFIX_ERROR.size() < MCU_LOG_BUFFER_SIZE);
+constexpr std::string_view PREFIX_WARNING = "[WARNING]: ";
+static_assert(PREFIX_WARNING.size() < MCU_LOG_BUFFER_SIZE);
 
-constexpr std::string_view LOG_PREFIX_CRITICAL = "[CRITICAL]: ";
-static_assert(LOG_PREFIX_CRITICAL.size() < MCU_LOG_BUFFER_SIZE);
+constexpr std::string_view PREFIX_ERROR = "[ERROR]: ";
+static_assert(PREFIX_ERROR.size() < MCU_LOG_BUFFER_SIZE);
+
+constexpr std::string_view PREFIX_CRITICAL = "[CRITICAL]: ";
+static_assert(PREFIX_CRITICAL.size() < MCU_LOG_BUFFER_SIZE);
 
 // ----- Implementation ------
-
-namespace LogTargets
-{
-using LogHandler =
+using Handler =
     std::function<void(std::string_view)>; ///< Type for log handler functions.
 
 /// @brief Structure representing a log target, which includes a log handler
 /// function and its associated FreeRTOS task priority.
-struct LogTarget {
-  LogHandler handler;
+struct Target {
+  Handler handler;
   UBaseType_t priority;
 };
 
-const LogTarget ARDUINO_SERIAL = {
+const Target ARDUINO_SERIAL = {
     [](std::string_view msg) {
       Serial.write(reinterpret_cast<const uint8_t*>(msg.data()), msg.size());
     },
     tskIDLE_PRIORITY + 1};
-} // namespace LogTargets
 
-inline std::vector<LogTargets::LogTarget>
-    g_logTargets; ///< List of log targets to which formatted messages are sent.
-
-namespace implementation
-{
-using LogBuffer_t = std::array<char, MCU_LOG_BUFFER_SIZE>;
-inline std::array<LogBuffer_t, 2> g_logBuffers;
-inline std::uint8_t g_logActiveIndex = 0;
-inline std::size_t g_bufferOffset = 0;
-inline freertos::Mutex g_logMutex;
-inline freertos::ConditionVariable g_cvLogFull, g_cvLogEmpty;
-} // namespace implementation
+inline std::vector<Target>
+    g_targets; ///< List of log targets to which formatted messages are sent.
 
 /// @brief Logs (prints) a formatted message with a prefix.
 ///
@@ -102,7 +100,7 @@ logf(const std::string_view& logLevel,
   using namespace implementation;
 
   {
-    std::unique_lock lock(g_logMutex);
+    std::unique_lock lock(g_mutex);
 
     std::size_t formattedSize =
         std::formatted_size(format, std::forward<Args>(args)...);
@@ -112,11 +110,11 @@ logf(const std::string_view& logLevel,
     assert(requiredSize <= MCU_LOG_BUFFER_SIZE &&
            "Log message is too large to fit in the buffer");
 
-    g_cvLogFull.wait(lock, [&] {
+    g_cvBufferFull.wait(lock, [&] {
       return g_bufferOffset + requiredSize <= MCU_LOG_BUFFER_SIZE;
     });
 
-    LogBuffer_t& activeBuffer = g_logBuffers[g_logActiveIndex];
+    Buffer& activeBuffer = g_buffers[g_activeIndex];
 
     std::memcpy(&activeBuffer[g_bufferOffset], logLevel.data(),
                 logLevel.size());
@@ -130,78 +128,76 @@ logf(const std::string_view& logLevel,
     g_bufferOffset += formattedSize;
   }
 
-  g_cvLogEmpty.notify_one();
+  g_cvBufferEmpty.notify_one();
 }
 
 /// @brief FreeRTOS task to manage printing log messages.
 ///
-/// This task takes formatted messages from `g_logBuffer`
-/// and sends them to all registered handlers in `g_logHandlers`.
+/// This task takes formatted messages from `Buffer`
+/// and sends them to all registered handlers in `Handlers`.
 /// @param pvParams Task parameters (not used in this case).
-void vTaskLogger(void* pvParams);
+void vTask(void* pvParams);
 
 /// @brief Forces immediate printing of all log messages currently in the
 /// buffer.
 void flush();
 
-} // namespace mcu
+} // namespace mcu::log
 
 #if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_DEBUG
 /// @brief Logs a message at DEBUG level.
-/// If enabled, adds the [DEBUG] prefix to the head of the log.
 /// Compiled and executed only if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_DEBUG.
 /// @param format Format string compatible with std::format.
 /// @param ... Any arguments to format.
 #define mcu_log_debug(format, ...)                                             \
-  ::mcu::logf(::mcu::LOG_PREFIX_DEBUG, format __VA_OPT__(, ) __VA_ARGS__)
+  ::mcu::log::logf(::mcu::log::LOG_PREFIX_DEBUG,                               \
+                   format __VA_OPT__(, ) __VA_ARGS__)
 #else
 #define mcu_log_debug(format, ...)
 #endif
 
 #if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_INFO
 /// @brief Logs a message at INFO level.
-/// If enabled, adds the [INFO] prefix to the head of the log.
 /// Compiled and executed only if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_INFO.
 /// @param format Format string compatible with std::format.
 /// @param ... Any arguments to format.
 #define mcu_log_info(format, ...)                                              \
-  ::mcu::logf(::mcu::LOG_PREFIX_INFO, format __VA_OPT__(, ) __VA_ARGS__)
+  ::mcu::log::logf(::mcu::log::PREFIX_INFO, format __VA_OPT__(, ) __VA_ARGS__)
 #else
 #define mcu_log_info(format, ...)
 #endif
 
 #if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_WARNING
 /// @brief Logs a message at WARNING level.
-/// If enabled, adds the [WARNING] prefix to the head of the log.
 /// Compiled and executed only if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_WARNING.
 /// @param format Format string compatible with std::format.
 /// @param ... Optional arguments to format.
 #define mcu_log_warning(format, ...)                                           \
-  ::mcu::logf(::mcu::LOG_PREFIX_WARNING, format __VA_OPT__(, ) __VA_ARGS__)
+  ::mcu::log::logf(::mcu::log::PREFIX_WARNING,                                 \
+                   format __VA_OPT__(, ) __VA_ARGS__)
 #else
 #define mcu_log_warning(format, ...)
 #endif
 
 #if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_ERROR
 /// @brief Logs a message at ERROR level.
-/// If enabled, adds the [ERROR] prefix to the head of the log.
 /// Compiled and executed only if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_ERROR.
 /// @param format Format string compatible with std::format.
 /// @param ... Optional arguments to format.
 #define mcu_log_error(format, ...)                                             \
-  ::mcu::logf(::mcu::LOG_PREFIX_ERROR, format __VA_OPT__(, ) __VA_ARGS__)
+  ::mcu::log::logf(::mcu::log::PREFIX_ERROR, format __VA_OPT__(, ) __VA_ARGS__)
 #else
 #define mcu_log_error(format, ...)
 #endif
 
 #if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_CRITICAL
 /// @brief Logs a message at CRITICAL level.
-/// If enabled, adds the [CRITICAL] prefix to the head of the log.
 /// Compiled and executed only if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_CRITICAL.
 /// @param format Format string compatible with std::format.
 /// @param ... Optional arguments to format.
 #define mcu_log_critical(format, ...)                                          \
-  ::mcu::logf(::mcu::LOG_PREFIX_CRITICAL, format __VA_OPT__(, ) __VA_ARGS__)
+  ::mcu::log::logf(::mcu::log::PREFIX_CRITICAL,                                \
+                   format __VA_OPT__(, ) __VA_ARGS__)
 #else
 #define mcu_log_critical(format, ...)
 #endif

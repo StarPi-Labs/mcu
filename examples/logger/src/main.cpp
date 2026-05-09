@@ -177,19 +177,21 @@ TASK barometer_task(TaskDescriptor_t *self)
 TASK lora_task(TaskDescriptor_t *self)
 {
 	self->last_wake = xTaskGetTickCount();
+	message_t recv;
 
 	while (true) {
-/*
 		if (xSemaphoreTake(spi_semaphore, portMAX_DELAY) == pdTRUE) {
 			if (lora_is_transmission_done()) {
-				LOG("[LORA]: Transmission done");
-				lora_start_transmission(LoRaPayload{0}.bytes, sizeof(LoRaPayload));
+				LOG(DEST_UART, "[LORA]: Transmission done");
+				if (message_queue_dequeue(&recv, 0, DEST_LORA)) {
+					// TODO: transmit the actual message
+					lora_start_transmission(LoRaPayload{0}.bytes, sizeof(LoRaPayload));
+				}
 			} else {
-				LOG("[LORA]: Transmission in progress");
+				LOG(DEST_UART, "[LORA]: Transmission in progress");
 			}
 			xSemaphoreGive(spi_semaphore);
 		}
-*/
 		TASK_WAIT_HZ(self, LORA_TASK_HZ);
 	}
 }

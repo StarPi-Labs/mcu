@@ -1,5 +1,7 @@
 #include "tests.h"
 #include <Arduino.h>
+// Note: the timestamp is disabled for testing to make it easier to assert log
+// output.
 #include <Logging.h>
 #include <unity.h>
 

@@ -2,7 +2,23 @@
 
 namespace mcu::log
 {
-void vTaskLogger(void* pvParams)
+void init()
+{
+  assert(Serial && "Serial port not initialized");
+  g_targets.push_back(ARDUINO_SERIAL);
+
+#if MCU_LOG_TIMESTAMP_ENABLE
+  g_bootTime = std::chrono::steady_clock::now();
+#endif
+
+  bool result =
+      xTaskCreatePinnedToCore(vTask, "logger", 4096, NULL, tskIDLE_PRIORITY + 2,
+                              NULL, 0) == pdPASS;
+  assert(result && "Failed to create logger task");
+  (void)result;
+}
+
+void vTask(void* pvParams)
 {
   using namespace implementation;
 

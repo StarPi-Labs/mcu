@@ -32,6 +32,11 @@
 #define MCU_LOG_LEVEL MCU_LOG_LEVEL_INFO
 #endif
 
+#ifndef MCU_LOG_TIMESTAMP_ENABLE
+// Enable timestamps in log messages by default
+#define MCU_LOG_TIMESTAMP_ENABLE 1
+#endif
+
 namespace mcu::log
 {
 namespace implementation
@@ -81,6 +86,17 @@ const Target ARDUINO_SERIAL = {
 inline std::vector<Target>
     g_targets; ///< List of log targets to which formatted messages are sent.
 
+#if MCU_LOG_TIMESTAMP_ENABLE
+inline std::chrono::time_point<std::chrono::steady_clock>
+    g_bootTime; ///< Time point representing system boot
+                ///< time.
+#endif
+
+/// @brief Initializes the logging system, including starting the logger task.
+///
+/// @pre @c Serial must be initialized.
+void init();
+
 /// @brief Logs (prints) a formatted message with a prefix.
 ///
 /// It is not intended to be used directly, but via macros:
@@ -102,10 +118,24 @@ logf(const std::string_view& logLevel,
   {
     std::unique_lock lock(g_mutex);
 
-    std::size_t formattedSize =
+#if MCU_LOG_TIMESTAMP_ENABLE
+    auto timestamp = std::chrono::steady_clock::now() - g_bootTime;
+    // e.g. "00:15:42.1234"
+    constexpr std::format_string<decltype(timestamp)&> TIMESTAMP_FORMAT =
+        "{:%T} ";
+
+    std::size_t timestampSize =
+        std::formatted_size(TIMESTAMP_FORMAT, timestamp);
+#endif
+
+    std::size_t formatSize =
         std::formatted_size(format, std::forward<Args>(args)...);
 
-    std::size_t requiredSize = logLevel.size() + formattedSize;
+    std::size_t requiredSize = logLevel.size() + formatSize
+#if MCU_LOG_TIMESTAMP_ENABLE
+                               + timestampSize
+#endif
+        ;
 
     assert(requiredSize <= MCU_LOG_BUFFER_SIZE &&
            "Log message is too large to fit in the buffer");
@@ -121,11 +151,16 @@ logf(const std::string_view& logLevel,
 
     g_bufferOffset += logLevel.size();
 
+#if MCU_LOG_TIMESTAMP_ENABLE
+    std::format_to(&activeBuffer[g_bufferOffset], TIMESTAMP_FORMAT, timestamp);
+    g_bufferOffset += timestampSize;
+#endif
+
     // Format the message directly into the buffer
     std::format_to(&activeBuffer[g_bufferOffset], format,
                    std::forward<Args>(args)...);
 
-    g_bufferOffset += formattedSize;
+    g_bufferOffset += formatSize;
   }
 
   g_cvBufferEmpty.notify_one();

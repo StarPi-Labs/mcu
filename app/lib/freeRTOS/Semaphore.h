@@ -64,7 +64,8 @@ public:
   /// @brief Attempts to acquire a token without blocking.
   ///
   /// @return true if a token was acquired, false otherwise.
-  bool try_acquire() {
+  bool try_acquire()
+  {
     configASSERT(xPortInIsrContext() == pdFALSE && "Cannot be called from ISR");
     return xSemaphoreTake(m_semaphore.handle, 0) == pdTRUE;
   }

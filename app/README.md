@@ -145,10 +145,10 @@ pio test -f test_mutex
 pio test -f test_semaphore
 pio test -f test_condition_variable
 pio test -f test_list
+```
+
 ## Notes
 
 - The QEMU script currently supports Linux, macOS, and Windows host naming conventions.
-- The logging module uses double-buffering and condition variables for safe concurrent logging from multiple FreeRTOS tasks.
-- All synchronization primitives (Mutex, Semaphore, ConditionVariable) are built on top of FreeRTOS kernel objects for maximum reliability and performance.
-- See [KNOWN_ISSUES.md](KNOWN_ISSUES.md) for known issues with QEMU emulation.
+- See [KNOWN_ISSUES.md](KNOWN_ISSUES.md)
 - The test suite uses the Unity testing framework and is designed to run on both hardware (ESP32-S3) and QEMU emulator.

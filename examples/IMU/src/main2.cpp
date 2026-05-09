@@ -4,48 +4,42 @@
 #include <LSM6DSO32Sensor.h>
 #include <SPI.h>
 
-#define SPI_MOSI 11
-#define SPI_MISO 13
-#define SPI_SCK 12
-#define SPI_CS 15
-#define IMU_INT1 10
+
+// TODO: rename these to indicate that they are imu-specific
+typedef struct {
+	int32_t accelerometer[3];
+	int32_t gyroscope[3];
+	uint8_t timestamp[6];
+} FIFO_Sample;
+
+
+// extern LSM6DSO32Sensor IMU;
 
 
 void imu_setup();
 int imu_get_sample(FIFO_Sample *sample);
 
-SPIClass dev_spi(HSPI);
-LSM6DSO32Sensor IMU(&dev_spi, SPI_CS);
-
-void print_data(int32_t accelerometer[3], int32_t gyroscope[3], uint8_t timestamp[6]);
-void IRAM_ATTR fifo_interrupt();
-
-volatile bool interrupt_flag = false;
-
-typedef struct {
-  int32_t accelerometer[3]; 
-  int32_t gyroscope[3];
-  uint8_t timestamp[6];
-} FIFO_Sample;
-
-typedef struct {
-  FIFO_Sample fifo_batch[148]; //3072 bytes / () = 114
-  int index = 0; 
-} FIFO_BATCH;
+extern SPIClass SPI2;
+LSM6DSO32Sensor IMU(&SPI2, IMU_CS);
+static volatile bool interrupt_flag = false;
 
 
-FIFO_BATCH fifo;
-
-void restart_fifo();
+/*
+// Interrupt handler for IMU FIFO interrupt
+static void IRAM_ATTR imu_fifo_interrupt()
+{
+	interrupt_flag = true;
+}
+ */
 
 float g_cal = 0.0f;
 
 
-void setup()
+void imu_setup()
 {
 	if (IMU.begin() != 0) {
 		while(1) {
-			Serial.println("Failed to initialize IMU");
+			ERR(DEST_UART, "Failed to initialize IMU");
 			delay(1000);
 		}
 	}
@@ -55,7 +49,7 @@ void setup()
 	IMU.ReadID(&id);
 	if (id != 0x6C) {
 		while(1) {
-			Serial.println("IMU ID mismatch: expected 0x6C, got " + String(id));
+			ERR(DEST_UART, "IMU ID mismatch: expected 0x6C, got", id);
 			delay(1000);
 		}
 	}
@@ -104,25 +98,6 @@ void setup()
 	}
 	g_cal /= samples;
 }
-
-
-int imu_get_sample(FIFO_Sample *sample);
-
-
-void loop()
-{
-  FIFO_Sample sample;
-  if (imu_get_sample(&sample) == 0) {
-    print_data(sample.accelerometer, sample.gyroscope, sample.timestamp);
-  } else {
-    Serial.println("Failed to get sample");
-  }
-}
-
-void IRAM_ATTR fifo_interrupt(){
-  interrupt_flag = true;
-}
-
 
 
 int imu_get_sample(FIFO_Sample *sample)
@@ -192,41 +167,4 @@ int imu_get_sample(FIFO_Sample *sample)
 	IMU.Get_G_Axes(sample->gyroscope);
 	return 0;
 #endif
-}
-
-
-void restart_fifo(){
-    IMU.Set_FIFO_Mode(LSM6DSO32_BYPASS_MODE); 
-
-    IMU.Disable_X();  
-    IMU.Disable_G();
-
-    IMU.Enable_X();  
-    IMU.Enable_G();
-
-    IMU.Set_FIFO_Mode(LSM6DSO32_BYPASS_MODE); 
-}
-
-
-
-void print_data(int32_t accelerometer[3], int32_t gyroscope[3], uint8_t timestamp[6]){
-  Serial.print("| Acc[mg]: ");
-  Serial.print(accelerometer[0]);
-  Serial.print(" ");
-  Serial.print(accelerometer[1]);
-  Serial.print(" ");
-  Serial.print(accelerometer[2]);
-  Serial.print(" | Gyr[mdps]: ");
-  Serial.print(gyroscope[0]);
-  Serial.print(" ");
-  Serial.print(gyroscope[1]);
-  Serial.print(" ");
-  Serial.print(gyroscope[2]);
-
-  uint32_t ts = (timestamp[3] << 24) | (timestamp[2] << 16) | (timestamp[1] << 8) | timestamp[0];
-
-  Serial.print("Timestamp: ");
-  Serial.println((float)ts / 1000 * 25); //converti in ms 
-
-  Serial.println(" |");
 }

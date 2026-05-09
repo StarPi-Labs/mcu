@@ -79,6 +79,9 @@ struct Target {
 
 const Target ARDUINO_SERIAL = {
     [](std::string_view msg) {
+      assert(xPortInIsrContext() == pdFALSE &&
+             "Logging to Serial is not allowed from an ISR context");
+
       Serial.write(reinterpret_cast<const uint8_t*>(msg.data()), msg.size());
     },
     tskIDLE_PRIORITY + 1};

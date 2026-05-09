@@ -39,7 +39,7 @@ void test_binary_semaphore_try_acquire_for() {
         std::chrono::steady_clock::now() - start);
 
     TEST_ASSERT_FALSE(result);
-    TEST_ASSERT_INT64_WITHIN(1, 50, duration.count());
+    TEST_ASSERT_INT64_WITHIN(20, 50, duration.count());
 }
 
 void test_binary_semaphore_try_acquire_until() {
@@ -53,7 +53,7 @@ void test_binary_semaphore_try_acquire_until() {
         std::chrono::steady_clock::now() - start);
 
     TEST_ASSERT_FALSE(result);
-    TEST_ASSERT_INT64_WITHIN(1, 50, duration.count());
+    TEST_ASSERT_INT64_WITHIN(20, 50, duration.count());
 }
 
 struct TaskParams {

@@ -163,6 +163,7 @@ public:
   /// If no threads are waiting, the function does nothing.
   void notify_one() noexcept
   {
+    configASSERT(xPortInIsrContext() == pdFALSE && "Cannot be called from ISR");
     using namespace implementation;
 
     std::lock_guard internalLock(m_waitersMutex);
@@ -180,6 +181,7 @@ public:
   /// If no threads are waiting, the function does nothing.
   void notify_all() noexcept
   {
+    configASSERT(xPortInIsrContext() == pdFALSE && "Cannot be called from ISR");
     using namespace implementation;
 
     std::lock_guard internalLock(m_waitersMutex);
@@ -202,6 +204,7 @@ public:
     requires BasicLockable<Lock>
   void wait(Lock& lock)
   {
+    configASSERT(xPortInIsrContext() == pdFALSE && "Cannot be called from ISR");
     using namespace implementation;
 
     typename WaitersContainer::node_type node;

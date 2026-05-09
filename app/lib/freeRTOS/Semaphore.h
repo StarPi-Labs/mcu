@@ -46,6 +46,7 @@ public:
   /// @brief Adds one token to the semaphore.
   void release()
   {
+    configASSERT(xPortInIsrContext() == pdFALSE && "Cannot be called from ISR");
     bool result = xSemaphoreGive(m_semaphore.handle) == pdTRUE;
     configASSERT(result && "Failed to release semaphore");
     (void)result;
@@ -54,6 +55,7 @@ public:
   /// @brief Blocks until a token becomes available.
   void acquire()
   {
+    configASSERT(xPortInIsrContext() == pdFALSE && "Cannot be called from ISR");
     bool result = xSemaphoreTake(m_semaphore.handle, portMAX_DELAY) == pdTRUE;
     configASSERT(result && "Failed to acquire semaphore");
     (void)result;
@@ -62,7 +64,10 @@ public:
   /// @brief Attempts to acquire a token without blocking.
   ///
   /// @return true if a token was acquired, false otherwise.
-  bool try_acquire() { return xSemaphoreTake(m_semaphore.handle, 0) == pdTRUE; }
+  bool try_acquire() {
+    configASSERT(xPortInIsrContext() == pdFALSE && "Cannot be called from ISR");
+    return xSemaphoreTake(m_semaphore.handle, 0) == pdTRUE;
+  }
 
   /// @brief Attempts to acquire a token for a relative duration.
   ///
@@ -71,6 +76,7 @@ public:
   template <typename Rep, typename Period>
   bool try_acquire_for(const std::chrono::duration<Rep, Period>& relativeTime)
   {
+    configASSERT(xPortInIsrContext() == pdFALSE && "Cannot be called from ISR");
     auto ticks =
         std::chrono::duration_cast<std::chrono::milliseconds>(relativeTime)
             .count() /

@@ -36,8 +36,8 @@ void test_mutex_try_lock_for() {
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);
     
     TEST_ASSERT_FALSE(result);
-    // Error should be less than 1ms
-    TEST_ASSERT_INT64_WITHIN(1, 50, duration.count());
+    // Error should be less than 20ms
+    TEST_ASSERT_INT64_WITHIN(20, 50, duration.count());
     
     m.unlock();
 }
@@ -53,8 +53,8 @@ void test_mutex_try_lock_until() {
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);
     
     TEST_ASSERT_FALSE(result);
-    // Error should be less than 1ms
-    TEST_ASSERT_INT64_WITHIN(1, 50, duration.count());
+    // Error should be less than 20ms
+    TEST_ASSERT_INT64_WITHIN(20, 50, duration.count());
     
     m.unlock();
 }

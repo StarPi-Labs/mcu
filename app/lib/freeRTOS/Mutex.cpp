@@ -8,6 +8,7 @@ freertos::Mutex::Mutex()
 
 void freertos::Mutex::lock()
 {
+  configASSERT(xPortInIsrContext() == pdFALSE && "Cannot be called from ISR");
   bool result = xSemaphoreTake(m_mutex.handle, portMAX_DELAY) == pdTRUE;
   configASSERT(result && "Failed to take mutex");
   (void)result;
@@ -15,11 +16,13 @@ void freertos::Mutex::lock()
 
 bool freertos::Mutex::try_lock()
 {
+  configASSERT(xPortInIsrContext() == pdFALSE && "Cannot be called from ISR");
   return xSemaphoreTake(m_mutex.handle, 0) == pdTRUE;
 }
 
 void freertos::Mutex::unlock()
 {
+  configASSERT(xPortInIsrContext() == pdFALSE && "Cannot be called from ISR");
   bool result = xSemaphoreGive(m_mutex.handle) == pdTRUE;
   configASSERT(result && "Failed to give mutex");
   (void)result;

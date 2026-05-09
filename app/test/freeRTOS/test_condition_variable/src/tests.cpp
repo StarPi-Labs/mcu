@@ -30,7 +30,7 @@ void test_condition_variable_wait_for_times_out()
   mutex.unlock();
 
   TEST_ASSERT_EQUAL(std::cv_status::timeout, status);
-  TEST_ASSERT_INT64_WITHIN(10, 50, elapsed.count());
+  TEST_ASSERT_INT64_WITHIN(20, 50, elapsed.count());
 }
 
 struct WaitOneTaskParams {

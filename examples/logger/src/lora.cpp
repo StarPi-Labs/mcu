@@ -40,9 +40,8 @@ void lora_setup (void)
 
 	radio.setPacketSentAction(operation_done_cb);
 
-	//long timeOnAir_us = radio.getTimeOnAir(sizeof(LoRaPayload));
-	//float freqHz = 1000000.0 / timeOnAir_us;
-
+	LOG(DEST_UART, "Expected LoRa Time-on-Air [ms]", (uint32_t)(radio.getTimeOnAir(sizeof(LoRaPayload))/1000));
+	
 	//primo pacchetto
 	//start_transmission(LoRaPayload{0}.bytes, sizeof(LoRaPayload));
 

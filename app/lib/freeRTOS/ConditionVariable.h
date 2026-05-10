@@ -20,7 +20,7 @@ namespace implementation
 /// @brief Structure holding a binary semaphore and a signaled flag for a
 /// waiting thread.
 struct CVWaiter {
-  BinarySemaphore semaphore;
+  BinarySemaphore semaphore{0};
   bool signaled = false;
 };
 

@@ -40,7 +40,7 @@ jobs:
       - name: Build app using pio
         run: |
           echo -e "$YELLOW[Info]: Building app...$DONE"
-          pio run -d "$GITHUB_WORKSPACE/app" || {
+          pio run -vv -d "$GITHUB_WORKSPACE/app" || {
             echo -e "$RED[Error]: Build failed for app$DONE"
             exit 1
           }
@@ -59,7 +59,7 @@ jobs:
           # Iterate through the example folders
           for example in $(ls "$examples_dir"); do
             echo -e "$YELLOW[Info]: Building example: $example$DONE"
-            pio run -d "$examples_dir/$example" || {
+            pio run -vv -d "$examples_dir/$example" || {
               # If the pio run command fails, exit with an error
               echo -e "$RED[Error]: Build failed for example: $example$DONE"
               exit 1

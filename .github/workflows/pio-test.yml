@@ -40,7 +40,7 @@ jobs:
       - name: Run app tests using pio
         run: |
           echo -e "$YELLOW[Info]: Running app tests...$DONE"
-          pio test -d "$GITHUB_WORKSPACE/app" -e qemu-debug -e qemu-release -e qemu-production || {
+          pio test -vv -d "$GITHUB_WORKSPACE/app" -e qemu-debug -e qemu-release -e qemu-production || {
             echo -e "$RED[Error]: Test failed for app$DONE"
             exit 1
           }

@@ -25,11 +25,11 @@ ObservedState KalmanFilter::getState() const {
 }
 
 KFState KalmanFilter::getKFState() const {
-    return (KFState) PlaneNavigationFilter_Y.EKF_STAGE; 
+    return (KFState) PlaneNavigationFilter_Y.EKF_STAGE;
 }
 
 void KalmanFilter::predict(float omega_x, float omega_y, float omega_z,
-                           float acc_x, float acc_y, float acc_z) 
+                           float acc_x, float acc_y, float acc_z)
 {
     PlaneNavigationFilter_U.ARM_CMD = true;
     PlaneNavigationFilter_U.GPS_POS_EN = true;

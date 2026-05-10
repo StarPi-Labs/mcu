@@ -102,7 +102,7 @@ int format_message_to_string(const message_t *msg, char *buf, size_t size) {
 #else
 	// Format: [00000000000000000000] description:
 	// Uses PRIu64 to safely format uint64_t across 32-bit and 64-bit platforms
-	written = snprintf(buf, size, "[%020" PRIu64 "] %s", msg->timestamp, desc);
+	written = snprintf(buf, size, "[%" PRIu64 "] %s", msg->timestamp, desc);
 #endif
 
 	// Prevent buffer overflows on the remaining payload
@@ -126,13 +126,13 @@ int format_message_to_string(const message_t *msg, char *buf, size_t size) {
 	case MSG_UINT64:
 		return written + snprintf(ptr, rem, ": %" PRIu64, msg->data.u64);
 	case MSG_FLOAT:
-		return written + snprintf(ptr, rem, ": %.4g", msg->data.f);
+		return written + snprintf(ptr, rem, ": %.4f", msg->data.f);
 	case MSG_DOUBLE:
-		return written + snprintf(ptr, rem, ": %.6g", msg->data.d);
+		return written + snprintf(ptr, rem, ": %.6f", msg->data.d);
 	case MSG_STRING:
 		return written + snprintf(ptr, rem, ": %s", msg->data.str ? msg->data.str : "NULL");
 	case MSG_VEC3:
-		return written + snprintf(ptr, rem, ": (%.3g, %.3g, %.3g)", msg->data.v3.x, msg->data.v3.y, msg->data.v3.z);
+		return written + snprintf(ptr, rem, ": (%.3f, %.3f, %.3f)", msg->data.v3.x, msg->data.v3.y, msg->data.v3.z);
 	case MSG_IVEC3:
 		return written + snprintf(ptr, rem, ": (%" PRId32 ", %" PRId32 ", %" PRId32 ")", msg->data.iv3.x, msg->data.iv3.y, msg->data.iv3.z);
 	default:

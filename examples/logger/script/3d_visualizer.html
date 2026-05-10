@@ -238,7 +238,7 @@
             // Check for Barometer data
             const matchBARO = line.match(regexBARO);
             if (matchBARO) {
-                const altitude = parseFloat(matchBARO[1]);
+                const altitude = parseFloat(matchBARO[1]) * 10.0;
                 updateAltitude(altitude);
             }
         }

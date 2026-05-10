@@ -14,6 +14,7 @@ SPIClass SPI2(FSPI);
 TwoWire I2C1(0);
 
 DECLARE_STATIC_SEMAPHORE(spi_semaphore);
+DECLARE_STATIC_SEMAPHORE(uart_semaphore);
 // TODO: add semaphore for i2c once we connect the pitot
 
 DECLARE_STATIC_TASK(imu_task);
@@ -25,7 +26,9 @@ DECLARE_STATIC_TASK(logger_task);
 void setup(void)
 {
 
-	Serial.begin(115200);
+	Serial.begin(230400);
+	Serial.setTxBufferSize(512);
+	Serial.setTxTimeoutMs(100);
 	while (!Serial) {
 		delay(100);
 	}
@@ -67,7 +70,8 @@ void setup(void)
 	}
 
 	INIT_STATIC_SEMAPHORE(spi_semaphore);
-	if (spi_semaphore == NULL) {
+	INIT_STATIC_SEMAPHORE(uart_semaphore);
+	if (spi_semaphore == NULL || uart_semaphore == NULL) {
 		while (true) {
 			Serial.println("Error creating semaphore");
 			delay(500);
@@ -78,10 +82,20 @@ void setup(void)
 
 void loop(void)
 {
-	Serial.println("LOOP");
+//	Serial.println("LOOP");
 	delay(1000);
 }
 
+
+static inline void log_now(uint64_t time, const char *desc, float value)
+{
+	message_t msg;
+	msg.timestamp = time;
+	msg.type = MSG_FLOAT;
+	msg.description = desc;
+	msg.data.f = value;
+	message_queue_enqueue(&msg, 0);
+}
 
 TASK imu_task(TaskDescriptor_t *self)
 {
@@ -91,21 +105,29 @@ TASK imu_task(TaskDescriptor_t *self)
 
 	while (true) {
 		if (xSemaphoreTake(spi_semaphore, portMAX_DELAY) == pdTRUE && imu_get_sample(&sample) == 0) {
-			kf.predict(
-				(float)sample.gyroscope[0] * 1e-3f * 0.01745329f,
-				(float)sample.gyroscope[1] * 1e-3f * 0.01745329f,
-				(float)sample.gyroscope[2] * 1e-3f * 0.01745329f,
-				(float)sample.accelerometer[0] * 9.81e-3f,
-				(float)sample.accelerometer[1] * 9.81e-3f,
-				(float)sample.accelerometer[2] * 9.81e-3f
-			);
+			//kf.predict(
+			//	(float)sample.gyroscope[0] * 1e-3f * 0.01745329f,
+			//	(float)sample.gyroscope[1] * 1e-3f * 0.01745329f,
+			//	(float)sample.gyroscope[2] * 1e-3f * 0.01745329f,
+			//	(float)sample.accelerometer[0] * 9.81e-3f,
+			//	(float)sample.accelerometer[1] * 9.81e-3f,
+			//	(float)sample.accelerometer[2] * 9.81e-3f
+			//);
+//
+			//ObservedState state = kf.getState();
+			//msg = MESSAGE(
+			//	LOG_STR("[IMU]: Orientation"),
+			//	(struct vec3){ state.roll, state.pitch, state.yaw }
+			//);
+//			//message_queue_enqueue(&msg, 100);
 
-			ObservedState state = kf.getState();
-			msg = MESSAGE(
-				LOG_STR("[IMU]: Orientation"),
-				(struct vec3){ state.roll, state.pitch, state.yaw }
-			);
-			message_queue_enqueue(&msg, 100);
+			uint64_t timestamp = get_timestamp();
+			log_now(timestamp, "GyroX", (float)sample.gyroscope[0]);
+			log_now(timestamp, "GyroY", (float)sample.gyroscope[1]);
+			log_now(timestamp, "GyroZ", (float)sample.gyroscope[2]);
+			log_now(timestamp, "AccX", (float)sample.accelerometer[0]);
+			log_now(timestamp, "AccY", (float)sample.accelerometer[1]);
+			log_now(timestamp, "AccZ", (float)sample.accelerometer[2]);
 
 			xSemaphoreGive(spi_semaphore);
 		}
@@ -123,13 +145,18 @@ TASK barometer_task(TaskDescriptor_t *self)
 	while (true) {
 		barometer_read(&sample1, &sample2);
 
-		kf.update(sample1.pressure*1e-3f, sample1.temperature + 273.15f);
+		// kf.update(sample1.pressure*1e-3f, sample1.temperature + 273.15f);
 
-		msg = MESSAGE(
-			LOG_STR("[BARO]: Altitude"),
-			kf.getState().altitude
-		);
-		message_queue_enqueue(&msg, 100);
+//		msg = MESSAGE(
+//			LOG_STR("[BARO]: Altitude"),
+//			//kf.getState().altitude
+//			(sample1.altitude + sample2.altitude)/2.0f
+//		);
+//		message_queue_enqueue(&msg, 100);
+
+		uint64_t timestamp = get_timestamp();
+		log_now(timestamp, "Pressure1", sample1.pressure);
+		log_now(timestamp, "Pressure2", sample2.pressure);
 
 //		msg = MESSAGE(LOG_STR("[KF]: State"), (int32_t)kf.getKFState());
 //		message_queue_enqueue(&msg, 100);
@@ -170,8 +197,9 @@ TASK logger_task(TaskDescriptor_t *self)
 		// no timeout since this task needs to run at a fixed frequency,
 		// if there is no message we just skip this iteration
 		while (message_queue_dequeue(&recv, 0)) {
-			format_message_to_string(&recv, buf, sizeof(buf));
-			Serial.println(buf);
+			if (format_message_to_string(&recv, buf, sizeof(buf))) {
+				Serial.println(buf);
+			}
 		}
 
 		TASK_WAIT_HZ(self, LOGGER_TASK_HZ);

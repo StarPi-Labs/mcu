@@ -32,7 +32,7 @@
 // IMU_FIFO_x_BDR_HZ should be >= IMU_TASK_HZ to always have samples to read but
 // not too high to cause overflow in the FIFO and/or excessive CPU usage in the
 // IMU task
-#define IMU_FIFO_ENABLE    1
+#define IMU_FIFO_ENABLE    0
 #define IMU_FIFO_WATERMARK 4
 #define IMU_FIFO_X_BDR_HZ  (IMU_TASK_HZ * 1.20f)
 #define IMU_FIFO_G_BDR_HZ  (IMU_TASK_HZ * 1.20f)

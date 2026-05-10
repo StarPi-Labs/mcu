@@ -131,4 +131,5 @@ typedef struct _TaskDescriptor_t {
 		if (symbol != NULL) { \
 			xSemaphoreGive(symbol); \
 		} \
+		xSemaphoreGive(symbol); \
 	} while (0)

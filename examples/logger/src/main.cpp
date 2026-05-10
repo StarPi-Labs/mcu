@@ -73,6 +73,14 @@ void setup(void)
 		}
 	}
 
+	INIT_STATIC_SEMAPHORE(spi_semaphore);
+	if (spi_semaphore == NULL) {
+		while (true) {
+			Serial.println("Error creating semaphore");
+			delay(500);
+		}
+	}
+
 	INIT_STATIC_TASK(imu_task, "imu", NULL, tskIDLE_PRIORITY + 10, 0);
 	INIT_STATIC_TASK(barometer_task, "barometer", NULL, tskIDLE_PRIORITY + 9, 0);
 	INIT_STATIC_TASK(logger_task, "logger", NULL, tskIDLE_PRIORITY, 1);
@@ -89,14 +97,6 @@ void setup(void)
 	    !TASK_IS_INITIALIZED(gc_task)) {
 		while (true) {
 			Serial.println("Error creating tasks");
-			delay(500);
-		}
-	}
-
-	INIT_STATIC_SEMAPHORE(spi_semaphore);
-	if (spi_semaphore == NULL) {
-		while (true) {
-			Serial.println("Error creating semaphore");
 			delay(500);
 		}
 	}

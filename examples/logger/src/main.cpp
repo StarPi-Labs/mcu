@@ -93,7 +93,7 @@ void setup(void)
 	    !TASK_IS_INITIALIZED(barometer_task) ||
 	    !TASK_IS_INITIALIZED(logger_task) ||
 	    !TASK_IS_INITIALIZED(lora_task) ||
-		!TASK_IS_INITIALIZED(sd_task) ||
+	    !TASK_IS_INITIALIZED(sd_task) ||
 	    !TASK_IS_INITIALIZED(gc_task)) {
 		while (true) {
 			Serial.println("Error creating tasks");
@@ -138,7 +138,7 @@ TASK imu_task(TaskDescriptor_t *self)
 				false // TODO: airbrake trigger
 			);
 
-			LOG(DEST_UART, "[IMU]: Orientation",
+			LOG(DEST_UART | DEST_SD, "[IMU]: Orientation",
 				(struct vec3){
 					orientation.getRoll(),
 					orientation.getPitch(),
@@ -167,7 +167,7 @@ TASK barometer_task(TaskDescriptor_t *self)
 		// Update the altitude and vertical velocity estimation with the barometer data
 		altitude.update(alt);
 
-		LOG(DEST_UART, "[BARO]: Altitude", altitude.getState()[0]);
+		LOG(DEST_UART | DEST_SD, "[BARO]: Altitude", altitude.getState()[0]);
 
 		TASK_WAIT_HZ(self, BARO_TASK_HZ);
 	}
@@ -223,7 +223,7 @@ TASK sd_task(TaskDescriptor_t *self)
 	self->last_wake = xTaskGetTickCount();
 	message_t recv;
 	static char buf[256];
-	
+
 	while(true) {
 		while (message_queue_dequeue(&recv, 0, DEST_SD)) {
 			format_message_to_string(&recv, buf, sizeof(buf));
@@ -239,7 +239,7 @@ TASK sd_task(TaskDescriptor_t *self)
 TASK gc_task(TaskDescriptor_t *self)
 {
 	self->last_wake = xTaskGetTickCount();
-	
+
 	while(true) {
 		if (message_queue_full(DEST_UART)) {
 			message_queue_reset(DEST_UART);

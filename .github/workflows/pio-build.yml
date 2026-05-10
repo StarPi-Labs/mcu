@@ -46,6 +46,12 @@ jobs:
           }
           echo -e "$GREEN[Success]: App built successfully!$DONE"
 
+      - name: "Build app failure: comment on PR"
+        if: ${{ failure() && github.event_name == 'pull_request' }}
+        run: gh pr comment $PR_NUMBER --body "Error, build failed for \`app\`. Please check the logs for details."
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build examples using pio
         run: |
           examples_dir="$GITHUB_WORKSPACE/examples"

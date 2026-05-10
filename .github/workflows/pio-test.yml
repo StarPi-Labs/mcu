@@ -1,0 +1,53 @@
+name: Test
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  pio-test:
+    name: PlatformIO Test
+    runs-on: ubuntu-latest
+
+    env:
+      PR_NUMBER: ${{ github.event.number }}
+      GREEN: '\033[1;32m'
+      YELLOW: '\033[1;33m'
+      RED: '\033[1;31m'
+      DONE: '\033[0m'
+
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.platformio/.cache
+            $GITHUB_WORKSPACE/app/qemu
+          key: ${{ runner.os }}-pio
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Install PlatformIO Core
+        run: pip install --upgrade platformio
+
+      - name: Run app tests using pio
+        run: |
+          echo -e "$YELLOW[Info]: Running app tests...$DONE"
+          pio test -d "$GITHUB_WORKSPACE/app" -e qemu-debug -e qemu-release -e qemu-production || {
+            echo -e "$RED[Error]: Test failed for app$DONE"
+            exit 1
+          }
+          echo -e "$GREEN[Success]: App tests passed successfully!$DONE"
+
+      - name: "App tests failure: comment on PR"
+        if: ${{ failure() && github.event_name == 'pull_request' }}
+        run: gh pr comment $PR_NUMBER --body "Error, tests failed for \`app\`. Please check the logs for details."
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

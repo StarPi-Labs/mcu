@@ -29,6 +29,7 @@ jobs:
           path: |
             ~/.cache/pip
             ~/.platformio/.cache
+            $GITHUB_WORKSPACE/app/qemu
           key: ${{ runner.os }}-pio
       - uses: actions/setup-python@v6
         with:

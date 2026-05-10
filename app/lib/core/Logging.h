@@ -109,7 +109,7 @@ void init();
 /// @param format The format string (uses std::format_string,
 /// for info on syntax @see
 /// https://en.cppreference.com/w/cpp/utility/format/spec.html).
-/// @param args... Variable arguments to format into the string.
+/// @param args Variable arguments pack to format into the string.
 template <typename... Args>
 inline void
 logf(const std::string_view& logLevel,

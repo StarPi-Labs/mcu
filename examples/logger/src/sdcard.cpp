@@ -16,6 +16,8 @@ static csv_stream_t streams[MAX_STREAMS]; // assurdo
 static int num_streams = 0;
 static int current_session = -1; // perche' poi la incrementa
 static char session_dir[32];
+static char log_path[64];
+static File log_file;
 
 static int inc_session_number()
 {
@@ -51,7 +53,7 @@ bool sdcard_init(void)
 	// Nota: Se usi schede che cablano solo a 1-bit, usa SD_MMC.begin("/sdcard", true)
 	// TODO: define these pins
 	SD_MMC.setPins(46, 47, 48);
-	if (!SD_MMC.begin("/sdcard", true)) return false;
+	if (!SD_MMC.begin("/sdcard", true, false, 40000)) return false;
 
 	if (!SD_MMC.exists("/session_num.txt")) {
 		File f = SD_MMC.open("/session_num.txt", FILE_WRITE);
@@ -71,9 +73,15 @@ bool sdcard_start_session(void)
 
 	current_session = n;
 
-	// MODIFICA: Aggiunto lo slash "/" per creare correttamente la directory nella root
+	// Crea la cartella della sessione, es: /session_5
 	snprintf(session_dir, sizeof(session_dir), "/session_%d", n);
 	SD_MMC.mkdir(session_dir);
+
+	// Crea il file di log degli eventi, es: /session_5/eventi.txt
+	snprintf(log_path, sizeof(log_path), "%s/eventi.txt", session_dir);
+	File f = SD_MMC.open(log_path, FILE_WRITE);
+	if (!f) return false;
+	f.close();
 
 	num_streams = 0;
 
@@ -153,23 +161,40 @@ bool sdcard_log(const void *message, const MessageDescriptor *desc) {
 }
 */
 
+bool sdcard_open_log(void)
+{
+	if (current_session < 0) return false;
+	log_file = SD_MMC.open(log_path, FILE_APPEND);
+	if (!log_file) return false;
+	return true;
+}
+
+
+bool sdcard_close_log(void)
+{
+	if (current_session < 0) return false;
+	if (log_file) {
+		log_file.close();
+		return true;
+	}
+	return false;
+}
 
 // Funzione per loggare testo libero in un file "eventi.txt" della sessione corrente
 bool sdcard_log_text(const char* text_message)
 {
-	if (current_session < 0) return false; // Se non c'è una sessione attiva, annulla
-
-	char path[64];
-	// Crea il percorso, es: /session_5/eventi.txt
-	snprintf(path, sizeof(path), "%s/eventi.txt", session_dir);
-
-	// Apre il file in modalità APPEND (aggiunge in coda senza cancellare)
-	File f = SD_MMC.open(path, FILE_APPEND);
-	if (!f) return false;
+	if (!sdcard_open_log()) return false;
 
 	// Scrive il messaggio e va a capo, poi chiude subito per salvare i dati
-	f.println(text_message);
-	f.close();
+	log_file.println(text_message);
 
+	return sdcard_close_log();
+}
+
+
+bool sdcard_write_str(const char *str)
+{
+	if (!log_file) return false;
+	log_file.println(str);
 	return true;
 }

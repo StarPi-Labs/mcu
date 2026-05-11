@@ -225,9 +225,13 @@ TASK sd_task(TaskDescriptor_t *self)
 	static char buf[256];
 
 	while(true) {
-		while (message_queue_dequeue(&recv, 0, DEST_SD)) {
-			format_message_to_string(&recv, buf, sizeof(buf));
-			sdcard_log_text(buf);
+		if (message_queue_items(DEST_SD) > 0) {
+			sdcard_open_log();
+			while (message_queue_dequeue(&recv, 0, DEST_SD)) {
+				format_message_to_string(&recv, buf, sizeof(buf));
+				sdcard_write_str(buf);
+			}
+			sdcard_close_log();
 		}
 
 		TASK_WAIT_HZ(self, SD_TASK_HZ);

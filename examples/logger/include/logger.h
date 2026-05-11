@@ -130,6 +130,7 @@ bool message_queue_enqueue(message_t *message, TickType_t timeout);
 bool message_queue_dequeue(message_t *message, TickType_t timeout, message_dest_t dest);
 bool message_queue_peek(message_t *message, TickType_t timeout, message_dest_t dest);
 bool message_queue_full(message_dest_t dest);
+int message_queue_items(message_dest_t dest);
 int format_message_to_string(const message_t *msg, char *buf, size_t size);
 
 

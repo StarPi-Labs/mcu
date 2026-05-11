@@ -39,7 +39,7 @@ bool message_queue_init()
 	if (sd_queue == NULL) return false;
 	lora_queue = xQueueCreateStatic(MESSAGE_QUEUE_SIZE, sizeof(message_t), lora_queue_buffer, &lora_queue_desc);
 	if (lora_queue == NULL) return false;
-	
+
 	return true;
 }
 
@@ -115,11 +115,11 @@ bool message_queue_enqueue(message_t *message, TickType_t timeout)
 bool message_queue_dequeue(message_t *message, TickType_t timeout, message_dest_t dest)
 {
 	if (dest == DEST_ALL || message == NULL) return false;
-	
+
 	QueueHandle_t handle = NULL;
 	switch (dest) {
 	case DEST_UART:
-		handle = uart_queue;	
+		handle = uart_queue;
 		break;
 	case DEST_SD:
 		handle = sd_queue;
@@ -142,11 +142,11 @@ bool message_queue_dequeue(message_t *message, TickType_t timeout, message_dest_
 bool message_queue_peek(message_t *message, TickType_t timeout, message_dest_t dest)
 {
 	if (dest == DEST_ALL || message == NULL) return false;
-	
+
 	QueueHandle_t handle = NULL;
 	switch (dest) {
 	case DEST_UART:
-		handle = uart_queue;	
+		handle = uart_queue;
 		break;
 	case DEST_SD:
 		handle = sd_queue;
@@ -161,6 +161,30 @@ bool message_queue_peek(message_t *message, TickType_t timeout, message_dest_t d
 	}
 	if (xQueuePeek(handle, message, timeout) != pdPASS) return false;
 	return true;
+}
+
+
+// get the number of messages currently in the queue, this should not be
+// called from an ISR context
+int message_queue_items(message_dest_t dest)
+{
+	QueueHandle_t handle = NULL;
+	switch (dest) {
+	case DEST_UART:
+		handle = uart_queue;
+		break;
+	case DEST_SD:
+		handle = sd_queue;
+		break;
+	case DEST_LORA:
+		handle = lora_queue;
+		break;
+	case DEST_NONE:
+	default:
+		return 0;
+		break;
+	}
+	return uxQueueMessagesWaiting(handle);
 }
 
 

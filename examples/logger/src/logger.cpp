@@ -199,7 +199,7 @@ int format_message_to_string(const message_t *msg, char *buf, size_t size) {
 	if (!msg || !buf || size == 0) return 0;
 
 	int written = 0;
-	const char *desc = msg->description ? msg->description : "no_desc";
+	const char *desc = msg->description ? msg->description : "";
 
 #ifdef CONFIG_USE_HUMAN_READABLE_TIMESTAMPS
 	// Split microseconds into seconds and fractional microseconds
@@ -214,11 +214,11 @@ int format_message_to_string(const message_t *msg, char *buf, size_t size) {
 	strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", &timeinfo);
 
 	// Format: [YYYY-MM-DD HH:MM:SS.uuuuuu] description:
-	written = snprintf(buf, size, "[%s.%06" PRIu32 "] %s", time_str, microseconds, desc);
+	written = snprintf(buf, size, "[%s.%06" PRIu32 "] %s: ", time_str, microseconds, desc);
 #else
-	// Format: [00000000000000000000] description:
+	// Format: [1234] description:
 	// Uses PRIu64 to safely format uint64_t across 32-bit and 64-bit platforms
-	written = snprintf(buf, size, "[%020" PRIu64 "] %s", msg->timestamp, desc);
+	written = snprintf(buf, size, "[%" PRIu64 "] %s: ", msg->timestamp, desc);
 #endif
 
 	// Prevent buffer overflows on the remaining payload
@@ -234,24 +234,24 @@ int format_message_to_string(const message_t *msg, char *buf, size_t size) {
 	case MSG_NONE:
 		return written;
 	case MSG_INT32:
-		return written + snprintf(ptr, rem, ": %" PRId32, msg->data.i32);
+		return written + snprintf(ptr, rem, "%" PRId32, msg->data.i32);
 	case MSG_UINT32:
-		return written + snprintf(ptr, rem, ": %" PRIu32, msg->data.u32);
+		return written + snprintf(ptr, rem, "%" PRIu32, msg->data.u32);
 	case MSG_INT64:
-		return written + snprintf(ptr, rem, ": %" PRId64, msg->data.i64);
+		return written + snprintf(ptr, rem, "%" PRId64, msg->data.i64);
 	case MSG_UINT64:
-		return written + snprintf(ptr, rem, ": %" PRIu64, msg->data.u64);
+		return written + snprintf(ptr, rem, "%" PRIu64, msg->data.u64);
 	case MSG_FLOAT:
-		return written + snprintf(ptr, rem, ": %.4g", msg->data.f);
+		return written + snprintf(ptr, rem, "%.4g", msg->data.f);
 	case MSG_DOUBLE:
-		return written + snprintf(ptr, rem, ": %.6g", msg->data.d);
+		return written + snprintf(ptr, rem, "%.6g", msg->data.d);
 	case MSG_STRING:
-		return written + snprintf(ptr, rem, ": %s", msg->data.str ? msg->data.str : "NULL");
+		return written + snprintf(ptr, rem, "%s", msg->data.str ? msg->data.str : "NULL");
 	case MSG_VEC3:
-		return written + snprintf(ptr, rem, ": (%.3g, %.3g, %.3g)", msg->data.v3.x, msg->data.v3.y, msg->data.v3.z);
+		return written + snprintf(ptr, rem, "(%.3g, %.3g, %.3g)", msg->data.v3.x, msg->data.v3.y, msg->data.v3.z);
 	case MSG_IVEC3:
-		return written + snprintf(ptr, rem, ": (%" PRId32 ", %" PRId32 ", %" PRId32 ")", msg->data.iv3.x, msg->data.iv3.y, msg->data.iv3.z);
+		return written + snprintf(ptr, rem, "(%" PRId32 ", %" PRId32 ", %" PRId32 ")", msg->data.iv3.x, msg->data.iv3.y, msg->data.iv3.z);
 	default:
-		return written + snprintf(ptr, rem, ": UNKNOWN_TYPE");
+		return written;
 	}
 }

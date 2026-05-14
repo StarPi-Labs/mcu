@@ -11,6 +11,7 @@
 #include <format>
 #include <functional>
 #include <string_view>
+#include <vector>
 
 #ifndef MCU_LOG_BUFFER_SIZE
 // Size of the buffer for log messages.

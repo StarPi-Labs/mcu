@@ -95,7 +95,7 @@ public:
   bool try_acquire_until(
       const std::chrono::time_point<Clock, Duration>& absoluteTime)
   {
-    auto now = std::chrono::steady_clock::now();
+    auto now = Clock::now();
 
     if (absoluteTime <= now)
       return try_acquire();

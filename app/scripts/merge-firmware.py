@@ -24,4 +24,4 @@ def post_build_action(source, target, env):
 
     print(f"Done merging firmware binary. Output file: {output_image}")
 
-env.AddPostAction("buildprog", post_build_action)
+env.AddPostAction("$BUILD_DIR/${PROGNAME}.bin", post_build_action)

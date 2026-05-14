@@ -11,3 +11,6 @@ compile_commands.json
 
 # Qemu simulator files
 qemu
+
+# Doxygen files
+docs

@@ -62,7 +62,7 @@ void test_condition_variable_notify_one_wakes_waiter()
 
   vTaskDelay(10 / portTICK_PERIOD_MS);
 
-  // Note: locking is not nedeed (this the only task that can modify ready).
+  // Note: locking is not needed (this the only task that can modify ready).
   params.ready = true;
   params.cv.notify_one();
 

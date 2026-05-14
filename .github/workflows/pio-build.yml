@@ -29,7 +29,7 @@ jobs:
           path: |
             ~/.cache/pip
             ~/.platformio/.cache
-            $GITHUB_WORKSPACE/app/qemu
+            ${{ github.workspace }}/app/qemu
           key: ${{ runner.os }}-pio
       - uses: actions/setup-python@v6
         with:
@@ -40,7 +40,7 @@ jobs:
       - name: Build app using pio
         run: |
           echo -e "$YELLOW[Info]: Building app...$DONE"
-          pio run -vv -d "$GITHUB_WORKSPACE/app" || {
+          pio run -vv -d "${{ github.workspace }}/app" || {
             echo -e "$RED[Error]: Build failed for app$DONE"
             exit 1
           }
@@ -67,7 +67,7 @@ jobs:
           path: |
             ~/.cache/pip
             ~/.platformio/.cache
-            $GITHUB_WORKSPACE/app/qemu
+            ${{ github.workspace }}/app/qemu
           key: ${{ runner.os }}-pio
       - uses: actions/setup-python@v6
         with:
@@ -77,7 +77,7 @@ jobs:
 
       - name: Build examples using pio
         run: |
-          examples_dir="$GITHUB_WORKSPACE/examples"
+          examples_dir="${{ github.workspace }}/examples"
 
           # Iterate through the example folders
           for example in $(ls "$examples_dir"); do

@@ -6,17 +6,17 @@ on:
       - main
   workflow_dispatch:
 
-jobs:
-  pio-build:
-    name: PlatformIO Build
-    runs-on: ubuntu-latest
+env:
+  PR_NUMBER: ${{ github.event.number }}
+  GREEN: '\033[1;32m'
+  YELLOW: '\033[1;33m'
+  RED: '\033[1;31m'
+  DONE: '\033[0m'
 
-    env:
-      PR_NUMBER: ${{ github.event.number }}
-      GREEN: '\033[1;32m'
-      YELLOW: '\033[1;33m'
-      RED: '\033[1;31m'
-      DONE: '\033[0m'
+jobs:
+  build-app:
+    name: PlatformIO Build App
+    runs-on: ubuntu-latest
 
     permissions:
       contents: read
@@ -51,6 +51,29 @@ jobs:
         run: gh pr comment $PR_NUMBER --body "Error, build failed for \`app\`. Please check the logs for details."
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-examples:
+    name: PlatformIO Build Examples
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.platformio/.cache
+            $GITHUB_WORKSPACE/app/qemu
+          key: ${{ runner.os }}-pio
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Install PlatformIO Core
+        run: pip install --upgrade platformio
 
       - name: Build examples using pio
         run: |

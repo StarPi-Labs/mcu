@@ -188,7 +188,7 @@ void flush();
 /// @param format Format string compatible with std::format.
 /// @param ... Any arguments to format.
 #define mcu_log_debug(format, ...)                                             \
-  ::mcu::log::logf(::mcu::log::LOG_PREFIX_DEBUG,                               \
+  ::mcu::log::logf(::mcu::log::PREFIX_DEBUG,                                   \
                    format __VA_OPT__(, ) __VA_ARGS__)
 #else
 #define mcu_log_debug(format, ...)

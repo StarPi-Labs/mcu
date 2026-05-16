@@ -190,7 +190,7 @@ void flush();
 /// @param ... Any arguments to format.
 #define mcu_log_debug(format, ...)                                             \
   ::mcu::log::logf(::mcu::log::PREFIX_DEBUG,                                   \
-                   format __VA_OPT__(, ) __VA_ARGS__)
+                   format, ##__VA_ARGS__)
 #else
 #define mcu_log_debug(format, ...)
 #endif
@@ -201,7 +201,7 @@ void flush();
 /// @param format Format string compatible with std::format.
 /// @param ... Any arguments to format.
 #define mcu_log_info(format, ...)                                              \
-  ::mcu::log::logf(::mcu::log::PREFIX_INFO, format __VA_OPT__(, ) __VA_ARGS__)
+  ::mcu::log::logf(::mcu::log::PREFIX_INFO, format, ##__VA_ARGS__)
 #else
 #define mcu_log_info(format, ...)
 #endif
@@ -213,7 +213,7 @@ void flush();
 /// @param ... Optional arguments to format.
 #define mcu_log_warning(format, ...)                                           \
   ::mcu::log::logf(::mcu::log::PREFIX_WARNING,                                 \
-                   format __VA_OPT__(, ) __VA_ARGS__)
+                   format, ##__VA_ARGS__)
 #else
 #define mcu_log_warning(format, ...)
 #endif
@@ -224,7 +224,7 @@ void flush();
 /// @param format Format string compatible with std::format.
 /// @param ... Optional arguments to format.
 #define mcu_log_error(format, ...)                                             \
-  ::mcu::log::logf(::mcu::log::PREFIX_ERROR, format __VA_OPT__(, ) __VA_ARGS__)
+  ::mcu::log::logf(::mcu::log::PREFIX_ERROR, format, ##__VA_ARGS__)
 #else
 #define mcu_log_error(format, ...)
 #endif
@@ -236,7 +236,7 @@ void flush();
 /// @param ... Optional arguments to format.
 #define mcu_log_critical(format, ...)                                          \
   ::mcu::log::logf(::mcu::log::PREFIX_CRITICAL,                                \
-                   format __VA_OPT__(, ) __VA_ARGS__)
+                   format, ##__VA_ARGS__)
 #else
 #define mcu_log_critical(format, ...)
 #endif

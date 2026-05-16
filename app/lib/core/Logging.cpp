@@ -72,6 +72,9 @@ void vTask(void* pvParams)
           "log_target", 2048, static_cast<void*>(&g_targets[i].handler),
           g_targets[i].priority, NULL);
 
+    // TODO: use task notification as event groups to immediately
+    // free and swap buffers if the main queue is full:
+    // PREFER RECENT MESSAGES OVER OLD
     // 5. Wait for all handler tasks to complete.
     for (std::size_t i = 0; i < g_targets.size(); ++i)
       ulTaskNotifyTake(pdFALSE, portMAX_DELAY);

@@ -3,38 +3,39 @@
 
 # MCU
 
-**StarPi - Dipartimento di Avionaca**
+**StarPi - Avionics Department**
 
 </div>
 
-## Introduzione
+## Introduction
 
-L'MCU usato è l'[`esp32-s3-wroom-1`](docs/esp32-s3-wroom-1_wroom-1u_datasheet_en.pdf) su framework Arduino.
+The MCU used is the [`esp32-s3-wroom-1`](docs/esp32-s3-wroom-1_wroom-1u_datasheet_en.pdf) on the Arduino framework.
 
 > [!TIP]
-> Consiglio l'uso dell'[ESP32-S3-DevKitC-1](https://docs.espressif.com/projects/esp-dev-kits/en/latest/esp32s3/esp32-s3-devkitc-1/user_guide_v1.1.html)
-> in quanto oltre a dare pin di GPIO già saldati, ha un probe di debug integrato[^1]
-> ed è quindi da subito pronto per il debug, senza troppi problemi[^2].
+> We recommend using the [ESP32-S3-DevKitC-1](https://docs.espressif.com/projects/esp-dev-kits/en/latest/esp32s3/esp32-s3-devkitc-1/user_guide_v1.1.html)
+> because, in addition to providing pre-soldered GPIO pins, it has an integrated debug probe[^1],
+> making it ready for debugging out of the box with minimal hassle[^2].
 
 [^1]: [PlatformIO - ESP32-S3-DevKitC-1-N8](https://docs.platformio.org/en/latest/boards/espressif32/esp32-s3-devkitc-1.html#debugging).
-[^2]: Su Fedora 43 (Linux) ho dovuto prima installare le [regole udev](https://docs.platformio.org/en/latest/core/installation/udev-rules.html)
-e poi aggiornare una delle librerie di Python usate dal package dell'ESP32-S3
-seguendo [questa guida](https://community.platformio.org/t/debug-aborts-with-python-error/41139/3).
+[^2]: On Fedora 43 (Linux), it may be necessary to first install the [udev rules](https://docs.platformio.org/en/latest/core/installation/udev-rules.html)
+and then update one of the Python libraries used by the ESP32-S3 package
+by following [this guide](https://community.platformio.org/t/debug-aborts-with-python-error/41139/3).
 
-Ambiente di sviluppo: [PlatformIO (VSCode)](https://platformio.org/platformio-ide).
+Development Environment: [PlatformIO (VSCode)](https://platformio.org/platformio-ide).
 
-## Struttura
+## Project Structure
 
-Il progetto è strutturato in questo modo:
+The project is structured as follows:
 
-* `examples/`: cartella con esempi di codice per testare le funzionalità dell'MCU,
-e di altri componenti.
+* `app/`: The core application code and firmware entry points.
+* `examples/`: Code examples to test the features of the MCU and other components.
+* `test/`: Unit tests for the various modules and components.
+* `docs/`: Relevant datasheets and documentation.
 
-## Risorse utili
+## Useful Resources
 
-Risorse utili per lo sviluppo:
+Useful resources for development:
 
-* [Schematic del Flight Computer](assets/schematic_flight_computer.pdf)
-* [Simulatore Web ESP32](https://wokwi.com/): permette di simulare il comportamento dell'MCU
-e testare il codice senza doverlo caricare fisicamente sul dispositivo.
-* [QEMU ESP32-S3](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/api-guides/tools/qemu.html): un emulatore che permette di eseguire il codice dell'MCU su un computer, utile per il debug e lo sviluppo.
+* [Flight Computer Schematic](assets/schematic_flight_computer.pdf)
+* [ESP32 Web Simulator (Wokwi)](https://wokwi.com/): allows you to simulate the MCU's behavior and test code without having to upload it physically to the device.
+* [ESP32-S3 QEMU](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/api-guides/tools/qemu.html): an emulator that allows running the MCU code on a computer, useful for local debugging and development.

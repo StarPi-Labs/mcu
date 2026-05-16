@@ -10,9 +10,12 @@
 #define SPI_CS 15
 #define IMU_INT1 10
 
+//da board.h del branch logging 
+#define IMU_TASK_HZ    100
+#define IMU_FIFO_X_BDR_HZ  (IMU_TASK_HZ * 1.20f)
+#define IMU_FIFO_G_BDR_HZ  (IMU_TASK_HZ * 1.20f)
+//
 
-void imu_setup();
-int imu_get_sample(FIFO_Sample *sample);
 
 SPIClass dev_spi(HSPI);
 LSM6DSO32Sensor IMU(&dev_spi, SPI_CS);
@@ -35,6 +38,8 @@ typedef struct {
 
 
 FIFO_BATCH fifo;
+
+int imu_get_sample(FIFO_Sample *sample);
 
 void restart_fifo();
 

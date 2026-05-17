@@ -22,33 +22,41 @@ SX1262 radio(&radio_module);
 volatile bool operation_done = false;
 int rx_state = RADIOLIB_ERR_NONE;
 
-typedef union {
-	struct { //dimensioni da capire (così si trasmette 40 pacchetti al secondo)
-		float16 AccX;
-		float16 AccY;
-		float16 AccZ;
-		float16 GyroX;
-		float16 GyroY;
-		float16 GyroZ;
-		float16 EulerPitch;
-		float16 EulerRoll;
-		float16 EulerYaw;
-		float16 AccX1;
-		float16 AccY1;
-		float16 AccZ1;
-		float16 GyroX1;
-		float16 GyroY1;
-		float16 GyroZ1;
-		float16 EulerPitch1;
-		float16 EulerRoll1;
-		float16 EulerYaw1;
-	} values;
-	uint8_t bytes[sizeof(values)];
-} Payload;
+enum LoRaPayloadType : uint8_t {
+	PAYLOAD_1,
+	PAYLOAD_2,
+	PAYLOAD_3,
+	PAYLOAD_STR
+};
 
+//payload da trasmettere
+// TODO: utlizza meglio lo spazio
+typedef union {
+	struct {
+		uint64_t timestamp;
+		LoRaPayloadType type;
+		union {
+			struct {
+				float16 roll, pitch, yaw;
+				float16 vert_acc;
+				float16 airbrake_angle;
+			} p1;
+			struct {
+				float16 temp1, temp2, temp3;
+				uint8_t para_state;
+			} p2;
+			struct {
+				float16 pos_dx, pos_dy, pos_dz;
+			} p3;
+			char str[10];
+		};
+		uint8_t err_flag;
+	} data;
+	uint8_t bytes[sizeof(data)];
+} LoRaPayload;
 
 void operation_done_cb(void);
-void print_transmission_data(Payload* packet = nullptr);
+void print_transmission_data(const LoRaPayload* packet = nullptr);
 void check_state(int state);
 
 
@@ -82,8 +90,8 @@ void loop() {
   operation_done = false;
 
 
-  Payload packet{0};
-  int state = radio.readData(packet.bytes, sizeof(Payload));
+  LoRaPayload packet{0};
+  int state = radio.readData(packet.bytes, sizeof(LoRaPayload));
 
 
   if (state == RADIOLIB_ERR_NONE) {
@@ -118,48 +126,61 @@ void check_state(int state) {
 }
 
 
-void print_transmission_data(Payload* packet){
-  Serial.println(F("[SX1262] Received packet!"));
+void print_transmission_data(const LoRaPayload* packet){
   if (packet == nullptr) return;
 
+  // Header (Timestamp, Type, Signal)
+  Serial.print(F("[LORA] "));
+  Serial.printf("T: %10llu | ", packet->data.timestamp);
+  Serial.println();
 
-  // print RSSI (Received Signal Strength Indicator)
-  Serial.print(F("[SX1262] RSSI:\t\t"));
-  Serial.print(radio.getRSSI());
-  Serial.println(F(" dBm"));
+  const char* type_str = "UNKNOWN";
+  switch(packet->data.type) {
+      case PAYLOAD_1:   type_str = "P1"; break;
+      case PAYLOAD_2:   type_str = "P2"; break;
+      case PAYLOAD_3:   type_str = "P3";    break;
+      case PAYLOAD_STR: type_str = "STR";    break;
+  }
 
-  // print SNR (Signal-to-Noise Ratio)
-  Serial.print(F("[SX1262] SNR:\t\t"));
-  Serial.print(radio.getSNR());
-  Serial.println(F(" dB"));
+  Serial.printf("TYPE: %-3s | ERR: 0x%02X | RSSI: %4d | SNR: %5.2f | FREQ_ERR: %5.2f\n", 
+                type_str, packet->data.err_flag, radio.getRSSI(), radio.getSNR(), radio.getFrequencyError());
 
-  // print frequency error
-  Serial.print(F("[SX1262] Frequency error:\t"));
-  Serial.print(radio.getFrequencyError());
-  Serial.println(F(" Hz"));
+  // Payload
+  Serial.print(F("\t> "));
+
+  switch(packet->data.type) {
+      case PAYLOAD_1:
+          Serial.printf("ROLL: %6.2f | PIT: %6.2f | YAW: %6.2f | V-ACC: %5.2f | AB-ANG: %5.2f", 
+                packet->data.p1.roll.toFloat(), 
+                packet->data.p1.pitch.toFloat(), 
+                packet->data.p1.yaw.toFloat(), 
+                packet->data.p1.vert_acc.toFloat(), 
+                packet->data.p1.airbrake_angle.toFloat());
+          break;
+          
+      case PAYLOAD_2:
+          Serial.printf("T1: %5.2f | T2: %5.2f | T3: %5.2f | PARA_STATE: %u", 
+              packet->data.p2.temp1.toFloat(), 
+              packet->data.p2.temp2.toFloat(), 
+              packet->data.p2.temp3.toFloat(), 
+              packet->data.p2.para_state);
+          break;
+          
+      case PAYLOAD_3:
+          Serial.printf("X: %8.2f | Y: %8.2f | Z: %8.2f", 
+                packet->data.p3.pos_dx.toFloat(), 
+                packet->data.p3.pos_dy.toFloat(), 
+                packet->data.p3.pos_dz.toFloat());
+          break;
+          
+      case PAYLOAD_STR:
+          Serial.printf("\"%s\"", packet->data.str);
+          break;
+  }
+  Serial.println(); 
+  Serial.println(F("  -------------------------------------------------------------------------"));
 
 
-  Serial.print(F("[SX1262] AccX:\t\t"));
-  Serial.println(packet->values.AccX.toFloat());
-  Serial.print(F("[SX1262] AccY:\t\t"));
-  Serial.println(packet->values.AccY.toFloat());
-  Serial.print(F("[SX1262] AccZ:\t\t"));
-  Serial.println(packet->values.AccZ.toFloat());
-  Serial.print(F("[SX1262] GyroX:\t\t"));
-  Serial.println(packet->values.GyroX.toFloat());
-  Serial.print(F("[SX1262] GyroY:\t\t"));
-  Serial.println(packet->values.GyroY.toFloat());
-  Serial.print(F("[SX1262] GyroZ:\t\t"));
-  Serial.println(packet->values.GyroZ.toFloat());
-  Serial.print(F("[SX1262] EulerPitch:\t"));
-  Serial.println(packet->values.EulerPitch.toFloat());
-  Serial.print(F("[SX1262] EulerRoll:\t"));
-  Serial.println(packet->values.EulerRoll.toFloat());
-  Serial.print(F("[SX1262] EulerYaw:\t"));
-  Serial.println(packet->values.EulerYaw.toFloat());
-
-  //ecc.
-  
   
 }
 

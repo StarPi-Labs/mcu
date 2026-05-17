@@ -69,7 +69,7 @@ void vTask(void* pvParams)
             xTaskNotifyGive(loggerTaskHandle);
             vTaskDelete(NULL);
           },
-          "log_target", 2048, static_cast<void*>(&g_targets[i].handler),
+          "log_target", 4096, static_cast<void*>(&g_targets[i].handler),
           g_targets[i].priority, NULL);
 
     // TODO: use task notification as event groups to immediately

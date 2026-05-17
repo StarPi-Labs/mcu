@@ -15,3 +15,15 @@
 **Workaround**: The assertion still triggers and halts/reboots correctly; only the condition message text is lost. This is a QEMU limitation, not an issue with the application code.
 
 **Note**: `env:qemu-production` inherits `PRODUCTION` mode, so standard `assert()` is removed entirely there due to `NDEBUG`.
+
+
+### Booting with the SD Card inserted prevents the board from functioning
+
+> NOTE: This is only for rev 1 of the board and for N8 (wihtout PSRAM) modules,
+>       DO NOT change these fuses on other hardware revisions and/or esp modules.
+
+This is an hardware issue, fixed by burning the following eFUSEs:
+VDD_SPI_FORCE, VDD_SPI_XPD, VDD_SPI_TIEH to 1. This can be done with espefuse.py
+[link](https://docs.espressif.com/projects/esptool/en/latest/esp32s3/espefuse/burn-efuse-cmd.html)
+by specifying each fuse by hand, or by [setting spi_vdd](https://docs.espressif.com/projects/esptool/en/latest/esp32s3/espefuse/set-flash-voltage-cmd.html)
+to 3.3V which does the same.

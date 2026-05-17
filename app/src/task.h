@@ -68,6 +68,9 @@ typedef struct _TaskDescriptor_t {
 // loop
 #ifdef LOG_TASK_DEADLINES
 
+#define STRINGIFY(x) #x
+#define TO_XSTR(x) STRINGIFY(x)
+
 #define TASK_WAIT_HZ(desc, freq)                                               \
   do {                                                                         \
     static_assert(_IS_TASKDESCRIPTOR_POINTER(desc),                            \
@@ -77,10 +80,9 @@ typedef struct _TaskDescriptor_t {
         xTaskDelayUntil(&(desc->last_wake), pdMS_TO_TICKS(1000 / freq));       \
     if (desc->was_delayed == false) {                                          \
       desc->last_wake = xTaskGetTickCount();                                   \
-      WARN(DEST_UART,                                                          \
-           "[" TO_XSTR(__FILE__) ":" TO_XSTR(                                  \
-               __LINE__) "]: task failed to meet deadline, took [ms]",         \
-           pdTICKS_TO_MS(desc->last_wake - wake));                             \
+      Serial.printf("[" TO_XSTR(__FILE__) ":" TO_XSTR(__LINE__) "]:"           \
+          "task failed to meet deadline, took %ldms",                          \
+          pdTICKS_TO_MS(desc->last_wake - wake));                              \
     }                                                                          \
   } while (0)
 
@@ -93,9 +95,8 @@ typedef struct _TaskDescriptor_t {
         xTaskDelayUntil(&(desc->last_wake), pdMS_TO_TICKS(sec * 1000));        \
     if (desc->was_delayed == false) {                                          \
       desc->last_wake = xTaskGetTickCount();                                   \
-      WARN(DEST_UART,                                                          \
-           "[" TO_XSTR(__FILE__) ":" TO_XSTR(                                  \
-               __LINE__) "]: task failed to meet deadline, took [ms]",         \
+      Serial.printf("[" TO_XSTR(__FILE__) ":" TO_XSTR(__LINE__) "]:"           \
+      "task failed to meet deadline, took %ldms",                              \
            pdTICKS_TO_MS(desc->last_wake - wake));                             \
     }                                                                          \
   } while (0)

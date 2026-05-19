@@ -26,7 +26,7 @@
 #define MCU_LOG_LEVEL_CRITICAL 4
 #define MCU_LOG_LEVEL_NONE 5
 
-#if DEBUG || RELEASE
+#if !PRODUCTION
 // Default log level
 #define MCU_LOG_LEVEL MCU_LOG_LEVEL_DEBUG
 #else // PRODUCTION
@@ -42,11 +42,25 @@ namespace mcu::log
 {
 namespace implementation
 {
+inline TaskHandle_t g_loggerTaskHandle; ///< Handle for the logger task, used
+                                        ///< for task notifications.
+inline constexpr UBaseType_t BUFFER_FULL_BIT =
+    0x80000000; //< Bit mask to indicate buffer full state in task
+                // notifications.
+
+#if MCU_LOG_TIMESTAMP_ENABLE
+inline std::chrono::time_point<std::chrono::steady_clock>
+    g_bootTime; ///< Time point representing system boot
+                ///< time.
+#endif
+
 using Buffer = std::array<char, MCU_LOG_BUFFER_SIZE>;
 inline std::array<Buffer, 2> g_buffers;
 inline std::uint8_t g_activeIndex = 0;
 inline std::size_t g_bufferOffset = 0;
+inline std::size_t g_inactiveBufferOffset = 0;
 inline freertos::Mutex g_mutex;
+inline freertos::Mutex g_inactiveMutex;
 inline freertos::ConditionVariable g_cvBufferFull, g_cvBufferEmpty;
 } // namespace implementation
 
@@ -74,27 +88,17 @@ using Handler =
 /// @brief Structure representing a log target, which includes a log handler
 /// function and its associated FreeRTOS task priority.
 struct Target {
+  const char* name;
   Handler handler;
   UBaseType_t priority;
+  std::uint32_t stackSize;
 };
 
-const Target ARDUINO_SERIAL = {
-    [](std::string_view msg) {
-      assert(xPortInIsrContext() == pdFALSE &&
-             "Logging to Serial is not allowed from an ISR context");
-
-      Serial.write(reinterpret_cast<const uint8_t*>(msg.data()), msg.size());
-    },
-    tskIDLE_PRIORITY + 1};
-
+namespace implementation
+{
 inline std::vector<Target>
     g_targets; ///< List of log targets to which formatted messages are sent.
-
-#if MCU_LOG_TIMESTAMP_ENABLE
-inline std::chrono::time_point<std::chrono::steady_clock>
-    g_bootTime; ///< Time point representing system boot
-                ///< time.
-#endif
+} // namespace implementation
 
 /// @brief Initializes the logging system, including starting the logger task.
 ///
@@ -145,7 +149,13 @@ logf(const std::string_view& logLevel,
            "Log message is too large to fit in the buffer");
 
     g_cvBufferFull.wait(lock, [&] {
-      return g_bufferOffset + requiredSize <= MCU_LOG_BUFFER_SIZE;
+      if (!(g_bufferOffset + requiredSize <= MCU_LOG_BUFFER_SIZE)) {
+        // Buffer is full, notify logger task to flush it
+        xTaskNotify(g_loggerTaskHandle, BUFFER_FULL_BIT, eSetBits);
+        return false; // Wait until buffer is flushed
+      }
+
+      return true; // We have enough space to write the message
     });
 
     Buffer& activeBuffer = g_buffers[g_activeIndex];
@@ -181,6 +191,15 @@ void vTask(void* pvParams);
 /// buffer.
 void flush();
 
+/// @brief Adds a new log target to receive log messages atomically.
+/// Should be called before init()
+/// @param name Name of the log target (for debugging purposes).
+/// @param handler The log handler function to call with formatted messages.
+/// @param priority The FreeRTOS task priority for the handler (if it needs to
+/// be run in a separate task).
+/// @param stackSize The stack size for the handler task, if applicable.
+void addTarget(const char* name, Handler handler, UBaseType_t priority,
+               std::uint32_t stackSize);
 } // namespace mcu::log
 
 #if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_DEBUG

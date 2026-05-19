@@ -45,16 +45,27 @@ void setup(void)
   SPI2.begin(SPI2_SCK, SPI2_MISO, SPI2_MOSI, -1);
   // TODO: Set speed
 
-  mcu::log::init();
-  mcu::log::g_targets.push_back({
+  mcu::log::addTarget(
+      "Serial",
       [](std::string_view msg) {
-          if (sdcard_open_log()) {
-              sdcard_write_data(msg.data(), msg.size());
-              sdcard_close_log();
-          }
+        assert(xPortInIsrContext() == pdFALSE &&
+               "Logging to Serial is not allowed from an ISR context");
+
+        Serial.write(reinterpret_cast<const uint8_t*>(msg.data()), msg.size());
       },
-      tskIDLE_PRIORITY + 1
-  });
+      tskIDLE_PRIORITY + 1, 2048);
+
+  mcu::log::addTarget(
+      "SD Card",
+      [](std::string_view msg) {
+        if (sdcard_open_log()) {
+          sdcard_write_data(msg.data(), msg.size());
+          sdcard_close_log();
+        }
+      },
+      tskIDLE_PRIORITY + 1, 4096);
+
+  mcu::log::init();
 
   imu_setup();
   altitude.setG(g_cal);
@@ -130,10 +141,8 @@ TASK imu_task(TaskDescriptor_t* self)
                        false // TODO: airbrake trigger
       );
 
-      mcu_log_info("[IMU]: Orientation ({}, {}, {})\n",
-                   orientation.getRoll(),
-                   orientation.getPitch(),
-                   orientation.getYaw());
+      mcu_log_info("[IMU]: Orientation ({}, {}, {})\n", orientation.getRoll(),
+                   orientation.getPitch(), orientation.getYaw());
 
       xSemaphoreGive(spi_semaphore);
     }
@@ -181,4 +190,3 @@ TASK lora_task(TaskDescriptor_t* self)
     TASK_WAIT_HZ(self, LORA_TASK_HZ);
   }
 }
-

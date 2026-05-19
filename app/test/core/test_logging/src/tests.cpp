@@ -14,11 +14,6 @@ void tearDown()
   g_capturedOutput.clear();
 }
 
-void customHandler(std::string_view msg)
-{
-  g_capturedOutput += msg;
-}
-
 void test_logging_basic()
 {
   mcu_log_info("test {}", 123);
@@ -39,7 +34,9 @@ void test_logging_multiple_messages()
 
 void runUnityTests()
 {
-  mcu::log::g_targets.push_back({customHandler, tskIDLE_PRIORITY + 1});
+  mcu::log::addTarget(
+      "Custom", [](std::string_view message) { g_capturedOutput += message; },
+      tskIDLE_PRIORITY + 1, 2048);
 
   UNITY_BEGIN();
   RUN_TEST(test_logging_basic);

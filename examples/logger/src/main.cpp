@@ -31,7 +31,6 @@ DECLARE_STATIC_TASK(imu_task);
 DECLARE_STATIC_TASK(barometer_task);
 DECLARE_STATIC_TASK(lora_task);
 DECLARE_STATIC_TASK(logger_task);
-DECLARE_STATIC_TASK(gc_task);
 DECLARE_STATIC_TASK(sd_task);
 
 
@@ -50,7 +49,7 @@ void setup(void)
 	SPI2.begin(SPI2_SCK, SPI2_MISO, SPI2_MOSI, -1);
 	// TODO: Set speed
 
-	message_queue_init();
+	logger_init();
 
 	imu_setup();
 	altitude.setG(g_cal);
@@ -86,15 +85,13 @@ void setup(void)
 	INIT_STATIC_TASK(logger_task, "logger", NULL, tskIDLE_PRIORITY, 1);
 	INIT_STATIC_TASK(lora_task, "lora", NULL, tskIDLE_PRIORITY + 10, 1);
 	INIT_STATIC_TASK(sd_task, "sd", NULL, tskIDLE_PRIORITY + 9, 1);
-	INIT_STATIC_TASK(gc_task, "gc", NULL, tskIDLE_PRIORITY, 1);
 
  	if (
 	    !TASK_IS_INITIALIZED(imu_task) ||
 	    !TASK_IS_INITIALIZED(barometer_task) ||
 	    !TASK_IS_INITIALIZED(logger_task) ||
 	    !TASK_IS_INITIALIZED(lora_task) ||
-	    !TASK_IS_INITIALIZED(sd_task) ||
-	    !TASK_IS_INITIALIZED(gc_task)) {
+	    !TASK_IS_INITIALIZED(sd_task)) {
 		while (true) {
 			Serial.println("Error creating tasks");
 			delay(500);
@@ -138,12 +135,10 @@ TASK imu_task(TaskDescriptor_t *self)
 				false // TODO: airbrake trigger
 			);
 
-			LOG(DEST_UART | DEST_SD, "[IMU]: Orientation",
-				(struct vec3){
+			LOG("[IMU]: Orientation (%.3f, %.3f, %.3f)",
 					orientation.getRoll(),
 					orientation.getPitch(),
-					orientation.getYaw(),
-				}
+					orientation.getYaw()
 			);
 
 			xSemaphoreGive(spi_semaphore);
@@ -167,7 +162,7 @@ TASK barometer_task(TaskDescriptor_t *self)
 		// Update the altitude and vertical velocity estimation with the barometer data
 		altitude.update(alt);
 
-		LOG(DEST_UART | DEST_SD, "[BARO]: Altitude", altitude.getState()[0]);
+		LOG("[BARO]: Altitude %.3f", altitude.getState()[0]);
 
 		TASK_WAIT_HZ(self, BARO_TASK_HZ);
 	}
@@ -177,18 +172,14 @@ TASK barometer_task(TaskDescriptor_t *self)
 TASK lora_task(TaskDescriptor_t *self)
 {
 	self->last_wake = xTaskGetTickCount();
-	message_t recv;
 
 	while (true) {
 		if (xSemaphoreTake(spi_semaphore, portMAX_DELAY) == pdTRUE) {
 			if (lora_is_transmission_done()) {
-				LOG(DEST_UART, "[LORA]: Transmission done");
-				if (message_queue_dequeue(&recv, 0, DEST_LORA)) {
 					// TODO: transmit the actual message
 					lora_start_transmission(LoRaPayload{0}.bytes, sizeof(LoRaPayload));
-				}
 			} else {
-				LOG(DEST_UART, "[LORA]: Transmission in progress");
+				LOG("[LORA]: Transmission in progress");
 			}
 			xSemaphoreGive(spi_semaphore);
 		}
@@ -201,16 +192,15 @@ TASK lora_task(TaskDescriptor_t *self)
 TASK logger_task(TaskDescriptor_t *self)
 {
 	self->last_wake = xTaskGetTickCount();
-	message_t recv;
-	static char buf[256];
 
 	while(true) {
-		// no timeout since this task needs to run at a fixed frequency,
-		// if there is no message we just skip this iteration
-		while (message_queue_dequeue(&recv, 0, DEST_UART)) {
-			format_message_to_string(&recv, buf, sizeof(buf));
-			Serial.println(buf);
+		const char *buf = NULL;
+		uint32_t len = 0;
+		buf = logger_read_begin(&len);
+		if (buf != NULL && len > 0) {
+			Serial.write(buf, len);
 		}
+		logger_read_end();
 
 		TASK_WAIT_HZ(self, LOGGER_TASK_HZ);
 	}
@@ -221,43 +211,18 @@ TASK logger_task(TaskDescriptor_t *self)
 TASK sd_task(TaskDescriptor_t *self)
 {
 	self->last_wake = xTaskGetTickCount();
-	message_t recv;
-	static char buf[256];
 
 	while(true) {
-		if (message_queue_items(DEST_SD) > 0) {
+		const char *buf = NULL;
+		uint32_t len = 0;
+		buf = logger_read_begin(&len);
+		if (buf != NULL && len > 0) {
 			sdcard_open_log();
-			while (message_queue_dequeue(&recv, 0, DEST_SD)) {
-				format_message_to_string(&recv, buf, sizeof(buf));
-				sdcard_write_str(buf);
-			}
+			sdcard_write_str(buf);
 			sdcard_close_log();
 		}
+		logger_read_end();
 
 		TASK_WAIT_HZ(self, SD_TASK_HZ);
-	}
-}
-
-
-// Garbage collector task
-TASK gc_task(TaskDescriptor_t *self)
-{
-	self->last_wake = xTaskGetTickCount();
-
-	while(true) {
-		if (message_queue_full(DEST_UART)) {
-			message_queue_reset(DEST_UART);
-			ERR(DEST_ALL, "UART queue got full");
-		}
-		if (message_queue_full(DEST_SD)) {
-			message_queue_reset(DEST_SD);
-			ERR(DEST_ALL, "SD queue got full");
-		}
-		if (message_queue_full(DEST_LORA)) {
-			message_queue_reset(DEST_LORA);
-			ERR(DEST_ALL, "LORA queue got full");
-		}
-
-		TASK_WAIT_SEC(self, 10);
 	}
 }

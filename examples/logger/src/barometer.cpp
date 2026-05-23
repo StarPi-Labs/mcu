@@ -50,18 +50,18 @@ parametri di variazione: 1. Frequenza(ora a 20 hz);
 bool barometer_setup(void)
 {
 	if (baro1.begin() == false) {
-		ERR(DEST_UART, "Barometer 1 " TO_XSTR(BARO1_ADDRESS) " not found");
+		ERR("Barometer 1 " TO_XSTR(BARO1_ADDRESS) " not found");
 		return false; //se non funziona segnala l'errore e lascia svolgere le altre tasks
 	}
 	if (baro2.begin() == false) {
-		ERR(DEST_UART, "Barometer 2 " TO_XSTR(BARO2_ADDRESS) " not found");
+		ERR("Barometer 2 " TO_XSTR(BARO2_ADDRESS) " not found");
 		return false; //se non funziona segnala l'errore e lascia svolgere le altre tasks
 	}
 
 	baro1.reset();
-	LOG(DEST_UART, "Barometer 1 initialized");
+	LOG("Barometer 1 initialized");
 	baro2.reset();
-	LOG(DEST_UART, "Barometer 2 initialized");
+	LOG("Barometer 2 initialized");
 
 	// legge un po' di volte per far stabilizzare il sensore
 	// calibrate with the highest OSR to get the most accurate ground pressure
@@ -74,17 +74,17 @@ bool barometer_setup(void)
 	int status1 = baro1.read(OSR_ULTRA_HIGH);
 	if (status1 == 0) {
 		ground_pressure_mbar_1 = baro1.getPressure(); // autozero
-		LOG(DEST_UART, "Barometer 1: Setting ground pressure to [mbar]", ground_pressure_mbar_1);
+		LOG("Barometer 1: Setting ground pressure to [mbar]", ground_pressure_mbar_1);
 	} else {
-		ERR(DEST_UART, "Barometer 1: Calibration failed with error code", status1);
+		ERR("Barometer 1: Calibration failed with error code", status1);
 	}
 
 	int status2 = baro2.read(OSR_ULTRA_HIGH);
 	if (status2 == 0) {
 		ground_pressure_mbar_2 = baro2.getPressure(); // autozero
-		LOG(DEST_UART, "Barometer 2: Setting ground pressure to [mbar]", ground_pressure_mbar_2);
+		LOG("Barometer 2: Setting ground pressure to [mbar]", ground_pressure_mbar_2);
 	} else {
-		ERR(DEST_UART, "Barometer 2: Calibration failed with error code", status2);
+		ERR("Barometer 2: Calibration failed with error code", status2);
 	}
 
 	if (status1 != 0 || status2 != 0) {

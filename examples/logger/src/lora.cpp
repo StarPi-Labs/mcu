@@ -29,14 +29,15 @@ void lora_setup (void)
 		while (true);
 	}
 
-	radio.setDio2AsRfSwitch(true); //
+	radio.setDio2AsRfSwitch(true);
+	radio.setFrequency(LORA_FREQUENCY);
 	radio.setOutputPower(LORA_OUTPUT_POWER);
 	radio.setBandwidth(LORA_BANDWIDTH);
 	radio.setSpreadingFactor(LORA_SPREADING_FACTOR);
 	radio.setCodingRate(LORA_CODING_RATE);
 	radio.forceLDRO(false);
 	radio.implicitHeader(sizeof(LoRaPayload)); // PACCHETTI A LUNGHEZZA FISSA
-	radio.setCRC(true);
+	radio.setCRC(LORA_CRC_BYTES);
 
 	radio.setPacketSentAction(operation_done_cb);
 

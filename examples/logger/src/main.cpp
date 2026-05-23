@@ -134,7 +134,7 @@ TASK imu_task(TaskDescriptor_t *self)
 			// with the inertial data
 			altitude.predict(
 				(float)sample.accelerometer[2]/1000.0f,
-				orientation.getPitch(),
+				orientation.getPitchRadians(),
 				false // TODO: airbrake trigger
 			);
 

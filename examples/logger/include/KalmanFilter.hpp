@@ -99,11 +99,11 @@ public:
 		rf = sigma_bar_freefall;
 	}
 
-
+	
 	// predizione dello stato a partire dall'accelerazione misurata, dall'angolo
 	// di tilt e dallo stato attuale dell'airbrake (triggerato o no)
-	//   a : accelerazione verticale misurata
-	//   alpha : angolo di tilt rispetto alla verticale (in gradi)
+	//   a : accelerazione verticale misurata in G, rispetto l'asse normale alla scheda
+	//   alpha : angolo di tilt rispetto alla verticale (in radianti)
 	//   airbrake_trigger : se true, si è in fase di airbrakes
 	void predict(float a, float alpha, bool airbrake_trigger)
 	{

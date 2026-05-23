@@ -181,6 +181,7 @@ TASK lora_task(TaskDescriptor_t *self)
 			} else {
 				LOG("[LORA]: Transmission in progress");
 			}
+			logger_read_end(DEST_LORA);
 			xSemaphoreGive(spi_semaphore);
 		}
 		TASK_WAIT_HZ(self, LORA_TASK_HZ);
@@ -205,7 +206,7 @@ TASK logger_task(TaskDescriptor_t *self)
 			Serial.flush();
 			last_id = id;
 		}
-		logger_read_end();
+		logger_read_end(DEST_UART);
 
 		TASK_WAIT_HZ(self, LOGGER_TASK_HZ);
 	}
@@ -230,7 +231,7 @@ TASK sd_task(TaskDescriptor_t *self)
 			sdcard_close_log();
 			last_id = id;
 		}
-		logger_read_end();
+		logger_read_end(DEST_SD);
 
 		TASK_WAIT_HZ(self, SD_TASK_HZ);
 	}

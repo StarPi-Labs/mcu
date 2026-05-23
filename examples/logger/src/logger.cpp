@@ -18,7 +18,7 @@ struct logbuffer {
 struct logbuffer buffer_a, buffer_b;
 struct logbuffer *write_buf, *read_buf;
 
-static int reader_count = 0;
+static int reader_pending;
 static volatile bool pending_swap = false;
 
 DECLARE_STATIC_SEMAPHORE(write_sem);
@@ -36,7 +36,7 @@ bool logger_init(void)
 	xSemaphoreGive(write_sem);
 	xSemaphoreGive(read_sem);
 
-	reader_count = 0;
+	reader_pending = DEST_ALL;
 
 	write_buf = &buffer_a;
 	write_buf->len = 0;
@@ -52,7 +52,7 @@ static bool logger_swap(void)
 {
 	if (xSemaphoreTake(read_sem, portMAX_DELAY) != pdTRUE) return false;
 
-	if (reader_count > 0) {
+	if (reader_pending != 0) {
 		xSemaphoreGive(read_sem);
 		return false;
 	}
@@ -62,6 +62,7 @@ static bool logger_swap(void)
 	read_buf = tmp;
 	write_buf->len = 0;
 	write_buf->id++;
+	reader_pending = DEST_ALL;
 
 	xSemaphoreGive(read_sem);
 	return true;
@@ -71,7 +72,6 @@ static bool logger_swap(void)
 const char *logger_read_begin(uint32_t *len, int32_t *id)
 {
 	if (xSemaphoreTake(read_sem, portMAX_DELAY) != pdTRUE) return NULL;
-	reader_count++;
 	if (len) *len = read_buf->len;
 	if (id) *id = read_buf->id;
 	const char *data = read_buf->data;
@@ -80,12 +80,12 @@ const char *logger_read_begin(uint32_t *len, int32_t *id)
 }
 
 
-void logger_read_end(void)
+void logger_read_end(log_destination dest)
 {
 	if (xSemaphoreTake(read_sem, portMAX_DELAY) != pdTRUE) return;
-	reader_count--;
+	reader_pending &= ~dest;
 
-	if (reader_count == 0) {
+	if (reader_pending == 0) {
 		pending_swap = true;
 	}
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#define LOG_TIMEOUT 10
+#define LOG_TIMEOUT 1
 
 enum log_destination {
 	DEST_UART = 1 << 0,

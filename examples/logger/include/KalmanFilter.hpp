@@ -44,8 +44,7 @@ private:
 	const float sigma_bar_highdrag = 20.0; // Airbrakes fase
 	const float sigma_bar_freefall = 3.0;  // Free fall fase*/
 
-	float dt = 0.01;                       // Tempo di campionamento, in secondi
-	int64_t last_call = 0;
+	const float dt = 0.01;                 // Tempo di campionamento, in secondi
 	float g;    // Accelerazione gravitazionale
 	static constexpr float g0 = 9.80665;
 
@@ -71,8 +70,6 @@ public:
 		Q_base(1,1) = dt*dt;
 
 		R = sigma_bar_boost;
-
-		last_call = esp_timer_get_time(); // microsecondi dall'accensione
 	}
 
 	void setG(float g_cal)
@@ -110,21 +107,8 @@ public:
 	//   airbrake_trigger : se true, si è in fase di airbrakes
 	void predict(float a, float alpha, bool airbrake_trigger)
 	{
-		// calcolo del dt effettivo
-		dt = (float)(esp_timer_get_time() - last_call) / 1e6f;
-		last_call = esp_timer_get_time();
-	
-		u(0) = dt * dt / 2.0;
-		u(1) = dt;
-
-		Q_base(0,0) = dt*dt*dt*dt/4.0;
-		Q_base(0,1) = dt*dt*dt/2.0;
-		Q_base(1,0) = dt*dt*dt/2.0;
-		Q_base(1,1) = dt*dt;
-
 		//alpha è l'angolo di tilt rispetto alla verticale
 		A(0,1) = dt * cos(alpha);
-		//A(0,1) = dt;
 
 		if (!airbrake_trigger) {
 			if (a > a_boost) {

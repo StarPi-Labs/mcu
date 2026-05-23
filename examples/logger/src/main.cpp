@@ -177,7 +177,7 @@ TASK lora_task(TaskDescriptor_t *self)
 		if (xSemaphoreTake(spi_semaphore, portMAX_DELAY) == pdTRUE) {
 			if (lora_is_transmission_done()) {
 					// TODO: transmit the actual message
-					lora_start_transmission(LoRaPayload{0}.bytes, sizeof(LoRaPayload));
+					// lora_start_transmission(LoRaPayload{0}.bytes, sizeof(LoRaPayload));
 			} else {
 				LOG("[LORA]: Transmission in progress");
 			}
@@ -191,14 +191,19 @@ TASK lora_task(TaskDescriptor_t *self)
 // UART consumer
 TASK logger_task(TaskDescriptor_t *self)
 {
+	int32_t last_id = -1;
 	self->last_wake = xTaskGetTickCount();
 
 	while(true) {
 		const char *buf = NULL;
 		uint32_t len = 0;
-		buf = logger_read_begin(&len);
-		if (buf != NULL && len > 0) {
+		int32_t id;
+
+		buf = logger_read_begin(&len, &id);
+		if (last_id != id && buf != NULL && len > 0) {
 			Serial.write(buf, len);
+			Serial.flush();
+			last_id = id;
 		}
 		logger_read_end();
 
@@ -210,16 +215,20 @@ TASK logger_task(TaskDescriptor_t *self)
 // SD consumer
 TASK sd_task(TaskDescriptor_t *self)
 {
+	int32_t last_id = -1;
 	self->last_wake = xTaskGetTickCount();
 
 	while(true) {
 		const char *buf = NULL;
 		uint32_t len = 0;
-		buf = logger_read_begin(&len);
-		if (buf != NULL && len > 0) {
+		int32_t id;
+
+		buf = logger_read_begin(&len, &id);
+		if (last_id != id && buf != NULL && len > 0) {
 			sdcard_open_log();
-			sdcard_write_str(buf);
+			sdcard_write(buf, len);
 			sdcard_close_log();
+			last_id = id;
 		}
 		logger_read_end();
 

@@ -12,8 +12,10 @@
 struct logbuffer {
 	char data[BUFFER_SIZE];
 	uint32_t len;
-} buffer_a, buffer_b;
+	int32_t id;
+};
 
+struct logbuffer buffer_a, buffer_b;
 struct logbuffer *write_buf, *read_buf;
 
 static int reader_count = 0;
@@ -45,38 +47,6 @@ bool logger_init(void)
 }
 
 
-static int append_timestamp(void)
-{
-	size_t remaining = BUFFER_SIZE - write_buf->len;
-	if (remaining == 0) {
-		return -1;
-	}
-
-	uint64_t now = micros();
-	int n;
-
-#ifdef CONFIG_USE_HUMAN_READABLE_TIMESTAMPS
-	time_t seconds = (time_t)(now / 1000000ULL);
-	uint32_t microseconds = (uint32_t)(now % 1000000ULL);
-	struct tm timeinfo;
-	localtime_r(&seconds, &timeinfo);
-	char time_str[24];
-	strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", &timeinfo);
-	n = snprintf(write_buf->data + write_buf->len, remaining, "[%s.%06" PRIu32 "] ", time_str, microseconds);
-#else
-	n = snprintf(write_buf->data + write_buf->len, remaining, "[%" PRIu64 "] ", now);
-#endif
-
-	if (n < 0 || (size_t)n >= remaining) {
-		write_buf->len = BUFFER_SIZE;
-		return -1;
-	}
-
-	write_buf->len += n;
-	return n;
-}
-
-
 static bool logger_swap(void)
 {
 	if (xSemaphoreTake(read_sem, portMAX_DELAY) != pdTRUE) return false;
@@ -90,17 +60,19 @@ static bool logger_swap(void)
 	write_buf = read_buf;
 	read_buf = tmp;
 	write_buf->len = 0;
+	write_buf->id++;
 
 	xSemaphoreGive(read_sem);
 	return true;
 }
 
 
-const char *logger_read_begin(uint32_t *len)
+const char *logger_read_begin(uint32_t *len, int32_t *id)
 {
 	if (xSemaphoreTake(read_sem, portMAX_DELAY) != pdTRUE) return NULL;
 	reader_count++;
 	if (len) *len = read_buf->len;
+	if (id) *id = read_buf->id;
 	const char *data = read_buf->data;
 	xSemaphoreGive(read_sem);
 	return data;
@@ -111,56 +83,76 @@ void logger_read_end(void)
 {
 	if (xSemaphoreTake(read_sem, portMAX_DELAY) != pdTRUE) return;
 	reader_count--;
+
+	// If all readers are done then try to wait and swap the buffers to have less
+	// latency on logs
+//	if (reader_count == 0) {
+//		if (xSemaphoreTake(write_sem, LOG_TIMEOUT) == pdTRUE) {
+//			xSemaphoreGive(read_sem);
+//			logger_swap();
+//			xSemaphoreGive(write_sem);
+//			return;
+//		}
+//	}
+
 	xSemaphoreGive(read_sem);
+}
+
+
+static int append_timestamp(char *buf, uint32_t len)
+{
+	uint64_t now = micros();
+	int n;
+
+#ifdef CONFIG_USE_HUMAN_READABLE_TIMESTAMPS
+	time_t seconds = (time_t)(now / 1000000ULL);
+	uint32_t microseconds = (uint32_t)(now % 1000000ULL);
+	struct tm timeinfo;
+	localtime_r(&seconds, &timeinfo);
+	char time_str[24];
+	strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", &timeinfo);
+	n = snprintf(buf, len, "%s.%06" PRIu32 " ", time_str, microseconds);
+#else
+	n = snprintf(buf, len, "%" PRIu64 " ", now);
+#endif
+
+	return n;
 }
 
 
 int log(const char *fmt, ...)
 {
+
+	static char temp_buf[256];
+	static uint32_t temp_len;
+
 	if (xSemaphoreTake(write_sem, LOG_TIMEOUT) != pdTRUE) return -1;
 
-	size_t remaining = BUFFER_SIZE - write_buf->len;
-	if (remaining == 0) {
-		// TODO: signal reading tasks that the write buffer is full, forcing them
-		//       to flush
-		logger_swap();
-		remaining = BUFFER_SIZE - write_buf->len;
-		if (remaining == 0) {
-			xSemaphoreGive(write_sem);
-			return -1;
-		}
-	}
-
-	int ts_len = append_timestamp();
-	if (ts_len < 0) {
-		logger_swap();
-		ts_len = append_timestamp();
-		if (ts_len < 0) {
-			xSemaphoreGive(write_sem);
-			return -1;
-		}
-	}
-	remaining = BUFFER_SIZE - write_buf->len;
-
+	temp_len = 0;
+	temp_len += append_timestamp(temp_buf, 256);
 	va_list args;
 	va_start(args, fmt);
-	int n = vsnprintf(write_buf->data + write_buf->len, remaining, fmt, args);
+	temp_len += vsnprintf(temp_buf + temp_len, 256-temp_len, fmt, args);
+	if (temp_len < 255) temp_buf[temp_len++] = '\n';
 	va_end(args);
+	
+	if (temp_len > 256) return -1;
 
-	if (n < 0) {
-		xSemaphoreGive(write_sem);
-		return -1;
+	uint32_t remaining = BUFFER_SIZE - write_buf->len;
+	if (temp_len > remaining) {
+		// TODO: signal reading tasks that the write buffer is full, forcing them
+		//       to flush
+		if (!logger_swap()) {
+			xSemaphoreGive(write_sem);
+			return -1;
+		}
 	}
 
-	if ((size_t)n >= remaining) {
-		write_buf->len = BUFFER_SIZE;
-		xSemaphoreGive(write_sem);
-		return -1;
-	}
+	memcpy(write_buf->data + write_buf->len, temp_buf, temp_len);
 
-	write_buf->len += n;
+	write_buf->len += temp_len;
 	xSemaphoreGive(write_sem);
-	return n;
+	return temp_len;
 }
 
 

@@ -19,6 +19,7 @@ struct logbuffer buffer_a, buffer_b;
 struct logbuffer *write_buf, *read_buf;
 
 static int reader_count = 0;
+static volatile bool pending_swap = false;
 
 DECLARE_STATIC_SEMAPHORE(write_sem);
 DECLARE_STATIC_SEMAPHORE(read_sem);
@@ -84,16 +85,9 @@ void logger_read_end(void)
 	if (xSemaphoreTake(read_sem, portMAX_DELAY) != pdTRUE) return;
 	reader_count--;
 
-	// If all readers are done then try to wait and swap the buffers to have less
-	// latency on logs
-//	if (reader_count == 0) {
-//		if (xSemaphoreTake(write_sem, LOG_TIMEOUT) == pdTRUE) {
-//			xSemaphoreGive(read_sem);
-//			logger_swap();
-//			xSemaphoreGive(write_sem);
-//			return;
-//		}
-//	}
+	if (reader_count == 0) {
+		pending_swap = true;
+	}
 
 	xSemaphoreGive(read_sem);
 }
@@ -128,6 +122,13 @@ int log(const char *fmt, ...)
 
 	if (xSemaphoreTake(write_sem, LOG_TIMEOUT) != pdTRUE) return -1;
 
+	if (pending_swap) {
+		pending_swap = false;
+		if (write_buf->len > 0) {
+			logger_swap();
+		}
+	}
+
 	temp_len = 0;
 	temp_len += append_timestamp(temp_buf, 256);
 	va_list args;
@@ -136,7 +137,10 @@ int log(const char *fmt, ...)
 	if (temp_len < 255) temp_buf[temp_len++] = '\n';
 	va_end(args);
 	
-	if (temp_len > 256) return -1;
+	if (temp_len > 256) {
+		xSemaphoreGive(write_sem);
+		return -1;
+	}
 
 	uint32_t remaining = BUFFER_SIZE - write_buf->len;
 	if (temp_len > remaining) {

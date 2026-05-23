@@ -38,9 +38,9 @@ void setup(void)
 {
 
 	Serial.begin(115200);
-	while (!Serial) {
-		delay(100);
-	}
+//	while (!Serial) {
+//		delay(100);
+//	}
 	Serial.println("Initialized");
 
 	I2C1.setPins(I2C1_SDA, I2C1_SCL);

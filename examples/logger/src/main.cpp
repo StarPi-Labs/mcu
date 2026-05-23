@@ -140,6 +140,8 @@ TASK imu_task(TaskDescriptor_t *self)
 					orientation.getPitch(),
 					orientation.getYaw()
 			);
+			LOG("Acc: (%d, %d, %d)", sample.accelerometer[0], sample.accelerometer[1], sample.accelerometer[2]);
+			LOG("Gyro: (%d, %d, %d)", sample.gyroscope[0], sample.gyroscope[1], sample.gyroscope[2]);
 
 			xSemaphoreGive(spi_semaphore);
 		}
@@ -163,6 +165,7 @@ TASK barometer_task(TaskDescriptor_t *self)
 		altitude.update(alt);
 
 		LOG("[BARO]: Altitude %.3f", altitude.getState()[0]);
+		LOG("Baro: (%.3f, %.3f)", sample1.altitude, sample2.altitude);
 
 		TASK_WAIT_HZ(self, BARO_TASK_HZ);
 	}

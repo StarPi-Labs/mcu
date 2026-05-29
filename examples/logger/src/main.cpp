@@ -102,7 +102,8 @@ void setup(void)
 
 void loop(void)
 {
-	Serial.println("LOOP");
+	if (Serial) 
+		Serial.println("LOOP");
 	delay(1000);
 }
 
@@ -202,15 +203,17 @@ TASK logger_task(TaskDescriptor_t *self)
 		const char *buf = NULL;
 		uint32_t len = 0;
 		int32_t id;
-
+		
 		buf = logger_read_begin(&len, &id);
 		if (last_id != id && buf != NULL && len > 0) {
-			Serial.write(buf, len);
-			Serial.flush();
+			// If a USB host is not connected, once the internal buffer is full
+			// write() blocks indefinitely, at the cost of petentially losing data
+			// only print if serial is available (host connected)
+			if (Serial)
+				Serial.write(buf, len);
 			last_id = id;
 		}
 		logger_read_end(DEST_UART);
-
 		TASK_WAIT_HZ(self, LOGGER_TASK_HZ);
 	}
 }

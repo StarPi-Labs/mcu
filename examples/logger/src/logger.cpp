@@ -136,7 +136,7 @@ int log(const char *fmt, ...)
 	temp_len += vsnprintf(temp_buf + temp_len, 256-temp_len, fmt, args);
 	if (temp_len < 255) temp_buf[temp_len++] = '\n';
 	va_end(args);
-	
+
 	if (temp_len > 256) {
 		xSemaphoreGive(write_sem);
 		return -1;

@@ -38,7 +38,7 @@ void imu_setup()
 	IMU.ReadID(&id);
 	if (id != 0x6C) {
 		while(1) {
-			ERR("IMU ID mismatch: expected 0x6C, got", (uint32_t)id);
+			ERR("IMU ID mismatch: expected 0x6C, got %lu", (uint32_t)id);
 			delay(1000);
 		}
 	}

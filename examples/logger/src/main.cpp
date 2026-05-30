@@ -109,7 +109,7 @@ void setup(void)
 
 void loop(void)
 {
-	if (Serial) 
+	if (Serial)
 		Serial.println("LOOP");
 	delay(1000);
 }
@@ -148,8 +148,8 @@ TASK imu_task(TaskDescriptor_t *self)
 					orientation.getPitch(),
 					orientation.getYaw()
 			);
-			LOG("Acc: (%d, %d, %d)", sample.accelerometer[0], sample.accelerometer[1], sample.accelerometer[2]);
-			LOG("Gyro: (%d, %d, %d)", sample.gyroscope[0], sample.gyroscope[1], sample.gyroscope[2]);
+			LOG("Acc: (%ld, %ld, %ld)", sample.accelerometer[0], sample.accelerometer[1], sample.accelerometer[2]);
+			LOG("Gyro: (%ld, %ld, %ld)", sample.gyroscope[0], sample.gyroscope[1], sample.gyroscope[2]);
 
 			xSemaphoreGive(spi_semaphore);
 		}
@@ -231,7 +231,7 @@ TASK logger_task(TaskDescriptor_t *self)
 		const char *buf = NULL;
 		uint32_t len = 0;
 		int32_t id;
-		
+
 		buf = logger_read_begin(&len, &id);
 		if (last_id != id && buf != NULL && len > 0) {
 			// If a USB host is not connected, once the internal buffer is full

@@ -25,7 +25,7 @@ void lora_setup (void)
 {
 	int state = radio.begin();
 	if (state != RADIOLIB_ERR_NONE) {
-		ERR("failed to initialize radio, code", state);
+		ERR("failed to initialize radio, code %d", state);
 		while (true);
 	}
 
@@ -41,8 +41,8 @@ void lora_setup (void)
 
 	radio.setPacketSentAction(operation_done_cb);
 
-	LOG("Expected LoRa Time-on-Air [ms]", (uint32_t)(radio.getTimeOnAir(sizeof(LoRaPayload))/1000));
-	
+	LOG("Expected LoRa Time-on-Air %lums", (uint32_t)(radio.getTimeOnAir(sizeof(LoRaPayload))/1000));
+
 	//primo pacchetto
 	//start_transmission(LoRaPayload{0}.bytes, sizeof(LoRaPayload));
 
@@ -72,7 +72,7 @@ bool lora_is_transmission_done(void)
 		if (tx_state == RADIOLIB_ERR_NONE) {
 			//Serial.println(F("transmission finished!"));
 		} else {
-			ERR("transmission failed", tx_state);
+			ERR("transmission failed: %d", tx_state);
 		}
 
 		radio.finishTransmit();

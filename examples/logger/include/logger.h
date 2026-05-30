@@ -10,7 +10,7 @@ enum log_destination {
 
 const uint32_t DEST_ALL = DEST_UART | DEST_LORA | DEST_SD;
 
-int log(const char *fmt, ...);
+int log(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 bool logger_init(void);
 
 const char *logger_read_begin(uint32_t *len, int32_t *id);

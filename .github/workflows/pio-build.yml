@@ -6,6 +6,10 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+      contents: read
+      pull-requests: write
+
 env:
   PR_NUMBER: ${{ github.event.number }}
   GREEN: '\033[1;32m'
@@ -18,10 +22,6 @@ jobs:
     name: PlatformIO Build App
     runs-on: ubuntu-latest
 
-    permissions:
-      contents: read
-      pull-requests: write
-
     steps:
       - uses: actions/checkout@v6
       - uses: actions/cache@v4
@@ -30,7 +30,7 @@ jobs:
             ~/.cache/pip
             ~/.platformio/.cache
             ${{ github.workspace }}/app/qemu
-          key: ${{ runner.os }}-pio
+          key: pio-build-v1-${{ hashFiles('**/app/platformio.ini', '**/app/qemu') }}
       - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
@@ -55,10 +55,6 @@ jobs:
   build-examples:
     name: PlatformIO Build Examples
     runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
-      pull-requests: write
 
     steps:
       - uses: actions/checkout@v6

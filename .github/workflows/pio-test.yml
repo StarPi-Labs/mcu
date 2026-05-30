@@ -30,7 +30,7 @@ jobs:
             ~/.cache/pip
             ~/.platformio/.cache
             ${{ github.workspace }}/app/qemu
-          key: pio-test-app-v1-${{ hashFiles('**/app/platformio.ini', '**/app/qemu') }}
+          key: pio-test-app-v1-${{ hashFiles('**/app/platformio.ini', '**/app/qemu/.version') }}
       - uses: actions/setup-python@v6
         with:
           python-version: '3.11'

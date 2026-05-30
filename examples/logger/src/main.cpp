@@ -10,6 +10,7 @@
 #include "lora.h"
 #include "sdcard.h"
 #include "KalmanFilter.hpp"
+#include "gps.h"
 
 
 SPIClass SPI2(FSPI);
@@ -29,6 +30,7 @@ DECLARE_STATIC_SEMAPHORE(spi_semaphore);
 
 DECLARE_STATIC_TASK(imu_task);
 DECLARE_STATIC_TASK(barometer_task);
+DECLARE_STATIC_TASK(gps_task);
 DECLARE_STATIC_TASK(lora_task);
 DECLARE_STATIC_TASK(logger_task);
 DECLARE_STATIC_TASK(sd_task);
@@ -56,6 +58,7 @@ void setup(void)
 
 	barometer_setup();
 	lora_setup();
+	gps_setup();
 
 	if (!sdcard_init()) {
 		while (true) {
@@ -80,17 +83,21 @@ void setup(void)
 		}
 	}
 
+	// Core 0 tasks
 	INIT_STATIC_TASK(imu_task, "imu", NULL, tskIDLE_PRIORITY + 10, 0);
 	INIT_STATIC_TASK(barometer_task, "barometer", NULL, tskIDLE_PRIORITY + 9, 0);
+	INIT_STATIC_TASK(gps_task, "gps", NULL, tskIDLE_PRIORITY + 8, 0);
+	// Core 1 tasks
 	INIT_STATIC_TASK(logger_task, "logger", NULL, tskIDLE_PRIORITY, 1);
 	INIT_STATIC_TASK(lora_task, "lora", NULL, tskIDLE_PRIORITY + 10, 1);
 	INIT_STATIC_TASK(sd_task, "sd", NULL, tskIDLE_PRIORITY + 9, 1);
 
  	if (
-	    !TASK_IS_INITIALIZED(imu_task) ||
+	    !TASK_IS_INITIALIZED(imu_task)       ||
 	    !TASK_IS_INITIALIZED(barometer_task) ||
-	    !TASK_IS_INITIALIZED(logger_task) ||
-	    !TASK_IS_INITIALIZED(lora_task) ||
+	    !TASK_IS_INITIALIZED(gps_task)       ||
+	    !TASK_IS_INITIALIZED(logger_task)    ||
+	    !TASK_IS_INITIALIZED(lora_task)      ||
 	    !TASK_IS_INITIALIZED(sd_task)) {
 		while (true) {
 			Serial.println("Error creating tasks");
@@ -169,6 +176,27 @@ TASK barometer_task(TaskDescriptor_t *self)
 		LOG("Baro: (%.3f, %.3f)", sample1.altitude, sample2.altitude);
 
 		TASK_WAIT_HZ(self, BARO_TASK_HZ);
+	}
+}
+
+
+TASK gps_task(TaskDescriptor_t *self)
+{
+	self->last_wake = xTaskGetTickCount();
+	static GPSData data;
+
+	while(true) {
+		gps_update(&data);
+
+		if (data.num_sat < GPS_MIN_SATELLITES) {
+			LOG("[GPS]: Not enough satellites: %d", data.num_sat);
+		} else {
+			LOG("[GPS]: (%d) pos: (%f, %f), alt: %fm, speed: %fkmh, time:%ld",
+				data.num_sat, data.lat, data.lon, data.alt, data.kmh, data.unix_time);
+			// TODO: correct local time with gps time
+		}
+
+		TASK_WAIT_HZ(self, GPS_TASK_HZ);
 	}
 }
 

@@ -20,10 +20,15 @@
 #define LORA_DIO1 7
 #define LORA_CS   14
 
+// UART2, GPS Pins
+#define GPS_TX    17
+#define GPS_RX    18
+
 
 // Task Timings
 #define IMU_TASK_HZ    100
 #define BARO_TASK_HZ   20
+#define GPS_TASK_HZ    2
 #define LOGGER_TASK_HZ 500
 #define LORA_TASK_HZ   50
 #define SD_TASK_HZ     200
@@ -54,3 +59,7 @@
 #define LORA_SPREADING_FACTOR 7     // minimo spread factor
 #define LORA_CODING_RATE      5     // 4 + 1, 1 bit su 8 di correzione di errore
 #define LORA_CRC_BYTES        1
+
+
+// GPS configuration
+#define GPS_MIN_SATELLITES 3

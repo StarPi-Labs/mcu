@@ -29,7 +29,14 @@ installed_version = None
 if version_file.exists():
     installed_version = version_file.read_text().strip()
 
-version = installed_version or get_latest_version()
+latest_version = get_latest_version()
+
+if installed_version:
+    version = installed_version
+    if latest_version != installed_version:
+        print(f"An update for QEMU is available, delete {version_file.name} file to install it")
+else:
+    version = latest_version
 
 bin_prefix = "qemu-xtensa-softmmu-" + version.replace("-", "_") + "-"
 # https://github.com/espressif/qemu/releases/download/esp-develop-9.2.2-20250228/qemu-xtensa-softmmu-esp_develop_9.2.2_20250228-x86_64-linux-gnu.tar.xz

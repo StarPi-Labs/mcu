@@ -68,6 +68,10 @@ typedef struct _TaskDescriptor_t {
 #define TASK_IS_INITIALIZED(symbol) (symbol##_descriptor.handle != NULL)
 
 
+// Get the handle of a task given it's symbol
+#define TASK_HANDLE(symbol) symbol##_descriptor.handle
+
+
 // Since tasks should never return, we can use the noreturn attribute to catch
 // bugs where a task accidentally returns. This will cause a compile error if a
 // task function returns.

@@ -21,8 +21,12 @@ struct logbuffer *write_buf, *read_buf;
 static int reader_pending;
 static volatile bool pending_swap = false;
 
+static size_t       readers_num = 0;
+static TaskHandle_t readers[LOG_MAX_READERS] = {};
+
 DECLARE_STATIC_SEMAPHORE(write_sem);
 DECLARE_STATIC_SEMAPHORE(read_sem);
+
 
 // initialize the default message queue, this should be called before using any
 // of the other message queue functions
@@ -37,6 +41,8 @@ bool logger_init(void)
 	xSemaphoreGive(read_sem);
 
 	reader_pending = DEST_ALL;
+	pending_swap = false;
+	readers_num = 0;
 
 	write_buf = &buffer_a;
 	write_buf->len = 0;
@@ -48,6 +54,20 @@ bool logger_init(void)
 }
 
 
+// Register a reader task, this task will get notified when a swap happens, which
+// indicates that new data is available to be read
+void logger_register(TaskHandle_t handle)
+{
+	if (handle != NULL && readers_num < LOG_MAX_READERS) {
+		readers[readers_num++] = handle;
+	}
+}
+
+
+// Swap the current write buffer with the read buffer, only happens when all
+// pending readers are done. Notifies all registered reader tasks with a FreeRTOS
+// notification.
+// This resets the pendign destinations to DEST_ALL
 static bool logger_swap(void)
 {
 	if (xSemaphoreTake(read_sem, portMAX_DELAY) != pdTRUE) return false;
@@ -64,11 +84,19 @@ static bool logger_swap(void)
 	write_buf->id++;
 	reader_pending = DEST_ALL;
 
+	// Notify all readers
+	for (size_t i = 0; i < readers_num; i++) {
+		xTaskNotifyGive(readers[i]);
+	}
+
 	xSemaphoreGive(read_sem);
 	return true;
 }
 
 
+// Called by a reader returns the current read buffer, it's length and it's id
+// The id can be used by tasks which need to run periodically to check wether the
+// buffer they got is the same as the previous one
 const char *logger_read_begin(uint32_t *len, int32_t *id)
 {
 	if (xSemaphoreTake(read_sem, portMAX_DELAY) != pdTRUE) return NULL;
@@ -80,6 +108,8 @@ const char *logger_read_begin(uint32_t *len, int32_t *id)
 }
 
 
+// Called by a reader, signals that it is done with the read buffer, removes it's
+// destination from pending
 void logger_read_end(log_destination dest)
 {
 	if (xSemaphoreTake(read_sem, portMAX_DELAY) != pdTRUE) return;
@@ -93,6 +123,10 @@ void logger_read_end(log_destination dest)
 }
 
 
+// Appends a timestamp in microseconds to the buffer, returns how many bytes were
+// written to the buffer.
+// The timestamp is either an int or a human readable date depending on the
+// compile-time options
 static int append_timestamp(char *buf, uint32_t len)
 {
 	uint64_t now = micros();
@@ -114,6 +148,8 @@ static int append_timestamp(char *buf, uint32_t len)
 }
 
 
+// Takes the same arguments as printf, pushes the formatted string to the write
+// buffer and automatically appends a timestamp
 int log(const char *fmt, ...)
 {
 

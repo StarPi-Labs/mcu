@@ -122,35 +122,36 @@ TASK imu_task(TaskDescriptor_t *self)
 	orientation.begin(IMU_TASK_HZ);
 
 	while (true) {
-		if (xSemaphoreTake(spi_semaphore, portMAX_DELAY) == pdTRUE && imu_get_sample(&sample) == 0) {
-			// Update the relative orientation of the board using
-			// the Madgwick filter, readings are in mg and mdps, so
-			// conversion is needed
-			orientation.updateIMU(
-				(float)sample.gyroscope[0]/1000.0f,
-				(float)sample.gyroscope[1]/1000.0f,
-				(float)sample.gyroscope[2]/1000.0f,
-				(float)sample.accelerometer[0]/1000.0f,
-				(float)sample.accelerometer[1]/1000.0f,
-				(float)sample.accelerometer[2]/1000.0f
-			);
+		if (xSemaphoreTake(spi_semaphore, portMAX_DELAY) == pdTRUE) {
+			if(imu_get_sample(&sample) == 0) {
+				// Update the relative orientation of the board using
+				// the Madgwick filter, readings are in mg and mdps, so
+				// conversion is needed
+				orientation.updateIMU(
+					(float)sample.gyroscope[0]/1000.0f,
+					(float)sample.gyroscope[1]/1000.0f,
+					(float)sample.gyroscope[2]/1000.0f,
+					(float)sample.accelerometer[0]/1000.0f,
+					(float)sample.accelerometer[1]/1000.0f,
+					(float)sample.accelerometer[2]/1000.0f
+				);
 
-			// Update the altitude and vertical velocity estimation
-			// with the inertial data
-			altitude.predict(
-				(float)sample.accelerometer[2]/1000.0f,
-				orientation.getPitchRadians(),
-				false // TODO: airbrake trigger
-			);
+				// Update the altitude and vertical velocity estimation
+				// with the inertial data
+				altitude.predict(
+					(float)sample.accelerometer[2]/1000.0f,
+					orientation.getPitchRadians(),
+					false // TODO: airbrake trigger
+				);
 
-			LOG("[IMU]: Orientation (%.3f, %.3f, %.3f)",
-					orientation.getRoll(),
-					orientation.getPitch(),
-					orientation.getYaw()
-			);
-			LOG("Acc: (%ld, %ld, %ld)", sample.accelerometer[0], sample.accelerometer[1], sample.accelerometer[2]);
-			LOG("Gyro: (%ld, %ld, %ld)", sample.gyroscope[0], sample.gyroscope[1], sample.gyroscope[2]);
-
+				LOG("[IMU]: Orientation (%.3f, %.3f, %.3f)",
+						orientation.getRoll(),
+						orientation.getPitch(),
+						orientation.getYaw()
+				);
+				LOG("Acc: (%ld, %ld, %ld)", sample.accelerometer[0], sample.accelerometer[1], sample.accelerometer[2]);
+				LOG("Gyro: (%ld, %ld, %ld)", sample.gyroscope[0], sample.gyroscope[1], sample.gyroscope[2]);
+			}
 			xSemaphoreGive(spi_semaphore);
 		}
 		TASK_WAIT_HZ(self, IMU_TASK_HZ);

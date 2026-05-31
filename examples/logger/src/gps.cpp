@@ -1,9 +1,11 @@
 #include <Arduino.h>
 #include <TinyGPS++.h>
 #include <time.h>
+#include <sys/time.h>
 
 #include "board.h"
 #include "gps.h"
+#include "logger.h"
 
 
 TinyGPSPlus parser;
@@ -50,6 +52,22 @@ void gps_update(GPSData *data)
 				.tm_year = parser.date.year() - 1900, // tm_year is years since 1900
 			};
 			data->unix_time = mktime(&t);
+
+			// Update system time if the difference is more than 1 second
+			struct timeval tv_now;
+			gettimeofday(&tv_now, NULL);
+			int64_t now = (int64_t)tv_now.tv_sec * 1000000ULL + tv_now.tv_usec;
+			int64_t gps_time = data->unix_time * 1000000ULL;
+
+			if (abs(gps_time - now) > 1000000ULL) {
+				uint64_t new_time = gps_time + now % 1000000ULL;
+				struct timeval tv = {
+					.tv_sec = (time_t)(new_time / 1000000ULL),
+					.tv_usec = (suseconds_t)(new_time % 1000000ULL),
+				};
+				settimeofday(&tv, NULL);
+				LOG("[GPS]: System time updated to %llu", new_time);
+			}
 		}
 	}
 

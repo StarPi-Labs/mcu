@@ -200,7 +200,6 @@ TASK gps_task(TaskDescriptor_t *self)
 		} else {
 			LOG("[GPS]: (%d) pos: (%f, %f), alt: %fm, speed: %fkmh, time:%llu",
 				data.num_sat, data.lat, data.lon, data.alt, data.kmh, data.unix_time);
-			// TODO: correct local time with gps time
 		}
 
 		TASK_WAIT_HZ(self, GPS_TASK_HZ);

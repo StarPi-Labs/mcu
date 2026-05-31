@@ -129,19 +129,18 @@ void logger_read_end(log_destination dest)
 // compile-time options
 static int append_timestamp(char *buf, uint32_t len)
 {
-	uint64_t now = micros();
+	struct timeval tv_now;
+	gettimeofday(&tv_now, NULL);
 	int n;
 
 #ifdef CONFIG_USE_HUMAN_READABLE_TIMESTAMPS
-	time_t seconds = (time_t)(now / 1000000ULL);
-	uint32_t microseconds = (uint32_t)(now % 1000000ULL);
-	struct tm timeinfo;
-	localtime_r(&seconds, &timeinfo);
 	char time_str[24];
-	strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", &timeinfo);
-	n = snprintf(buf, len, "%s.%06" PRIu32 " ", time_str, microseconds);
+	struct tm tm_now;
+	localtime_r(&tv_now.tv_sec, &tm_now);
+	strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", &tm_now);
+	n = snprintf(buf, len, "%s.%06" PRIu32 " ", time_str, tv_now.tv_usec);
 #else
-	n = snprintf(buf, len, "%" PRIu64 " ", now);
+	n = snprintf(buf, len, "%" PRIu64 " ", (uint64_t)tv_now.tv_sec * 1000000ULL + tv_now.tv_usec);
 #endif
 
 	return n;

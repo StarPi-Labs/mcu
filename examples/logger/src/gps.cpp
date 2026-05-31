@@ -1,54 +1,12 @@
 #include <Arduino.h>
 #include <TinyGPS++.h>
+#include <time.h>
 
 #include "board.h"
 #include "gps.h"
 
 
 TinyGPSPlus parser;
-
-
-// Source: https://www.andrews.edu/~tzs/timeconv/timealgorithm.html
-/* This below is the "correct" implementation, however at this time
-* 2026/05/30 any new GPS time sees a constant number of leap seconds, as such
-* the implementation can be simplified to a simple offset
-// List of leap seconds
-static const uint32_t leap_seconds[] = {
-46828800, 78364801, 109900802, 173059203, 252028804, 315187205, 346723206,
-393984007, 425520008, 457056009, 504489610, 551750411, 599184012, 820108813,
-914803214, 1025136015, 1119744016, 1167264017
-};
-
-
-// Count number of leap seconds that have passed
-static uint32_t countleaps(uint32_t gpsTime)
-{
-uint32_t nleaps = 0; // number of leap seconds prior to gpsTime
-for (int i = 0; i < sizeof(leap_seconds)/sizeof(leap_seconds[0]); i++) {
-if (gpsTime >= leap_seconds[i]) {
-nleaps++;
-}
-}
-return nleaps;
-}
-
-// Convert GPS Time to Unix Time
-static uint32_t gps2unix(uint32_t gpsTime)
-{
-// Add offset in seconds
-uint32_t unixTime = gpsTime + 315964800;
-unixTime -= countleaps(gpsTime);
-// FIXME: omitted half-second round-up if current gps time is a leap second
-return unixTime;
-}
-*/
-
-// Convert GPS Time to Unix Time
-static uint32_t gps2unix(uint32_t gpsTime)
-{
-	// TODO
-	return gpsTime;
-}
 
 
 void gps_setup(void)
@@ -78,11 +36,21 @@ void gps_update(GPSData *data)
 		continue;
 	}
 
-	if (!got_data == false || data == NULL) return;
+	if (got_data == false || data == NULL) return;
 
 	// Update time
-	if (parser.time.isUpdated() && parser.time.isValid()) {
-		data->unix_time = gps2unix(parser.time.value());
+	if (parser.time.isUpdated() || parser.date.isUpdated()) {
+		if (parser.time.isValid() && parser.date.isValid()) {
+			struct tm t = {
+				.tm_sec = parser.time.second(),
+				.tm_min = parser.time.minute(),
+				.tm_hour = parser.time.hour(),
+				.tm_mday = parser.date.day(),
+				.tm_mon = parser.date.month() - 1, // tm_mon is 0-11
+				.tm_year = parser.date.year() - 1900, // tm_year is years since 1900
+			};
+			data->unix_time = mktime(&t);
+		}
 	}
 
 	// Update number of satellites

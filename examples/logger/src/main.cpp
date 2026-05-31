@@ -198,7 +198,7 @@ TASK gps_task(TaskDescriptor_t *self)
 		if (data.num_sat < GPS_MIN_SATELLITES) {
 			LOG("[GPS]: Not enough satellites: %d", data.num_sat);
 		} else {
-			LOG("[GPS]: (%d) pos: (%f, %f), alt: %fm, speed: %fkmh, time:%ld",
+			LOG("[GPS]: (%d) pos: (%f, %f), alt: %fm, speed: %fkmh, time:%llu",
 				data.num_sat, data.lat, data.lon, data.alt, data.kmh, data.unix_time);
 			// TODO: correct local time with gps time
 		}

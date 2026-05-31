@@ -4,7 +4,7 @@
 
 
 typedef struct {
-	uint32_t unix_time;
+	uint64_t unix_time;
 	double lat;
 	double lon;
 	float alt;

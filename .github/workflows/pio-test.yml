@@ -24,6 +24,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+
       - name: Cache PlatformIO deps
         uses: actions/cache@v4
         with:
@@ -31,20 +32,24 @@ jobs:
             ~/.cache/pip
             ~/.platformio/.cache
           key: pio-app-v1-${{ hashFiles( 'app/platformio.ini' ) }}
+
+      # Cache SDL2 library: needed for QEMU
+      - name: Cache SDL2 lib
+        uses: awalsh128/cache-apt-pkgs-action@v1
+        with:
+          packages: libsdl2-2.0-0
+          version: 1.0
+
       - name: Cache QEMU
         uses: actions/cache@v4
         with:
           path: |
             ${{ github.workspace }}/app/qemu
           key: qemu-app-v1-${{ hashFiles( 'app/qemu/.version' ) }}
+
       - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
-      # Cache SDL2 library: needed for QEMU
-      - uses: awalsh128/cache-apt-pkgs-action@v1
-        with:
-          packages: libsdl2-2.0-0
-          version: 1.0
 
       - name: Install PlatformIO Core
         run: pip install --upgrade platformio

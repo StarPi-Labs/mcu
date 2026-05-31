@@ -62,4 +62,6 @@
 
 
 // GPS configuration
-#define GPS_MIN_SATELLITES 3
+#define GPS_MIN_SATELLITES         3
+#define GPS_SERIAL_BUFFER_SIZE     1024
+#define GPS_SERIAL_READ_TIMEOUT_MS 100

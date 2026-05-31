@@ -21,13 +21,18 @@ def get_latest_version() -> str:
         print(f"Warning: Failed to check for latest version: {error}")
         return "esp-develop-9.2.2-20250817" # Fallback
 
-version = get_latest_version()
-bin_prefix = "qemu-xtensa-softmmu-" + version.replace("-", "_") + "-"
-# https://github.com/espressif/qemu/releases/download/esp-develop-9.2.2-20250228/qemu-xtensa-softmmu-esp_develop_9.2.2_20250228-x86_64-linux-gnu.tar.xz
-
 install_dir = Path(env.subst("$PROJECT_DIR")) / "qemu"
 install_dir.mkdir(exist_ok=True)
 version_file = install_dir / ".version"
+
+installed_version = None
+if version_file.exists():
+    installed_version = version_file.read_text().strip()
+
+version = installed_version or get_latest_version()
+
+bin_prefix = "qemu-xtensa-softmmu-" + version.replace("-", "_") + "-"
+# https://github.com/espressif/qemu/releases/download/esp-develop-9.2.2-20250228/qemu-xtensa-softmmu-esp_develop_9.2.2_20250228-x86_64-linux-gnu.tar.xz
 
 def normalized_os_name() -> str:
     system_name = platform.system().lower()
@@ -65,10 +70,6 @@ def safe_extract(archive: tarfile.TarFile, destination: Path) -> None:
         if destination_root not in resolved_member_path.parents and resolved_member_path != destination_root:
             raise RuntimeError(f"Unsafe path detected in archive member: {member.name}")
     archive.extractall(destination)
-
-installed_version = None
-if version_file.exists():
-    installed_version = version_file.read_text().strip()
 
 binary = expected_binary()
 if binary is not None and installed_version == version:

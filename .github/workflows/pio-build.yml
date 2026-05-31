@@ -30,7 +30,7 @@ jobs:
             ~/.cache/pip
             ~/.platformio/.cache
             ${{ github.workspace }}/app/.pio
-          key: pio-app-v1-${{ hashFiles( 'app/platformio.ini' ) }}
+          key: pio-app-v1-${{ hashFiles( 'app/platformio.ini', 'app/lib/**/*', 'app/src/**/*', 'app/include/**/*', 'app/test/**/*' ) }}
       - uses: actions/setup-python@v6
         with:
           python-version: '3.11'

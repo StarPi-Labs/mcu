@@ -10,7 +10,8 @@ compile_commands.json
 .vscode/settings.json
 
 # Qemu simulator files
-qemu
+qemu/*
+!qemu/.version
 
 # Doxygen files
 docs

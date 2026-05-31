@@ -24,13 +24,19 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/cache@v4
+      - name: Cache PlatformIO deps
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cache/pip
             ~/.platformio/.cache
+          key: pio-app-v1-${{ hashFiles( 'app/platformio.ini' ) }}
+      - name: Cache QEMU
+        uses: actions/cache@v4
+        with:
+          path: |
             ${{ github.workspace }}/app/qemu
-          key: ${{ runner.os }}-pio
+          key: qemu-app-v1-${{ hashFiles( 'app/qemu/.version' ) }}
       - uses: actions/setup-python@v6
         with:
           python-version: '3.11'

@@ -29,8 +29,7 @@ jobs:
           path: |
             ~/.cache/pip
             ~/.platformio/.cache
-            ${{ github.workspace }}/app/qemu
-          key: ${{ runner.os }}-pio
+          key: pio-app-v1-${{ hashFiles( 'app/platformio.ini' ) }}
       - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
@@ -67,8 +66,7 @@ jobs:
           path: |
             ~/.cache/pip
             ~/.platformio/.cache
-            ${{ github.workspace }}/app/qemu
-          key: ${{ runner.os }}-pio
+          key: pio-examples-v1-${{ hashFiles( 'examples/**/platformio.ini' ) }}
       - uses: actions/setup-python@v6
         with:
           python-version: '3.11'

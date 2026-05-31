@@ -29,9 +29,9 @@
 #define IMU_TASK_HZ    100
 #define BARO_TASK_HZ   20
 #define GPS_TASK_HZ    2
-#define LOGGER_TASK_HZ 500
+#define LOGGER_TASK_HZ 50
 #define LORA_TASK_HZ   50
-#define SD_TASK_HZ     200
+#define SD_TASK_HZ     50
 
 
 // IMU FIFO Configuration

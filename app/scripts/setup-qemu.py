@@ -19,7 +19,7 @@ def get_latest_version() -> str:
             return data["tag_name"]
     except URLError as error:
         print(f"Warning: Failed to check for latest version: {error}")
-        return "esp-develop-9.2.2-20250817" # Fallback
+        return "esp-develop-9.2.2-20260417" # Fallback
 
 install_dir = Path(env.subst("$PROJECT_DIR")) / "qemu"
 install_dir.mkdir(exist_ok=True)

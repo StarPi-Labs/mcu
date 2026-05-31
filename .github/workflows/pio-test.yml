@@ -31,6 +31,7 @@ jobs:
           path: |
             ~/.cache/pip
             ~/.platformio/.cache
+            ${{ github.workspace }}/app/.pio
           key: pio-app-v1-${{ hashFiles( 'app/platformio.ini' ) }}
 
       # Cache SDL2 library: needed for QEMU

@@ -29,6 +29,7 @@ jobs:
           path: |
             ~/.cache/pip
             ~/.platformio/.cache
+            ${{ github.workspace }}/app/.pio
           key: pio-app-v1-${{ hashFiles( 'app/platformio.ini' ) }}
       - uses: actions/setup-python@v6
         with:

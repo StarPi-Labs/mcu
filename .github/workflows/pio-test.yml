@@ -33,6 +33,8 @@ jobs:
             ~/.platformio/.cache
             ${{ github.workspace }}/app/.pio
           key: pio-app-v1-${{ hashFiles( 'app/platformio.ini', 'app/lib/**/*', 'app/src/**/*', 'app/include/**/*' ) }}
+          restore-keys: |
+            pio-app-
 
       - name: Cache PlatformIO tests
         uses: actions/cache@v4
@@ -43,7 +45,7 @@ jobs:
             ${{ github.workspace }}/app/.pio/build/**/Unity
           key: pio-test-v1-${{ hashFiles( 'app/platformio.ini', 'app/test/**/*' ) }}
           restore-keys: |
-            pio-test-v1-
+            pio-test-
 
       # Cache SDL2 library: needed for QEMU
       - name: Cache SDL2 lib
@@ -58,7 +60,8 @@ jobs:
           path: |
             ${{ github.workspace }}/app/qemu
           key: qemu-app-v1-${{ hashFiles( 'app/qemu/.version' ) }}
-
+          restore-keys: |
+            qemu-app-
       - uses: actions/setup-python@v6
         with:
           python-version: '3.11'

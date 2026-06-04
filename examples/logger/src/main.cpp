@@ -144,9 +144,10 @@ TASK imu_task(TaskDescriptor_t *self)
 
 				// Update the altitude and vertical velocity estimation
 				// with the inertial data
+				float attitude_rad = acos(cos(orientation.getPitchRadians())*cos(orientation.getRollRadians()));
 				altitude.predict(
 					(float)sample.accelerometer[2]/1000.0f,
-					orientation.getPitchRadians(),
+					attitude_rad,
 					false // TODO: airbrake trigger
 				);
 
@@ -157,6 +158,7 @@ TASK imu_task(TaskDescriptor_t *self)
 				);
 				LOG("Acc: (%ld, %ld, %ld)", sample.accelerometer[0], sample.accelerometer[1], sample.accelerometer[2]);
 				LOG("Gyro: (%ld, %ld, %ld)", sample.gyroscope[0], sample.gyroscope[1], sample.gyroscope[2]);
+				LOG("Attitude: %.3f", attitude_rad*57.29578f);
 			}
 			xSemaphoreGive(spi_semaphore);
 		}

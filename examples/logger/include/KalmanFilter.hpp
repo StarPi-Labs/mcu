@@ -99,7 +99,7 @@ public:
 		rf = sigma_bar_freefall;
 	}
 
-	
+
 	// predizione dello stato a partire dall'accelerazione misurata, dall'angolo
 	// di tilt e dallo stato attuale dell'airbrake (triggerato o no)
 	//   a : accelerazione verticale misurata in G, rispetto l'asse normale alla scheda
@@ -133,7 +133,7 @@ public:
 			}
 		}
 
-		x = A*x + g0*(a*cos(alpha) - g)*u;
+		x = A*x + g0*(a*cos(alpha) - g*cos(alpha)*cos(alpha))*u;
 		//x = A*x;
 		P = A*P*A.transpose() + Q;
 

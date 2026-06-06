@@ -1,6 +1,6 @@
 #include <Arduino.h>
 #include <FreeRTOS.h>
-#include <MadgwickAHRS.h>
+#include <Adafruit_AHRS.h>
 
 #include "board.h"
 #include "logger.h"
@@ -17,7 +17,7 @@ SPIClass SPI2(FSPI);
 TwoWire I2C1(0);
 
 // State filter for orientation estimation, used in the IMU task
-Madgwick orientation;
+Adafruit_Mahony orientation;
 
 // Altitude and veritcal velocity state filter, used to sense when to deploy
 // the parachute
@@ -126,6 +126,7 @@ TASK imu_task(TaskDescriptor_t *self)
 	self->last_wake = xTaskGetTickCount();
 	FIFO_Sample sample;
 	orientation.begin(IMU_TASK_HZ);
+	uint64_t call, prev_call;
 
 	while (true) {
 		if (xSemaphoreTake(spi_semaphore, portMAX_DELAY) == pdTRUE) {

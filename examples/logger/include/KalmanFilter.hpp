@@ -150,6 +150,9 @@ public:
 		float z = h;
 
 		x = x + K*(z - H*x);
-		P = (Matrix2f::Identity() - K * H) * P;
+		// Forma standard
+		// P = (Matrix2f::Identity() - K * H) * P;
+		// Forma di Joseph
+		P = (Matrix2f::Identity() - K*H) * P * (Matrix2f::Identity() - K*H).transpose() + K*R*K.transpose();
 	}
 };

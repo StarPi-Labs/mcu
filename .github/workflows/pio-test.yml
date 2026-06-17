@@ -40,7 +40,7 @@ jobs:
           packages: libsdl2-2.0-0
           version: 1.0
 
-      - name: Install PlatformIO Core
+      - name: Install Pioarduino Core
         run: pip install --upgrade pioarduino
 
       - name: Run app tests using pio

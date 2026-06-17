@@ -30,12 +30,12 @@ jobs:
             ~/.cache/pip
             ~/.platformio/.cache
             ${{ github.workspace }}/app/qemu
-          key: ${{ runner.os }}-pio
+          key: ${{ runner.os }}-pio-v2
       - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
       - name: Install PlatformIO Core
-        run: pip install --upgrade platformio
+        run: pip install --upgrade pioarduino
 
       - name: Build app using pio
         run: |
@@ -68,12 +68,12 @@ jobs:
             ~/.cache/pip
             ~/.platformio/.cache
             ${{ github.workspace }}/app/qemu
-          key: ${{ runner.os }}-pio
+          key: ${{ runner.os }}-pio-v2
       - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
       - name: Install PlatformIO Core
-        run: pip install --upgrade platformio
+        run: pip install --upgrade pioarduino
 
       - name: Build examples using pio
         run: |

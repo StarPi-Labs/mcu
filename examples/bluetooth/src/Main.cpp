@@ -16,7 +16,6 @@
 #include <NimBLEDevice.h>
 
 static NimBLEServer *pServer;
-static int counter = 0;
 static std::chrono::steady_clock::time_point bootTime;
 
 /**  None of these are required as they will be handled by the library with

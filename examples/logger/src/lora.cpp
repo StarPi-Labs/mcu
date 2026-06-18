@@ -76,7 +76,8 @@ bool lora_is_transmission_done(void)
 		}
 
 		radio.finishTransmit();
+		return true;
 	}
 
-	return operation_done;
+	return false;
 }

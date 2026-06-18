@@ -11,7 +11,7 @@ Module radio_module(LORA_CS, LORA_DIO1, LORA_RST, LORA_BUSY, SPI2); //nello stac
 SX1262 radio(&radio_module);
 
 volatile bool operation_done = false;
-int tx_state = RADIOLIB_ERR_NONE;
+volatile int tx_state = RADIOLIB_ERR_NONE;
 
 
 

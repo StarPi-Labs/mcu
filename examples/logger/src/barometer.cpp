@@ -129,6 +129,6 @@ void barometer_read(BaroData *sample1, BaroData *sample2)
 	if (sample2->error_status == 0) {
 		sample2->temperature = baro2.getTemperature(); // temperatura in °C
 		sample2->pressure = baro2.getPressure(); // pressione in mbar
-		sample2->altitude = compute_altitude(sample1->pressure, ground_pressure_mbar_2); // altitudine in metri
+		sample2->altitude = compute_altitude(sample2->pressure, ground_pressure_mbar_2); // altitudine in metri
 	}
 }

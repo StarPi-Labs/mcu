@@ -29,6 +29,7 @@ MS5611 baro2(BARO2_ADDRESS, &I2C1);
 
 float ground_pressure_mbar_1 = 0.0; // memorizzo pressione misurata sulla rampa di lancio
 float ground_pressure_mbar_2 = 0.0; // memorizzo pressione misurata sulla rampa di lancio
+float ground_temperature_k = 0.0;
 
 
 /*scaletta: 1. reset del barometro;
@@ -87,10 +88,25 @@ bool barometer_setup(void)
 		ERR("Barometer 2: Calibration failed with error code %d", status2);
 	}
 
+	ground_temperature_k = (baro1.getTemperature()+baro2.getTemperature())/2.0;
+
 	if (status1 != 0 || status2 != 0) {
 		return false;
 	}
 	return true;
+}
+
+
+// https://www.mide.com/air-pressure-at-altitude-calculator
+float compute_altitude(float air_pressure, float ground_pressure)
+{
+	// FIXME: Lb and M change with weather conditions
+	const float Lb = -0.0065; // standard temperature lapse rate [K/m]
+	const float M = 0.0289644; // Molar mass of air [kg/mol]
+	const float R = 8.31432;  // Universal gas constant [N*m/mol*K]
+	const float g0 = 9.80665; // Gravitational constant [m/s^2]
+
+	return ((ground_temperature_k)/Lb)*pow((0.001*(air_pressure/ground_pressure)), (-(R*Lb)/(g0*M))-1);
 }
 
 
@@ -108,11 +124,11 @@ void barometer_read(BaroData *sample1, BaroData *sample2)
 	if (sample1->error_status == 0) {
 		sample1->temperature = baro1.getTemperature(); // temperatura in °C
 		sample1->pressure = baro1.getPressure(); // pressione in mbar
-		sample1->altitude = baro1.getAltitude(ground_pressure_mbar_1); // altitudine in metri
+		sample1->altitude = compute_altitude(sample1->pressure, ground_pressure_mbar_1); // altitudine in metri
 	}
 	if (sample2->error_status == 0) {
 		sample2->temperature = baro2.getTemperature(); // temperatura in °C
 		sample2->pressure = baro2.getPressure(); // pressione in mbar
-		sample2->altitude = baro2.getAltitude(ground_pressure_mbar_2); // altitudine in metri
+		sample2->altitude = compute_altitude(sample1->pressure, ground_pressure_mbar_2); // altitudine in metri
 	}
 }

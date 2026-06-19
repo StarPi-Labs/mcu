@@ -44,7 +44,7 @@ private:
 	const float sigma_bar_highdrag = 20.0; // Airbrakes fase
 	const float sigma_bar_freefall = 3.0;  // Free fall fase*/
 
-	const float dt = 0.01;                 // Tempo di campionamento
+	const float dt = 0.01;                 // Tempo di campionamento, in secondi
 	float g;    // Accelerazione gravitazionale
 	static constexpr float g0 = 9.80665;
 
@@ -102,8 +102,8 @@ public:
 
 	// predizione dello stato a partire dall'accelerazione misurata, dall'angolo
 	// di tilt e dallo stato attuale dell'airbrake (triggerato o no)
-	//   a : accelerazione verticale misurata
-	//   alpha : angolo di tilt rispetto alla verticale (in gradi)
+	//   a : accelerazione verticale misurata in G, rispetto l'asse normale alla scheda
+	//   alpha : angolo di tilt rispetto alla verticale (in radianti)
 	//   airbrake_trigger : se true, si è in fase di airbrakes
 	void predict(float a, float alpha, bool airbrake_trigger)
 	{
@@ -133,7 +133,7 @@ public:
 			}
 		}
 
-		x = A*x + g0*(a*cos(alpha) - g)*u;
+		x = A*x + g0*(a*cos(alpha) - g*cos(alpha)*cos(alpha))*u;
 		//x = A*x;
 		P = A*P*A.transpose() + Q;
 
@@ -150,6 +150,9 @@ public:
 		float z = h;
 
 		x = x + K*(z - H*x);
-		P = (Matrix2f::Identity() - K * H) * P;
+		// Forma standard
+		// P = (Matrix2f::Identity() - K * H) * P;
+		// Forma di Joseph
+		P = (Matrix2f::Identity() - K*H) * P * (Matrix2f::Identity() - K*H).transpose() + K*R*K.transpose();
 	}
 };

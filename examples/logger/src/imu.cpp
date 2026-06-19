@@ -28,7 +28,7 @@ void imu_setup()
 {
 	if (IMU.begin() != 0) {
 		while(1) {
-			ERR(DEST_UART, "Failed to initialize IMU");
+			ERR("Failed to initialize IMU");
 			delay(1000);
 		}
 	}
@@ -38,7 +38,7 @@ void imu_setup()
 	IMU.ReadID(&id);
 	if (id != 0x6C) {
 		while(1) {
-			ERR(DEST_UART, "IMU ID mismatch: expected 0x6C, got", id);
+			ERR("IMU ID mismatch: expected 0x6C, got %lu", (uint32_t)id);
 			delay(1000);
 		}
 	}

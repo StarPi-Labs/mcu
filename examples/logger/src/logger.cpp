@@ -5,253 +5,193 @@
 #include <time.h>
 
 #include "logger.h"
+#include "task.h"
 
 
-// Logger implementation, this is a simple wrapper around a FreeRTOS queue.
-// This is a simple wrapper around a FreeRTOS queue. The messages are stored in
-// a statically allocated buffer, so there is no dynamic memory allocation.
-// The logger is designed to be used in a producer-consumer pattern.
+#define BUFFER_SIZE 2048
+struct logbuffer {
+	char data[BUFFER_SIZE];
+	uint32_t len;
+	int32_t id;
+};
 
+struct logbuffer buffer_a, buffer_b;
+struct logbuffer *write_buf, *read_buf;
 
-// Buffers for the message queues
-// NOTE: these could be in PSRAM if we had it
-// UART queue
-static uint8_t uart_queue_buffer[MESSAGE_QUEUE_SIZE * sizeof(message_t)];
-static StaticQueue_t uart_queue_desc;
-static QueueHandle_t uart_queue;
-// SD card queue
-static uint8_t sd_queue_buffer[MESSAGE_QUEUE_SIZE * sizeof(message_t)];
-static StaticQueue_t sd_queue_desc;
-static QueueHandle_t sd_queue;
-// LoRa queue
-static uint8_t lora_queue_buffer[MESSAGE_QUEUE_SIZE * sizeof(message_t)];
-static StaticQueue_t lora_queue_desc;
-static QueueHandle_t lora_queue;
+static int reader_pending;
+static volatile bool pending_swap = false;
+
+static size_t       readers_num = 0;
+static TaskHandle_t readers[LOG_MAX_READERS] = {};
+
+DECLARE_STATIC_SEMAPHORE(write_sem);
+DECLARE_STATIC_SEMAPHORE(read_sem);
 
 
 // initialize the default message queue, this should be called before using any
 // of the other message queue functions
-bool message_queue_init()
+bool logger_init(void)
 {
-	uart_queue = xQueueCreateStatic(MESSAGE_QUEUE_SIZE, sizeof(message_t), uart_queue_buffer, &uart_queue_desc);
-	if (uart_queue == NULL) return false;
-	sd_queue = xQueueCreateStatic(MESSAGE_QUEUE_SIZE, sizeof(message_t), sd_queue_buffer, &sd_queue_desc);
-	if (sd_queue == NULL) return false;
-	lora_queue = xQueueCreateStatic(MESSAGE_QUEUE_SIZE, sizeof(message_t), lora_queue_buffer, &lora_queue_desc);
-	if (lora_queue == NULL) return false;
-
-	return true;
-}
-
-bool message_queue_full(message_dest_t dest)
-{
-	switch(dest) {
-	case DEST_UART:
-		return uxQueueSpacesAvailable(uart_queue) <= 0;
-		break;
-	case DEST_SD:
-		return uxQueueSpacesAvailable(sd_queue) <= 0;
-		break;
-	case DEST_LORA:
-		return uxQueueSpacesAvailable(lora_queue) <= 0;
-		break;
-	default:
+	INIT_STATIC_SEMAPHORE(write_sem);
+	INIT_STATIC_SEMAPHORE(read_sem);
+	if (write_sem == NULL || read_sem == NULL) {
 		return false;
 	}
-}
+	xSemaphoreGive(write_sem);
+	xSemaphoreGive(read_sem);
 
-// reset the message queue, this should be called with caution as it will discard
-// all messages in the queue
-bool message_queue_reset(message_dest_t dest)
-{
-	switch(dest) {
-	case DEST_UART:
-		xQueueReset(uart_queue);
-		break;
-	case DEST_SD:
-		xQueueReset(sd_queue);
-		break;
-	case DEST_LORA:
-		xQueueReset(lora_queue);
-		break;
-	case DEST_ALL:
-		xQueueReset(uart_queue);
-		xQueueReset(sd_queue);
-		xQueueReset(lora_queue);
-		break;
-	default:
-		break;
-	}
+	reader_pending = DEST_ALL;
+	pending_swap = false;
+	readers_num = 0;
+
+	write_buf = &buffer_a;
+	write_buf->len = 0;
+
+	read_buf = &buffer_b;
+	read_buf->len = 0;
 
 	return true;
 }
 
 
-// push the message to the back of the queue, this should not be called from an
-// ISR context
-bool message_queue_enqueue(message_t *message, TickType_t timeout)
+// Register a reader task, this task will get notified when a swap happens, which
+// indicates that new data is available to be read
+void logger_register(TaskHandle_t handle)
 {
-	if (message == NULL) return false;
-	bool err = false;
-
-	if (message->dest & DEST_UART) {
-		err |= xQueueSend(uart_queue, message, timeout) != pdPASS;
+	if (handle != NULL && readers_num < LOG_MAX_READERS) {
+		readers[readers_num++] = handle;
 	}
-
-	if (message->dest & DEST_SD) {
-		err |= xQueueSend(sd_queue, message, timeout) != pdPASS;
-	}
-
-	if (message->dest & DEST_LORA) {
-		err |= xQueueSend(lora_queue, message, timeout) != pdPASS;
-	}
-
-	return !err;
 }
 
 
-// pop the message from the front of the queue, this should not be called from
-// an ISR context
-bool message_queue_dequeue(message_t *message, TickType_t timeout, message_dest_t dest)
+// Swap the current write buffer with the read buffer, only happens when all
+// pending readers are done. Notifies all registered reader tasks with a FreeRTOS
+// notification.
+// This resets the pendign destinations to DEST_ALL
+static bool logger_swap(void)
 {
-	if (dest == DEST_ALL || message == NULL) return false;
+	if (xSemaphoreTake(read_sem, portMAX_DELAY) != pdTRUE) return false;
 
-	QueueHandle_t handle = NULL;
-	switch (dest) {
-	case DEST_UART:
-		handle = uart_queue;
-		break;
-	case DEST_SD:
-		handle = sd_queue;
-		break;
-	case DEST_LORA:
-		handle = lora_queue;
-		break;
-	case DEST_NONE:
-	default:
-		return true;
-		break;
+	if (reader_pending != 0) {
+		xSemaphoreGive(read_sem);
+		return false;
 	}
-	if (xQueueReceive(handle, message, timeout) != pdPASS) return false;
+
+	struct logbuffer *tmp = write_buf;
+	write_buf = read_buf;
+	read_buf = tmp;
+	write_buf->len = 0;
+	write_buf->id++;
+	reader_pending = DEST_ALL;
+
+	// Notify all readers
+	for (size_t i = 0; i < readers_num; i++) {
+		xTaskNotifyGive(readers[i]);
+	}
+
+	xSemaphoreGive(read_sem);
 	return true;
 }
 
 
-// peek at the message at the front of the queue without removing it, this should
-// not be called from an ISR context
-bool message_queue_peek(message_t *message, TickType_t timeout, message_dest_t dest)
+// Called by a reader returns the current read buffer, it's length and it's id
+// The id can be used by tasks which need to run periodically to check wether the
+// buffer they got is the same as the previous one
+const char *logger_read_begin(uint32_t *len, int32_t *id)
 {
-	if (dest == DEST_ALL || message == NULL) return false;
-
-	QueueHandle_t handle = NULL;
-	switch (dest) {
-	case DEST_UART:
-		handle = uart_queue;
-		break;
-	case DEST_SD:
-		handle = sd_queue;
-		break;
-	case DEST_LORA:
-		handle = lora_queue;
-		break;
-	case DEST_NONE:
-	default:
-		return true;
-		break;
-	}
-	if (xQueuePeek(handle, message, timeout) != pdPASS) return false;
-	return true;
+	if (xSemaphoreTake(read_sem, portMAX_DELAY) != pdTRUE) return NULL;
+	if (len) *len = read_buf->len;
+	if (id) *id = read_buf->id;
+	const char *data = read_buf->data;
+	xSemaphoreGive(read_sem);
+	return data;
 }
 
 
-// get the number of messages currently in the queue, this should not be
-// called from an ISR context
-int message_queue_items(message_dest_t dest)
+// Called by a reader, signals that it is done with the read buffer, removes it's
+// destination from pending
+void logger_read_end(log_destination dest)
 {
-	QueueHandle_t handle = NULL;
-	switch (dest) {
-	case DEST_UART:
-		handle = uart_queue;
-		break;
-	case DEST_SD:
-		handle = sd_queue;
-		break;
-	case DEST_LORA:
-		handle = lora_queue;
-		break;
-	case DEST_NONE:
-	default:
-		return 0;
-		break;
+	if (xSemaphoreTake(read_sem, portMAX_DELAY) != pdTRUE) return;
+	reader_pending &= ~dest;
+
+	if (reader_pending == 0) {
+		pending_swap = true;
 	}
-	return uxQueueMessagesWaiting(handle);
+
+	xSemaphoreGive(read_sem);
 }
 
 
-/**
- * @brief Formats a message_t into a provided string buffer.
- * * @param msg  Pointer to the message_t structure.
- * @param buf  Pointer to the destination character buffer.
- * @param size Size of the destination buffer.
- * @return The number of characters written (excluding null byte).
- */
-int format_message_to_string(const message_t *msg, char *buf, size_t size) {
-	if (!msg || !buf || size == 0) return 0;
-
-	int written = 0;
-	const char *desc = msg->description ? msg->description : "";
+// Appends a timestamp in microseconds to the buffer, returns how many bytes were
+// written to the buffer.
+// The timestamp is either an int or a human readable date depending on the
+// compile-time options
+static int append_timestamp(char *buf, uint32_t len)
+{
+	struct timeval tv_now;
+	gettimeofday(&tv_now, NULL);
+	int n;
 
 #ifdef CONFIG_USE_HUMAN_READABLE_TIMESTAMPS
-	// Split microseconds into seconds and fractional microseconds
-	time_t seconds = (time_t)(msg->timestamp / 1000000ULL);
-	uint32_t microseconds = (uint32_t)(msg->timestamp % 1000000ULL);
-
-	// localtime_r is thread-safe, which is critical in ESP-IDF (FreeRTOS)
-	struct tm timeinfo;
-	localtime_r(&seconds, &timeinfo);
-
 	char time_str[24];
-	strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", &timeinfo);
-
-	// Format: [YYYY-MM-DD HH:MM:SS.uuuuuu] description:
-	written = snprintf(buf, size, "[%s.%06" PRIu32 "] %s: ", time_str, microseconds, desc);
+	struct tm tm_now;
+	localtime_r(&tv_now.tv_sec, &tm_now);
+	strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", &tm_now);
+	n = snprintf(buf, len, "%s.%06" PRIu32 " ", time_str, tv_now.tv_usec);
 #else
-	// Format: [1234] description:
-	// Uses PRIu64 to safely format uint64_t across 32-bit and 64-bit platforms
-	written = snprintf(buf, size, "[%" PRIu64 "] %s: ", msg->timestamp, desc);
+	n = snprintf(buf, len, "%" PRIu64 " ", (uint64_t)tv_now.tv_sec * 1000000ULL + tv_now.tv_usec);
 #endif
 
-	// Prevent buffer overflows on the remaining payload
-	if (written < 0 || (size_t)written >= size) {
-		return written;
-	}
-
-	char *ptr = buf + written;
-	size_t rem = size - written;
-
-	// Append the union data based on the type
-	switch (msg->type) {
-	case MSG_NONE:
-		return written;
-	case MSG_INT32:
-		return written + snprintf(ptr, rem, "%" PRId32, msg->data.i32);
-	case MSG_UINT32:
-		return written + snprintf(ptr, rem, "%" PRIu32, msg->data.u32);
-	case MSG_INT64:
-		return written + snprintf(ptr, rem, "%" PRId64, msg->data.i64);
-	case MSG_UINT64:
-		return written + snprintf(ptr, rem, "%" PRIu64, msg->data.u64);
-	case MSG_FLOAT:
-		return written + snprintf(ptr, rem, "%.4g", msg->data.f);
-	case MSG_DOUBLE:
-		return written + snprintf(ptr, rem, "%.6g", msg->data.d);
-	case MSG_STRING:
-		return written + snprintf(ptr, rem, "%s", msg->data.str ? msg->data.str : "NULL");
-	case MSG_VEC3:
-		return written + snprintf(ptr, rem, "(%.3g, %.3g, %.3g)", msg->data.v3.x, msg->data.v3.y, msg->data.v3.z);
-	case MSG_IVEC3:
-		return written + snprintf(ptr, rem, "(%" PRId32 ", %" PRId32 ", %" PRId32 ")", msg->data.iv3.x, msg->data.iv3.y, msg->data.iv3.z);
-	default:
-		return written;
-	}
+	return n;
 }
+
+
+// Takes the same arguments as printf, pushes the formatted string to the write
+// buffer and automatically appends a timestamp
+int log(const char *fmt, ...)
+{
+
+	static char temp_buf[256];
+	static uint32_t temp_len;
+
+	if (xSemaphoreTake(write_sem, LOG_TIMEOUT) != pdTRUE) return -1;
+
+	if (pending_swap) {
+		pending_swap = false;
+		if (write_buf->len > 0) {
+			logger_swap();
+		}
+	}
+
+	temp_len = 0;
+	temp_len += append_timestamp(temp_buf, 256);
+	va_list args;
+	va_start(args, fmt);
+	temp_len += vsnprintf(temp_buf + temp_len, 256-temp_len, fmt, args);
+	if (temp_len < 255) temp_buf[temp_len++] = '\n';
+	va_end(args);
+
+	if (temp_len > 256) {
+		xSemaphoreGive(write_sem);
+		return -1;
+	}
+
+	uint32_t remaining = BUFFER_SIZE - write_buf->len;
+	if (temp_len > remaining) {
+		// TODO: signal reading tasks that the write buffer is full, forcing them
+		//       to flush
+		if (!logger_swap()) {
+			xSemaphoreGive(write_sem);
+			return -1;
+		}
+	}
+
+	memcpy(write_buf->data + write_buf->len, temp_buf, temp_len);
+
+	write_buf->len += temp_len;
+	xSemaphoreGive(write_sem);
+	return temp_len;
+}
+
+

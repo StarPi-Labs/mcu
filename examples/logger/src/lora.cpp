@@ -25,23 +25,24 @@ void lora_setup (void)
 {
 	int state = radio.begin();
 	if (state != RADIOLIB_ERR_NONE) {
-		LOG(DEST_UART, "failed to initialize radio, code", state);
+		ERR("failed to initialize radio, code %d", state);
 		while (true);
 	}
 
-	radio.setDio2AsRfSwitch(true); //
+	radio.setDio2AsRfSwitch(true);
+	radio.setFrequency(LORA_FREQUENCY);
 	radio.setOutputPower(LORA_OUTPUT_POWER);
 	radio.setBandwidth(LORA_BANDWIDTH);
 	radio.setSpreadingFactor(LORA_SPREADING_FACTOR);
 	radio.setCodingRate(LORA_CODING_RATE);
 	radio.forceLDRO(false);
 	radio.implicitHeader(sizeof(LoRaPayload)); // PACCHETTI A LUNGHEZZA FISSA
-	radio.setCRC(true);
+	radio.setCRC(LORA_CRC_BYTES);
 
 	radio.setPacketSentAction(operation_done_cb);
 
-	LOG(DEST_UART, "Expected LoRa Time-on-Air [ms]", (uint32_t)(radio.getTimeOnAir(sizeof(LoRaPayload))/1000));
-	
+	LOG("Expected LoRa Time-on-Air %lums", (uint32_t)(radio.getTimeOnAir(sizeof(LoRaPayload))/1000));
+
 	//primo pacchetto
 	//start_transmission(LoRaPayload{0}.bytes, sizeof(LoRaPayload));
 
@@ -52,11 +53,11 @@ void lora_setup (void)
 void lora_start_transmission(uint8_t* data, size_t size)
 {
 	if (data == NULL || size == 0) {
-		ERR(DEST_UART, "Invalid data or size for LoRa transmission");
+		ERR("Invalid data or size for LoRa transmission");
 		return;
 	}
 	if (size > sizeof(LoRaPayload)) {
-		ERR(DEST_UART, "LoRa payload size exceeds maximum");
+		ERR("LoRa payload size exceeds maximum");
 		return;
 	}
 	// TODO: check if the radio is busy and return an error if it is, for now we just assume it is always ready
@@ -71,7 +72,7 @@ bool lora_is_transmission_done(void)
 		if (tx_state == RADIOLIB_ERR_NONE) {
 			//Serial.println(F("transmission finished!"));
 		} else {
-			ERR(DEST_UART, "transmission failed", tx_state);
+			ERR("transmission failed: %d", tx_state);
 		}
 
 		radio.finishTransmit();

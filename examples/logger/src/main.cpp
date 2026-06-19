@@ -1,6 +1,6 @@
 #include <Arduino.h>
 #include <FreeRTOS.h>
-#include <MadgwickAHRS.h>
+#include <Adafruit_AHRS.h>
 
 #include "board.h"
 #include "logger.h"
@@ -10,13 +10,14 @@
 #include "lora.h"
 #include "sdcard.h"
 #include "KalmanFilter.hpp"
+#include "gps.h"
 
 
 SPIClass SPI2(FSPI);
 TwoWire I2C1(0);
 
 // State filter for orientation estimation, used in the IMU task
-Madgwick orientation;
+Adafruit_Mahony orientation;
 
 // Altitude and veritcal velocity state filter, used to sense when to deploy
 // the parachute
@@ -29,9 +30,9 @@ DECLARE_STATIC_SEMAPHORE(spi_semaphore);
 
 DECLARE_STATIC_TASK(imu_task);
 DECLARE_STATIC_TASK(barometer_task);
+DECLARE_STATIC_TASK(gps_task);
 DECLARE_STATIC_TASK(lora_task);
 DECLARE_STATIC_TASK(logger_task);
-DECLARE_STATIC_TASK(gc_task);
 DECLARE_STATIC_TASK(sd_task);
 
 
@@ -39,9 +40,9 @@ void setup(void)
 {
 
 	Serial.begin(115200);
-	while (!Serial) {
-		delay(100);
-	}
+//	while (!Serial) {
+//		delay(100);
+//	}
 	Serial.println("Initialized");
 
 	I2C1.setPins(I2C1_SDA, I2C1_SCL);
@@ -50,13 +51,14 @@ void setup(void)
 	SPI2.begin(SPI2_SCK, SPI2_MISO, SPI2_MOSI, -1);
 	// TODO: Set speed
 
-	message_queue_init();
+	logger_init();
 
 	imu_setup();
 	altitude.setG(g_cal);
 
 	barometer_setup();
 	lora_setup();
+	gps_setup();
 
 	if (!sdcard_init()) {
 		while (true) {
@@ -81,31 +83,40 @@ void setup(void)
 		}
 	}
 
+	// Core 0 tasks
 	INIT_STATIC_TASK(imu_task, "imu", NULL, tskIDLE_PRIORITY + 10, 0);
 	INIT_STATIC_TASK(barometer_task, "barometer", NULL, tskIDLE_PRIORITY + 9, 0);
+	INIT_STATIC_TASK(gps_task, "gps", NULL, tskIDLE_PRIORITY + 8, 0);
+	// Core 1 tasks
 	INIT_STATIC_TASK(logger_task, "logger", NULL, tskIDLE_PRIORITY, 1);
 	INIT_STATIC_TASK(lora_task, "lora", NULL, tskIDLE_PRIORITY + 10, 1);
 	INIT_STATIC_TASK(sd_task, "sd", NULL, tskIDLE_PRIORITY + 9, 1);
-	INIT_STATIC_TASK(gc_task, "gc", NULL, tskIDLE_PRIORITY, 1);
 
  	if (
-	    !TASK_IS_INITIALIZED(imu_task) ||
+	    !TASK_IS_INITIALIZED(imu_task)       ||
 	    !TASK_IS_INITIALIZED(barometer_task) ||
-	    !TASK_IS_INITIALIZED(logger_task) ||
-	    !TASK_IS_INITIALIZED(lora_task) ||
-	    !TASK_IS_INITIALIZED(sd_task) ||
-	    !TASK_IS_INITIALIZED(gc_task)) {
+	    !TASK_IS_INITIALIZED(gps_task)       ||
+	    !TASK_IS_INITIALIZED(logger_task)    ||
+	    !TASK_IS_INITIALIZED(lora_task)      ||
+	    !TASK_IS_INITIALIZED(sd_task)) {
 		while (true) {
 			Serial.println("Error creating tasks");
 			delay(500);
 		}
 	}
+
+	// Register consumer tasks to the logger, these tasks will get notified when
+	// new data is ready to be read
+	logger_register(TASK_HANDLE(logger_task));
+	logger_register(TASK_HANDLE(lora_task));
+	logger_register(TASK_HANDLE(sd_task));
 }
 
 
 void loop(void)
 {
-	Serial.println("LOOP");
+	if (Serial)
+		Serial.println("LOOP");
 	delay(1000);
 }
 
@@ -115,37 +126,41 @@ TASK imu_task(TaskDescriptor_t *self)
 	self->last_wake = xTaskGetTickCount();
 	FIFO_Sample sample;
 	orientation.begin(IMU_TASK_HZ);
+	uint64_t call, prev_call;
 
 	while (true) {
-		if (xSemaphoreTake(spi_semaphore, portMAX_DELAY) == pdTRUE && imu_get_sample(&sample) == 0) {
-			// Update the relative orientation of the board using
-			// the Madgwick filter, readings are in mg and mdps, so
-			// conversion is needed
-			orientation.updateIMU(
-				(float)sample.gyroscope[0]/1000.0f,
-				(float)sample.gyroscope[1]/1000.0f,
-				(float)sample.gyroscope[2]/1000.0f,
-				(float)sample.accelerometer[0]/1000.0f,
-				(float)sample.accelerometer[1]/1000.0f,
-				(float)sample.accelerometer[2]/1000.0f
-			);
+		if (xSemaphoreTake(spi_semaphore, portMAX_DELAY) == pdTRUE) {
+			if(imu_get_sample(&sample) == 0) {
+				// Update the relative orientation of the board using
+				// the Madgwick filter, readings are in mg and mdps, so
+				// conversion is needed
+				orientation.updateIMU(
+					(float)sample.gyroscope[0]/1000.0f,
+					(float)sample.gyroscope[1]/1000.0f,
+					(float)sample.gyroscope[2]/1000.0f,
+					(float)sample.accelerometer[0]/1000.0f,
+					(float)sample.accelerometer[1]/1000.0f,
+					(float)sample.accelerometer[2]/1000.0f
+				);
 
-			// Update the altitude and vertical velocity estimation
-			// with the inertial data
-			altitude.predict(
-				(float)sample.accelerometer[2]/1000.0f,
-				orientation.getPitch(),
-				false // TODO: airbrake trigger
-			);
+				// Update the altitude and vertical velocity estimation
+				// with the inertial data
+				float attitude_rad = acos(cos(orientation.getPitchRadians())*cos(orientation.getRollRadians()));
+				altitude.predict(
+					(float)sample.accelerometer[2]/1000.0f,
+					attitude_rad,
+					false // TODO: airbrake trigger
+				);
 
-			LOG(DEST_UART | DEST_SD, "[IMU]: Orientation",
-				(struct vec3){
-					orientation.getRoll(),
-					orientation.getPitch(),
-					orientation.getYaw(),
-				}
-			);
-
+				LOG("[IMU]: Orientation (%.3f, %.3f, %.3f)",
+						orientation.getRoll(),
+						orientation.getPitch(),
+						orientation.getYaw()
+				);
+				LOG("Acc: (%ld, %ld, %ld)", sample.accelerometer[0], sample.accelerometer[1], sample.accelerometer[2]);
+				LOG("Gyro: (%ld, %ld, %ld)", sample.gyroscope[0], sample.gyroscope[1], sample.gyroscope[2]);
+				LOG("Attitude: %.3f", attitude_rad*57.29578f);
+			}
 			xSemaphoreGive(spi_semaphore);
 		}
 		TASK_WAIT_HZ(self, IMU_TASK_HZ);
@@ -167,9 +182,30 @@ TASK barometer_task(TaskDescriptor_t *self)
 		// Update the altitude and vertical velocity estimation with the barometer data
 		altitude.update(alt);
 
-		LOG(DEST_UART | DEST_SD, "[BARO]: Altitude", altitude.getState()[0]);
+		LOG("[BARO]: Altitude %.3f", altitude.getState()[0]);
+		LOG("Baro: (%.3f, %.3f)", sample1.altitude, sample2.altitude);
 
 		TASK_WAIT_HZ(self, BARO_TASK_HZ);
+	}
+}
+
+
+TASK gps_task(TaskDescriptor_t *self)
+{
+	self->last_wake = xTaskGetTickCount();
+	static GPSData data;
+
+	while(true) {
+		gps_update(&data);
+
+		if (data.num_sat < GPS_MIN_SATELLITES) {
+			LOG("[GPS]: Not enough satellites: %d", data.num_sat);
+		} else {
+			LOG("[GPS]: (%d) pos: (%f, %f), alt: %fm, speed: %fkmh, time:%llu",
+				data.num_sat, data.lat, data.lon, data.alt, data.kmh, data.unix_time);
+		}
+
+		TASK_WAIT_HZ(self, GPS_TASK_HZ);
 	}
 }
 
@@ -177,19 +213,16 @@ TASK barometer_task(TaskDescriptor_t *self)
 TASK lora_task(TaskDescriptor_t *self)
 {
 	self->last_wake = xTaskGetTickCount();
-	message_t recv;
 
 	while (true) {
 		if (xSemaphoreTake(spi_semaphore, portMAX_DELAY) == pdTRUE) {
 			if (lora_is_transmission_done()) {
-				LOG(DEST_UART, "[LORA]: Transmission done");
-				if (message_queue_dequeue(&recv, 0, DEST_LORA)) {
 					// TODO: transmit the actual message
-					lora_start_transmission(LoRaPayload{0}.bytes, sizeof(LoRaPayload));
-				}
+					// lora_start_transmission(LoRaPayload{0}.bytes, sizeof(LoRaPayload));
 			} else {
-				LOG(DEST_UART, "[LORA]: Transmission in progress");
+				LOG("[LORA]: Transmission in progress");
 			}
+			logger_read_end(DEST_LORA);
 			xSemaphoreGive(spi_semaphore);
 		}
 		TASK_WAIT_HZ(self, LORA_TASK_HZ);
@@ -200,19 +233,26 @@ TASK lora_task(TaskDescriptor_t *self)
 // UART consumer
 TASK logger_task(TaskDescriptor_t *self)
 {
+	int32_t last_id = -1;
 	self->last_wake = xTaskGetTickCount();
-	message_t recv;
-	static char buf[256];
 
 	while(true) {
-		// no timeout since this task needs to run at a fixed frequency,
-		// if there is no message we just skip this iteration
-		while (message_queue_dequeue(&recv, 0, DEST_UART)) {
-			format_message_to_string(&recv, buf, sizeof(buf));
-			Serial.println(buf);
-		}
+		const char *buf = NULL;
+		uint32_t len = 0;
+		int32_t id;
 
-		TASK_WAIT_HZ(self, LOGGER_TASK_HZ);
+		ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000/LOGGER_TASK_HZ));
+
+		buf = logger_read_begin(&len, &id);
+		if (last_id != id && buf != NULL && len > 0) {
+			// If a USB host is not connected, once the internal buffer is full
+			// write() blocks indefinitely, at the cost of petentially losing data
+			// only print if serial is available (host connected)
+			if (Serial)
+				Serial.write(buf, len);
+			last_id = id;
+		}
+		logger_read_end(DEST_UART);
 	}
 }
 
@@ -220,44 +260,23 @@ TASK logger_task(TaskDescriptor_t *self)
 // SD consumer
 TASK sd_task(TaskDescriptor_t *self)
 {
+	int32_t last_id = -1;
 	self->last_wake = xTaskGetTickCount();
-	message_t recv;
-	static char buf[256];
 
 	while(true) {
-		if (message_queue_items(DEST_SD) > 0) {
+		const char *buf = NULL;
+		uint32_t len = 0;
+		int32_t id;
+
+		ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000/SD_TASK_HZ));
+
+		buf = logger_read_begin(&len, &id);
+		if (last_id != id && buf != NULL && len > 0) {
 			sdcard_open_log();
-			while (message_queue_dequeue(&recv, 0, DEST_SD)) {
-				format_message_to_string(&recv, buf, sizeof(buf));
-				sdcard_write_str(buf);
-			}
+			sdcard_write(buf, len);
 			sdcard_close_log();
+			last_id = id;
 		}
-
-		TASK_WAIT_HZ(self, SD_TASK_HZ);
-	}
-}
-
-
-// Garbage collector task
-TASK gc_task(TaskDescriptor_t *self)
-{
-	self->last_wake = xTaskGetTickCount();
-
-	while(true) {
-		if (message_queue_full(DEST_UART)) {
-			message_queue_reset(DEST_UART);
-			ERR(DEST_ALL, "UART queue got full");
-		}
-		if (message_queue_full(DEST_SD)) {
-			message_queue_reset(DEST_SD);
-			ERR(DEST_ALL, "SD queue got full");
-		}
-		if (message_queue_full(DEST_LORA)) {
-			message_queue_reset(DEST_LORA);
-			ERR(DEST_ALL, "LORA queue got full");
-		}
-
-		TASK_WAIT_SEC(self, 10);
+		logger_read_end(DEST_SD);
 	}
 }

@@ -10,7 +10,7 @@
 
 // Stack size of each task in words, with zero extra stack this results in 1k
 // words of usable stack
-#define TASK_STACK_SIZE (configMINIMAL_STACK_SIZE + configIDLE_TASK_STACK_SIZE + 2048)
+#define TASK_STACK_SIZE (configMINIMAL_STACK_SIZE + 4096)
 
 
 // TaskDescriptor_t is a struct that contains all the information about a task,
@@ -68,6 +68,10 @@ typedef struct _TaskDescriptor_t {
 #define TASK_IS_INITIALIZED(symbol) (symbol##_descriptor.handle != NULL)
 
 
+// Get the handle of a task given it's symbol
+#define TASK_HANDLE(symbol) symbol##_descriptor.handle
+
+
 // Since tasks should never return, we can use the noreturn attribute to catch
 // bugs where a task accidentally returns. This will cause a compile error if a
 // task function returns.
@@ -84,7 +88,7 @@ typedef struct _TaskDescriptor_t {
 		desc->was_delayed = xTaskDelayUntil(&(desc->last_wake), pdMS_TO_TICKS(1000/freq)); \
 		if (desc->was_delayed == false) { \
 			desc->last_wake = xTaskGetTickCount(); \
-			WARN(DEST_UART, "[" TO_XSTR(__FILE__) ":" TO_XSTR(__LINE__) "]: task failed to meet deadline, took [ms]", pdTICKS_TO_MS(desc->last_wake - wake)); \
+			WARN("[" TO_XSTR(__FILE__) ":" TO_XSTR(__LINE__) "]: task failed to meet deadline, took %ldms", pdTICKS_TO_MS(desc->last_wake - wake)); \
 		} \
 	} while (0)
 
@@ -94,7 +98,7 @@ typedef struct _TaskDescriptor_t {
 		desc->was_delayed = xTaskDelayUntil(&(desc->last_wake), pdMS_TO_TICKS(sec*1000)); \
 		if (desc->was_delayed == false) { \
 			desc->last_wake = xTaskGetTickCount(); \
-			WARN(DEST_UART, "[" TO_XSTR(__FILE__) ":" TO_XSTR(__LINE__) "]: task failed to meet deadline, took [ms]", pdTICKS_TO_MS(desc->last_wake - wake)); \
+			WARN("[" TO_XSTR(__FILE__) ":" TO_XSTR(__LINE__) "]: task failed to meet deadline, took %ldms", pdTICKS_TO_MS(desc->last_wake - wake)); \
 		} \
 	} while (0)
 

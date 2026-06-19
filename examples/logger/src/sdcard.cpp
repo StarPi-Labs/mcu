@@ -198,3 +198,11 @@ bool sdcard_write_str(const char *str)
 	log_file.println(str);
 	return true;
 }
+
+
+bool sdcard_write(const char *buf, uint32_t len)
+{
+	if (!log_file) return false;
+	log_file.write((const uint8_t*)buf, len);
+	return true;
+}

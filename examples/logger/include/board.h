@@ -20,13 +20,18 @@
 #define LORA_DIO1 7
 #define LORA_CS   14
 
+// UART2, GPS Pins
+#define GPS_TX    17
+#define GPS_RX    18
+
 
 // Task Timings
 #define IMU_TASK_HZ    100
 #define BARO_TASK_HZ   20
-#define LOGGER_TASK_HZ 500
+#define GPS_TASK_HZ    2
+#define LOGGER_TASK_HZ 50
 #define LORA_TASK_HZ   50
-#define SD_TASK_HZ     200
+#define SD_TASK_HZ     50
 
 
 // IMU FIFO Configuration
@@ -48,7 +53,15 @@
 
 
 // LoRa configuration
-#define LORA_OUTPUT_POWER     0   // dBm, da capire
-#define LORA_BANDWIDTH        500 // kHz, max
-#define LORA_SPREADING_FACTOR 7   //eventualmente da aumentare
-#define LORA_CODING_RATE      1   // 1 bit su 8
+#define LORA_FREQUENCY        868.3 // MHz, this channel supports 250kHz bandwidth
+#define LORA_BANDWIDTH        250   // kHz
+#define LORA_OUTPUT_POWER     0     // dBm, da capire
+#define LORA_SPREADING_FACTOR 7     // minimo spread factor
+#define LORA_CODING_RATE      5     // 4 + 1, 1 bit su 8 di correzione di errore
+#define LORA_CRC_BYTES        1
+
+
+// GPS configuration
+#define GPS_MIN_SATELLITES         3
+#define GPS_SERIAL_BUFFER_SIZE     1024
+#define GPS_SERIAL_READ_TIMEOUT_MS 100

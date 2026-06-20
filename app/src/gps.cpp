@@ -58,7 +58,7 @@ void gps_update(GPSData* data)
       int64_t now = (int64_t)tv_now.tv_sec * 1000000ULL + tv_now.tv_usec;
       int64_t gps_time = data->unix_time * 1000000ULL;
 
-      if (abs(gps_time - now) > 1000000ULL) {
+      if (std::abs(gps_time - now) > 1000000ULL) {
         uint64_t new_time = gps_time + now % 1000000ULL;
         struct timeval tv = {
             .tv_sec = (time_t)(new_time / 1000000ULL),

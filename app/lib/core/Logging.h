@@ -182,23 +182,23 @@ logf(const std::string_view& logLevel,
 
     Buffer& activeBuffer = g_buffers[g_activeIndex];
 
-    std::memcpy(&activeBuffer[g_bufferOffset], logLevel.data(),
-                logLevel.size());
-
-    g_bufferOffset += logLevel.size();
-
+    // Timestamp
 #if MCU_LOG_TIMESTAMP_ENABLE
     std::format_to(&activeBuffer[g_bufferOffset], TIMESTAMP_FORMAT, timestamp);
     g_bufferOffset += timestampSize;
 #endif
 
-    // Format the message directly into the buffer
+    // Log level prefix
+    std::memcpy(&activeBuffer[g_bufferOffset], logLevel.data(),
+                logLevel.size());
+    g_bufferOffset += logLevel.size();
+
+    // Message
     std::format_to(&activeBuffer[g_bufferOffset], format,
                    std::forward<Args>(args)...);
-
     g_bufferOffset += formatSize;
 
-    // Add newline at the end of the message
+    // Newline
     std::memcpy(&activeBuffer[g_bufferOffset], "\n", 1);
     g_bufferOffset += 1;
   }

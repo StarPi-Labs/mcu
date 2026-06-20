@@ -74,20 +74,20 @@ inline freertos::ConditionVariable g_cvBufferFull, g_cvBufferEmpty;
 
 // ----- Public API ------
 //  ----- Prefixes -------
-constexpr std::string_view PREFIX_DEBUG = "[DEBUG]: ";
-static_assert(PREFIX_DEBUG.size() < MCU_LOG_BUFFER_SIZE);
+constexpr std::string_view DEBUG_STRING = "debug";
+static_assert(DEBUG_STRING.size() < MCU_LOG_BUFFER_SIZE);
 
-constexpr std::string_view PREFIX_INFO = "[INFO]: ";
-static_assert(PREFIX_INFO.size() < MCU_LOG_BUFFER_SIZE);
+constexpr std::string_view INFO_STRING = "info";
+static_assert(INFO_STRING.size() < MCU_LOG_BUFFER_SIZE);
 
-constexpr std::string_view PREFIX_WARNING = "[WARNING]: ";
-static_assert(PREFIX_WARNING.size() < MCU_LOG_BUFFER_SIZE);
+constexpr std::string_view WARNING_STRING = "warning";
+static_assert(WARNING_STRING.size() < MCU_LOG_BUFFER_SIZE);
 
-constexpr std::string_view PREFIX_ERROR = "[ERROR]: ";
-static_assert(PREFIX_ERROR.size() < MCU_LOG_BUFFER_SIZE);
+constexpr std::string_view ERROR_STRING = "error";
+static_assert(ERROR_STRING.size() < MCU_LOG_BUFFER_SIZE);
 
-constexpr std::string_view PREFIX_CRITICAL = "[CRITICAL]: ";
-static_assert(PREFIX_CRITICAL.size() < MCU_LOG_BUFFER_SIZE);
+constexpr std::string_view CRITICAL_STRING = "critical";
+static_assert(CRITICAL_STRING.size() < MCU_LOG_BUFFER_SIZE);
 
 // ----- Implementation ------
 using Handler =
@@ -114,7 +114,8 @@ inline std::vector<Target>
 void init();
 
 /// @brief Logs (prints) a formatted message with a prefix and adds a newline at
-/// the end.
+/// the end:
+// <timestamp> <facility>.<log level> <task name>[<task number>]: <format>
 ///
 /// It is not intended to be used directly, but via macros:
 /// mcu_log_debug, mcu_log_info, mcu_log_warning, mcu_log_error,
@@ -132,6 +133,7 @@ logf(const std::string_view& facility, const std::string_view& logLevel,
      Args&&... args)
 {
   assert(!facility.empty() && "Facility string must not be empty");
+  assert(!logLevel.empty() && "Log level string must not be empty");
 
   using namespace implementation;
 
@@ -150,9 +152,9 @@ logf(const std::string_view& facility, const std::string_view& logLevel,
     // e.g. ABSOLUTE: "2023-10-01T15:42:42.1234+0200", RELATIVE: "15:42:42.1234"
     constexpr std::format_string<decltype(timestamp)&> TIMESTAMP_FORMAT =
 #if MCU_LOG_TIMESTAMP_ABSOLUTE
-        "{0:%F}T{0:%T%z} "
+        "{0:%F}T{0:%T%z}"
 #else
-        "{:%T} "
+        "{:%T}"
 #endif
         ;
 
@@ -160,14 +162,25 @@ logf(const std::string_view& facility, const std::string_view& logLevel,
         std::formatted_size(TIMESTAMP_FORMAT, timestamp);
 #endif
 
+    // Get task info
+    std::string_view taskName(pcTaskGetName(NULL));
+    UBaseType_t taskNumber = uxTaskGetTaskNumber(NULL);
+    constexpr std::format_string<decltype(taskName)&, decltype(taskNumber)&>
+        TASK_INFO_FORMAT = "{}[{}]";
+
+    std::size_t taskInfoSize =
+        std::formatted_size(TASK_INFO_FORMAT, taskName, taskNumber);
+
     std::size_t formatSize =
         std::formatted_size(format, std::forward<Args>(args)...);
 
     std::size_t requiredSize =
 #if MCU_LOG_TIMESTAMP_ENABLE
-        timestampSize +
+        timestampSize + 1 + // +1 for space
 #endif
-        facility.size() + 1 + logLevel.size() + formatSize + 1;
+        facility.size() + 1 + logLevel.size() + 1 + taskInfoSize + 2 +
+        formatSize + 1; // +1 for '.' between facility and log level,
+                        // +1 for space, +2 for ": ", +1 for newline
 
     assert(requiredSize <= MCU_LOG_BUFFER_SIZE &&
            "Log message is too large to fit in the buffer");
@@ -184,25 +197,34 @@ logf(const std::string_view& facility, const std::string_view& logLevel,
 
     Buffer& activeBuffer = g_buffers[g_activeIndex];
 
+    // -----------------------------------
+    // FORMAT
+    // -----------------------------------
+
     // Timestamp
 #if MCU_LOG_TIMESTAMP_ENABLE
     std::format_to(&activeBuffer[g_bufferOffset], TIMESTAMP_FORMAT, timestamp);
     g_bufferOffset += timestampSize;
+    activeBuffer[g_bufferOffset++] = ' ';
 #endif
-
     // Facility
     std::memcpy(&activeBuffer[g_bufferOffset], facility.data(),
                 facility.size());
     g_bufferOffset += facility.size();
+    activeBuffer[g_bufferOffset++] = '.';
 
-    // Add a space after the facility
-    std::memcpy(&activeBuffer[g_bufferOffset], " ", 1);
-    g_bufferOffset += 1;
-
-    // Log level prefix
+    // Log level
     std::memcpy(&activeBuffer[g_bufferOffset], logLevel.data(),
                 logLevel.size());
     g_bufferOffset += logLevel.size();
+    activeBuffer[g_bufferOffset++] = ' ';
+
+    // Task info
+    std::format_to(&activeBuffer[g_bufferOffset], TASK_INFO_FORMAT, taskName,
+                   taskNumber);
+    g_bufferOffset += taskInfoSize;
+    std::memcpy(&activeBuffer[g_bufferOffset], ": ", 2);
+    g_bufferOffset += 2;
 
     // Message
     std::format_to(&activeBuffer[g_bufferOffset], format,
@@ -210,8 +232,7 @@ logf(const std::string_view& facility, const std::string_view& logLevel,
     g_bufferOffset += formatSize;
 
     // Newline
-    std::memcpy(&activeBuffer[g_bufferOffset], "\n", 1);
-    g_bufferOffset += 1;
+    activeBuffer[g_bufferOffset++] = '\n';
   }
 
   g_cvBufferEmpty.notify_one();
@@ -246,7 +267,7 @@ void addTarget(const char* name, Handler handler, UBaseType_t priority,
 /// @param format Format string compatible with std::format.
 /// @param ... Any arguments to format.
 #define mcu_log_debug(facility, format, ...)                                   \
-  ::mcu::log::logf(facility, ::mcu::log::PREFIX_DEBUG,                         \
+  ::mcu::log::logf(facility, ::mcu::log::DEBUG_STRING,                         \
                    format __VA_OPT__(, ) __VA_ARGS__)
 #else
 #define mcu_log_debug(facility, format, ...)
@@ -259,7 +280,7 @@ void addTarget(const char* name, Handler handler, UBaseType_t priority,
 /// @param format Format string compatible with std::format.
 /// @param ... Any arguments to format.
 #define mcu_log_info(facility, format, ...)                                    \
-  ::mcu::log::logf(facility, ::mcu::log::PREFIX_INFO,                          \
+  ::mcu::log::logf(facility, ::mcu::log::INFO_STRING,                          \
                    format __VA_OPT__(, ) __VA_ARGS__)
 #else
 #define mcu_log_info(facility, format, ...)
@@ -272,7 +293,7 @@ void addTarget(const char* name, Handler handler, UBaseType_t priority,
 /// @param format Format string compatible with std::format.
 /// @param ... Optional arguments to format.
 #define mcu_log_warning(facility, format, ...)                                 \
-  ::mcu::log::logf(facility, ::mcu::log::PREFIX_WARNING,                       \
+  ::mcu::log::logf(facility, ::mcu::log::WARNING_STRING,                       \
                    format __VA_OPT__(, ) __VA_ARGS__)
 #else
 #define mcu_log_warning(facility, format, ...)
@@ -285,7 +306,7 @@ void addTarget(const char* name, Handler handler, UBaseType_t priority,
 /// @param format Format string compatible with std::format.
 /// @param ... Optional arguments to format.
 #define mcu_log_error(facility, format, ...)                                   \
-  ::mcu::log::logf(facility, ::mcu::log::PREFIX_ERROR,                         \
+  ::mcu::log::logf(facility, ::mcu::log::ERROR_STRING,                         \
                    format __VA_OPT__(, ) __VA_ARGS__)
 #else
 #define mcu_log_error(facility, format, ...)
@@ -298,7 +319,7 @@ void addTarget(const char* name, Handler handler, UBaseType_t priority,
 /// @param format Format string compatible with std::format.
 /// @param ... Optional arguments to format.
 #define mcu_log_critical(facility, format, ...)                                \
-  ::mcu::log::logf(facility, ::mcu::log::PREFIX_CRITICAL,                      \
+  ::mcu::log::logf(facility, ::mcu::log::CRITICAL_STRING,                      \
                    format __VA_OPT__(, ) __VA_ARGS__)
 #else
 #define mcu_log_critical(facility, format, ...)

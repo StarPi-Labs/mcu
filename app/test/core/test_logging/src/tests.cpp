@@ -19,7 +19,11 @@ void test_logging_basic()
   mcu_log_info("test", "test {}", 123);
   mcu::log::flush();
 
-  TEST_ASSERT_EQUAL_STRING("test [INFO]: test 123\n", g_capturedOutput.c_str());
+  std::string expectedOutput =
+      std::format("test.{} {}[{}]: test 123\n", mcu::log::INFO_STRING,
+                  pcTaskGetName(NULL), uxTaskGetTaskNumber(NULL));
+
+  TEST_ASSERT_EQUAL_STRING(expectedOutput.c_str(), g_capturedOutput.c_str());
 }
 
 void test_logging_multiple_messages()
@@ -28,8 +32,12 @@ void test_logging_multiple_messages()
   mcu_log_warning("test", "test {}", 2);
   mcu::log::flush();
 
-  TEST_ASSERT_EQUAL_STRING("test [INFO]: test 1\ntest [WARNING]: test 2\n",
-                           g_capturedOutput.c_str());
+  std::string expectedOutput = std::format(
+      "test.{} {}[{}]: test 1\ntest.{} {}[{}]: test 2\n", mcu::log::INFO_STRING,
+      pcTaskGetName(NULL), uxTaskGetTaskNumber(NULL), mcu::log::WARNING_STRING,
+      pcTaskGetName(NULL), uxTaskGetTaskNumber(NULL));
+
+  TEST_ASSERT_EQUAL_STRING(expectedOutput.c_str(), g_capturedOutput.c_str());
 }
 
 void runUnityTests()

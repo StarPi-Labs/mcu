@@ -38,6 +38,9 @@
 #define MCU_LOG_TIMESTAMP_ENABLE 1
 #endif
 
+#define STRINGIFY(x) _STRINGIFY(x)
+#define _STRINGIFY(x) #x
+
 namespace mcu::log
 {
 namespace implementation

@@ -19,7 +19,7 @@ void test_logging_basic()
   mcu_log_info("test {}", 123);
   mcu::log::flush();
 
-  TEST_ASSERT_EQUAL_STRING("[INFO]: test 123", g_capturedOutput.c_str());
+  TEST_ASSERT_EQUAL_STRING("[INFO]: test 123\n", g_capturedOutput.c_str());
 }
 
 void test_logging_multiple_messages()
@@ -28,7 +28,7 @@ void test_logging_multiple_messages()
   mcu_log_warning("test {}", 2);
   mcu::log::flush();
 
-  TEST_ASSERT_EQUAL_STRING("[INFO]: test 1[WARNING]: test 2",
+  TEST_ASSERT_EQUAL_STRING("[INFO]: test 1\n[WARNING]: test 2\n",
                            g_capturedOutput.c_str());
 }
 

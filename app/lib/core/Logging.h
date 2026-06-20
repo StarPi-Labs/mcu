@@ -108,7 +108,8 @@ inline std::vector<Target>
 /// @pre @c Serial must be initialized.
 void init();
 
-/// @brief Logs (prints) a formatted message with a prefix.
+/// @brief Logs (prints) a formatted message with a prefix and adds a newline at
+/// the end.
 ///
 /// It is not intended to be used directly, but via macros:
 /// mcu_log_debug, mcu_log_info, mcu_log_warning, mcu_log_error,
@@ -142,7 +143,8 @@ logf(const std::string_view& logLevel,
     std::size_t formatSize =
         std::formatted_size(format, std::forward<Args>(args)...);
 
-    std::size_t requiredSize = logLevel.size() + formatSize
+    std::size_t requiredSize = logLevel.size() + formatSize +
+                               1 // +1 for newline
 #if MCU_LOG_TIMESTAMP_ENABLE
                                + timestampSize
 #endif
@@ -178,6 +180,10 @@ logf(const std::string_view& logLevel,
                    std::forward<Args>(args)...);
 
     g_bufferOffset += formatSize;
+
+    // Add newline at the end of the message
+    std::memcpy(&activeBuffer[g_bufferOffset], "\n", 1);
+    g_bufferOffset += 1;
   }
 
   g_cvBufferEmpty.notify_one();

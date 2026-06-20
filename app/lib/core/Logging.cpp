@@ -6,7 +6,7 @@ void init()
 {
   using namespace implementation;
 
-#if MCU_LOG_TIMESTAMP_ENABLE
+#if MCU_LOG_TIMESTAMP_ENABLE && !MCU_LOG_TIMESTAMP_ABSOLUTE
   g_bootTime = std::chrono::steady_clock::now();
 #endif
 

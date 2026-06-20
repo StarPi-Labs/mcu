@@ -38,6 +38,11 @@
 #define MCU_LOG_TIMESTAMP_ENABLE 1
 #endif
 
+#ifndef MCU_LOG_TIMESTAMP_ABSOLUTE
+// Use absolute timestamps (time since boot) instead of relative timestamps
+#define MCU_LOG_TIMESTAMP_ABSOLUTE 1
+#endif
+
 #define STRINGIFY(x) _STRINGIFY(x)
 #define _STRINGIFY(x) #x
 
@@ -51,7 +56,7 @@ inline constexpr UBaseType_t BUFFER_FULL_BIT =
     0x80000000; //< Bit mask to indicate buffer full state in task
                 // notifications.
 
-#if MCU_LOG_TIMESTAMP_ENABLE
+#if MCU_LOG_TIMESTAMP_ENABLE && !MCU_LOG_TIMESTAMP_ABSOLUTE
 inline std::chrono::time_point<std::chrono::steady_clock>
     g_bootTime; ///< Time point representing system boot
                 ///< time.
@@ -131,10 +136,22 @@ logf(const std::string_view& logLevel,
     std::unique_lock lock(g_mutex);
 
 #if MCU_LOG_TIMESTAMP_ENABLE
-    auto timestamp = std::chrono::steady_clock::now() - g_bootTime;
-    // e.g. "00:15:42.1234"
+    auto timestamp =
+#if MCU_LOG_TIMESTAMP_ABSOLUTE
+        std::chrono::system_clock::now()
+#else
+        std::chrono::steady_clock::now() - g_bootTime
+#endif
+        ;
+
+    // e.g. ABSOLUTE: "2023-10-01T15:42:42.1234+0200", RELATIVE: "15:42:42.1234"
     constexpr std::format_string<decltype(timestamp)&> TIMESTAMP_FORMAT =
-        "{:%T} ";
+#if MCU_LOG_TIMESTAMP_ABSOLUTE
+        "{0:%F}T{0:%T%z} "
+#else
+        "{:%T} "
+#endif
+        ;
 
     std::size_t timestampSize =
         std::formatted_size(TIMESTAMP_FORMAT, timestamp);

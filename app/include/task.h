@@ -28,6 +28,7 @@ typedef struct _TaskDescriptor_t {
 
 // type checking
 #ifdef __cplusplus
+#include <type_traits>
 #define _IS_TASKDESCRIPTOR_POINTER(x)                                          \
   (std::is_same<decltype(x), TaskDescriptor_t*>::value)
 #else

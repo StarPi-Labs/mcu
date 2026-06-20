@@ -4,13 +4,16 @@
 #include <ConditionVariable.h>
 #include <Mutex.h>
 #include <array>
+#include <cassert>
 #include <chrono>
+#include <cstdint>
 #include <condition_variable>
 #include <cstdio>
 #include <cstring>
 #include <format>
 #include <functional>
 #include <string_view>
+#include <type_traits>
 #include <vector>
 
 #include "CoreConfig.h"

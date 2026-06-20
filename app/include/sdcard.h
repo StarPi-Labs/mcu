@@ -1,9 +1,11 @@
 #pragma once
 
-#include <cstdint>
-
 #ifdef __cplusplus
+#include <cstdint>
 extern "C" {
+#else
+#include <stdbool.h>
+#include <stdint.h>
 #endif
 
 bool sdcard_init(void);

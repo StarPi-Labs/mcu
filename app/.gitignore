@@ -11,7 +11,8 @@ compile_commands.json
 .clangd
 
 # Qemu simulator files
-qemu
+qemu/*
+!qemu/.version
 
 # Doxygen files
 docs

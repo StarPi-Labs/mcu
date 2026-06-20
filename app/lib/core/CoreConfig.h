@@ -26,6 +26,7 @@
 #endif
 
 #ifndef MCU_LOG_TIMESTAMP_ABSOLUTE
-// Use absolute timestamps (time since boot) instead of relative timestamps
+// Use wall-clock timestamps (system_clock) instead of relative timestamps
+// (time since boot).
 #define MCU_LOG_TIMESTAMP_ABSOLUTE 1
 #endif

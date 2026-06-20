@@ -128,7 +128,7 @@ void init();
 /// @param args Variable arguments pack to format into the string.
 template <typename... Args>
 inline void
-logf(const std::string_view& facility, const std::string_view& logLevel,
+logf(std::string_view facility, std::string_view logLevel,
      const std::format_string<std::type_identity_t<Args>...>& format,
      Args&&... args)
 {

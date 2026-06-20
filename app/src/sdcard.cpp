@@ -73,6 +73,8 @@ bool sdcard_start_session(void)
   if (n < 0)
     return false;
 
+  current_session = n;
+
   // Crea la cartella della sessione, es: /session_5
   snprintf(session_dir, sizeof(session_dir), "/session_%d", n);
   SD_MMC.mkdir(session_dir);
@@ -85,8 +87,6 @@ bool sdcard_start_session(void)
   f.close();
 
   num_streams = 0;
-  
-  current_session = n;
 
   return true;
 }
@@ -203,10 +203,10 @@ bool sdcard_write_str(const char* str)
   return true;
 }
 
-bool sdcard_write_data(const char* data, size_t size)
+bool sdcard_write(const char* buf, uint32_t len)
 {
   if (!log_file)
     return false;
-  log_file.write((const uint8_t*)data, size);
+  log_file.write((const uint8_t*)buf, len);
   return true;
 }

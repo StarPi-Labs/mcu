@@ -3,7 +3,7 @@
 #include "FreeRTOSConfig.h"
 #include <Arduino.h>
 
-#include "Logging.h"
+#include <Logging.h>
 
 /* ======================= TASK CREATION AND HANDLING ======================= */
 
@@ -58,6 +58,9 @@ typedef struct _TaskDescriptor_t {
 
 #define TASK_IS_INITIALIZED(symbol) (symbol##_descriptor.handle != NULL)
 
+// Get the handle of a task given it's symbol
+#define TASK_HANDLE(symbol) symbol##_descriptor.handle
+
 // Since tasks should never return, we can use the noreturn attribute to catch
 // bugs where a task accidentally returns. This will cause a compile error if a
 // task function returns.
@@ -68,9 +71,6 @@ typedef struct _TaskDescriptor_t {
 // loop
 #ifdef LOG_TASK_DEADLINES
 
-#define STRINGIFY(x) #x
-#define TO_XSTR(x) STRINGIFY(x)
-
 #define TASK_WAIT_HZ(desc, freq)                                               \
   do {                                                                         \
     static_assert(_IS_TASKDESCRIPTOR_POINTER(desc),                            \
@@ -80,9 +80,9 @@ typedef struct _TaskDescriptor_t {
         xTaskDelayUntil(&(desc->last_wake), pdMS_TO_TICKS(1000 / freq));       \
     if (desc->was_delayed == false) {                                          \
       desc->last_wake = xTaskGetTickCount();                                   \
-      Serial.printf("[" TO_XSTR(__FILE__) ":" TO_XSTR(__LINE__) "]:"           \
-          "task failed to meet deadline, took %ldms",                          \
-          pdTICKS_TO_MS(desc->last_wake - wake));                              \
+      mcu_log_warning("[{}:{}]: task failed to meet deadline, took {}ms",      \
+                      __FILE__, __LINE__,                                      \
+                      pdTICKS_TO_MS(desc->last_wake - wake));                  \
     }                                                                          \
   } while (0)
 
@@ -95,9 +95,9 @@ typedef struct _TaskDescriptor_t {
         xTaskDelayUntil(&(desc->last_wake), pdMS_TO_TICKS(sec * 1000));        \
     if (desc->was_delayed == false) {                                          \
       desc->last_wake = xTaskGetTickCount();                                   \
-      Serial.printf("[" TO_XSTR(__FILE__) ":" TO_XSTR(__LINE__) "]:"           \
-      "task failed to meet deadline, took %ldms",                              \
-           pdTICKS_TO_MS(desc->last_wake - wake));                             \
+      mcu_log_warning("[{}:{}]: task failed to meet deadline, took {}ms",      \
+                      __FILE__, __LINE__,                                      \
+                      pdTICKS_TO_MS(desc->last_wake - wake));                  \
     }                                                                          \
   } while (0)
 

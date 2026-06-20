@@ -1,21 +1,22 @@
+#include <Adafruit_AHRS.h>
 #include <Arduino.h>
 #include <FreeRTOS.h>
-#include <MadgwickAHRS.h>
 
 #include "KalmanFilter.hpp"
-#include "Logging.h"
 #include "barometer.h"
 #include "board.h"
+#include "gps.h"
 #include "imu.h"
 #include "lora.h"
 #include "sdcard.h"
 #include "task.h"
+#include <Logging.h>
 
 SPIClass SPI2(FSPI);
 TwoWire I2C1(0);
 
 // State filter for orientation estimation, used in the IMU task
-Madgwick orientation;
+Adafruit_Mahony orientation;
 
 // Altitude and veritcal velocity state filter, used to sense when to deploy
 // the parachute
@@ -28,15 +29,16 @@ DECLARE_STATIC_SEMAPHORE(spi_semaphore);
 
 DECLARE_STATIC_TASK(imu_task);
 DECLARE_STATIC_TASK(barometer_task);
+DECLARE_STATIC_TASK(gps_task);
 DECLARE_STATIC_TASK(lora_task);
 
 void setup(void)
 {
 
   Serial.begin(115200);
-  while (!Serial) {
-    delay(100);
-  }
+  //	while (!Serial) {
+  //		delay(100);
+  //	}
   Serial.println("Initialized");
 
   I2C1.setPins(I2C1_SDA, I2C1_SCL);
@@ -46,20 +48,19 @@ void setup(void)
   // TODO: Set speed
 
   mcu::log::addTarget(
-      "Serial",
+      "serial",
       [](std::string_view msg) {
-        assert(xPortInIsrContext() == pdFALSE &&
-               "Logging to Serial is not allowed from an ISR context");
-
-        Serial.write(reinterpret_cast<const uint8_t*>(msg.data()), msg.size());
+        if (Serial) {
+          Serial.write(msg.data(), msg.size());
+        }
       },
       tskIDLE_PRIORITY + 1, 2048);
 
   mcu::log::addTarget(
-      "SD Card",
+      "sd",
       [](std::string_view msg) {
         if (sdcard_open_log()) {
-          sdcard_write_data(msg.data(), msg.size());
+          sdcard_write(msg.data(), msg.size());
           sdcard_close_log();
         }
       },
@@ -72,6 +73,7 @@ void setup(void)
 
   barometer_setup();
   lora_setup();
+  gps_setup();
 
   if (!sdcard_init()) {
     while (true) {
@@ -96,12 +98,15 @@ void setup(void)
     }
   }
 
+  // Core 0 tasks
   INIT_STATIC_TASK(imu_task, "imu", NULL, tskIDLE_PRIORITY + 10, 0);
   INIT_STATIC_TASK(barometer_task, "barometer", NULL, tskIDLE_PRIORITY + 9, 0);
+  INIT_STATIC_TASK(gps_task, "gps", NULL, tskIDLE_PRIORITY + 8, 0);
+  // Core 1 tasks
   INIT_STATIC_TASK(lora_task, "lora", NULL, tskIDLE_PRIORITY + 10, 1);
 
   if (!TASK_IS_INITIALIZED(imu_task) || !TASK_IS_INITIALIZED(barometer_task) ||
-      !TASK_IS_INITIALIZED(lora_task)) {
+      !TASK_IS_INITIALIZED(gps_task) || !TASK_IS_INITIALIZED(lora_task)) {
     while (true) {
       Serial.println("Error creating tasks");
       delay(500);
@@ -111,7 +116,8 @@ void setup(void)
 
 void loop(void)
 {
-  Serial.println("LOOP");
+  if (Serial)
+    Serial.println("LOOP");
   delay(1000);
 }
 
@@ -120,30 +126,38 @@ TASK imu_task(TaskDescriptor_t* self)
   self->last_wake = xTaskGetTickCount();
   FIFO_Sample sample;
   orientation.begin(IMU_TASK_HZ);
+  uint64_t call, prev_call;
 
   while (true) {
-    if (xSemaphoreTake(spi_semaphore, portMAX_DELAY) == pdTRUE &&
-        imu_get_sample(&sample) == 0) {
-      // Update the relative orientation of the board using
-      // the Madgwick filter, readings are in mg and mdps, so
-      // conversion is needed
-      orientation.updateIMU((float)sample.gyroscope[0] / 1000.0f,
-                            (float)sample.gyroscope[1] / 1000.0f,
-                            (float)sample.gyroscope[2] / 1000.0f,
-                            (float)sample.accelerometer[0] / 1000.0f,
-                            (float)sample.accelerometer[1] / 1000.0f,
-                            (float)sample.accelerometer[2] / 1000.0f);
+    if (xSemaphoreTake(spi_semaphore, portMAX_DELAY) == pdTRUE) {
+      if (imu_get_sample(&sample) == 0) {
+        // Update the relative orientation of the board using
+        // the Madgwick filter, readings are in mg and mdps, so
+        // conversion is needed
+        orientation.updateIMU((float)sample.gyroscope[0] / 1000.0f,
+                              (float)sample.gyroscope[1] / 1000.0f,
+                              (float)sample.gyroscope[2] / 1000.0f,
+                              (float)sample.accelerometer[0] / 1000.0f,
+                              (float)sample.accelerometer[1] / 1000.0f,
+                              (float)sample.accelerometer[2] / 1000.0f);
 
-      // Update the altitude and vertical velocity estimation
-      // with the inertial data
-      altitude.predict((float)sample.accelerometer[2] / 1000.0f,
-                       orientation.getPitch(),
-                       false // TODO: airbrake trigger
-      );
+        // Update the altitude and vertical velocity estimation
+        // with the inertial data
+        float attitude_rad = acos(cos(orientation.getPitchRadians()) *
+                                  cos(orientation.getRollRadians()));
+        altitude.predict((float)sample.accelerometer[2] / 1000.0f, attitude_rad,
+                         false // TODO: airbrake trigger
+        );
 
-      mcu_log_info("[IMU]: Orientation ({}, {}, {})\n", orientation.getRoll(),
-                   orientation.getPitch(), orientation.getYaw());
-
+        mcu_log_info("[IMU]: Orientation ({:.3f}, {:.3f}, {:.3f})",
+                     orientation.getRoll(), orientation.getPitch(),
+                     orientation.getYaw());
+        mcu_log_info("Acc: ({}, {}, {})", sample.accelerometer[0],
+                     sample.accelerometer[1], sample.accelerometer[2]);
+        mcu_log_info("Gyro: ({}, {}, {})", sample.gyroscope[0],
+                     sample.gyroscope[1], sample.gyroscope[2]);
+        mcu_log_info("Attitude: {:.3f}", attitude_rad * 57.29578f);
+      }
       xSemaphoreGive(spi_semaphore);
     }
     TASK_WAIT_HZ(self, IMU_TASK_HZ);
@@ -166,9 +180,30 @@ TASK barometer_task(TaskDescriptor_t* self)
     // data
     altitude.update(alt);
 
-    mcu_log_info("[BARO]: Altitude {}\n", altitude.getState()[0]);
+    mcu_log_info("[BARO]: Altitude {:.3f}", altitude.getState()[0]);
+    mcu_log_info("Baro: ({:.3f}, {:.3f})", sample1.altitude, sample2.altitude);
 
     TASK_WAIT_HZ(self, BARO_TASK_HZ);
+  }
+}
+
+TASK gps_task(TaskDescriptor_t* self)
+{
+  self->last_wake = xTaskGetTickCount();
+  static GPSData data;
+
+  while (true) {
+    gps_update(&data);
+
+    if (data.num_sat < GPS_MIN_SATELLITES) {
+      mcu_log_info("[GPS]: Not enough satellites: {}", data.num_sat);
+    } else {
+      mcu_log_info(
+          "[GPS]: ({}) pos: ({:f}, {:f}), alt: {:f}m, speed: {:f}kmh, time:{}",
+          data.num_sat, data.lat, data.lon, data.alt, data.kmh, data.unix_time);
+    }
+
+    TASK_WAIT_HZ(self, GPS_TASK_HZ);
   }
 }
 
@@ -179,11 +214,10 @@ TASK lora_task(TaskDescriptor_t* self)
   while (true) {
     if (xSemaphoreTake(spi_semaphore, portMAX_DELAY) == pdTRUE) {
       if (lora_is_transmission_done()) {
-        mcu_log_info("[LORA]: Transmission done\n");
         // TODO: transmit the actual message
-        lora_start_transmission(LoRaPayload{0}.bytes, sizeof(LoRaPayload));
+        // lora_start_transmission(LoRaPayload{0}.bytes, sizeof(LoRaPayload));
       } else {
-        mcu_log_info("[LORA]: Transmission in progress\n");
+        mcu_log_info("[LORA]: Transmission in progress");
       }
       xSemaphoreGive(spi_semaphore);
     }

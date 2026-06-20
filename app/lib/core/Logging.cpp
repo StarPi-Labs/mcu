@@ -95,6 +95,10 @@ void vTask(void* pvParams)
           g_targets[i].name, g_targets[i].stackSize, reinterpret_cast<void*>(i),
           g_targets[i].priority, handlerTasks[i].stack.data(),
           &handlerTasks[i].buffer);
+
+      // Task should always create successfully if puxStackBuffer and
+      // pxTaskBuffer are non-null
+      assert(handlerTasks[i].handle != NULL && "Failed to create handler task");
     }
 
     // Wait for all handler tasks to complete.

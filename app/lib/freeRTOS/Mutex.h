@@ -4,7 +4,7 @@
 #include <FreeRTOS.h>
 #include <array>
 #include <chrono>
-
+#include <concepts>
 namespace freertos
 {
 template <typename T>

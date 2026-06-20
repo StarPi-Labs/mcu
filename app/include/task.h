@@ -80,7 +80,7 @@ typedef struct _TaskDescriptor_t {
         xTaskDelayUntil(&(desc->last_wake), pdMS_TO_TICKS(1000 / freq));       \
     if (desc->was_delayed == false) {                                          \
       desc->last_wake = xTaskGetTickCount();                                   \
-      mcu_log_warning("[{}:{}]: task failed to meet deadline, took {}ms",      \
+      mcu_log_warning("task", "[{}:{}]: task failed to meet deadline, took {}ms", \
                       __FILE__, __LINE__,                                      \
                       pdTICKS_TO_MS(desc->last_wake - wake));                  \
     }                                                                          \
@@ -95,7 +95,7 @@ typedef struct _TaskDescriptor_t {
         xTaskDelayUntil(&(desc->last_wake), pdMS_TO_TICKS(sec * 1000));        \
     if (desc->was_delayed == false) {                                          \
       desc->last_wake = xTaskGetTickCount();                                   \
-      mcu_log_warning("[{}:{}]: task failed to meet deadline, took {}ms",      \
+      mcu_log_warning("task", "[{}:{}]: task failed to meet deadline, took {}ms", \
                       __FILE__, __LINE__,                                      \
                       pdTICKS_TO_MS(desc->last_wake - wake));                  \
     }                                                                          \

@@ -22,7 +22,7 @@ void lora_setup(void)
 {
   int state = radio.begin();
   if (state != RADIOLIB_ERR_NONE) {
-    mcu_log_error("failed to initialize radio, code {}", state);
+    mcu_log_error("lora", "failed to initialize radio, code {}", state);
     while (true)
       ;
   }
@@ -39,7 +39,7 @@ void lora_setup(void)
 
   radio.setPacketSentAction(operation_done_cb);
 
-  mcu_log_info("Expected LoRa Time-on-Air {}ms",
+  mcu_log_info("lora", "Expected LoRa Time-on-Air {}ms",
                (uint32_t)(radio.getTimeOnAir(sizeof(LoRaPayload)) / 1000));
 
   // primo pacchetto
@@ -51,11 +51,11 @@ void lora_setup(void)
 void lora_start_transmission(uint8_t* data, size_t size)
 {
   if (data == NULL || size == 0) {
-    mcu_log_error("Invalid data or size for LoRa transmission");
+    mcu_log_error("lora", "Invalid data or size for LoRa transmission");
     return;
   }
   if (size > sizeof(LoRaPayload)) {
-    mcu_log_error("LoRa payload size exceeds maximum");
+    mcu_log_error("lora", "LoRa payload size exceeds maximum");
     return;
   }
   // TODO: check if the radio is busy and return an error if it is, for now we
@@ -70,7 +70,7 @@ bool lora_is_transmission_done(void)
     if (tx_state == RADIOLIB_ERR_NONE) {
       // Serial.println(F("transmission finished!"));
     } else {
-      mcu_log_error("transmission failed: {}", tx_state);
+      mcu_log_error("lora", "transmission failed: {}", tx_state);
     }
 
     radio.finishTransmit();

@@ -119,6 +119,7 @@ void init();
 /// It is not intended to be used directly, but via macros:
 /// mcu_log_debug, mcu_log_info, mcu_log_warning, mcu_log_error,
 /// mcu_log_critical.
+/// @param facility Facility string (e.g. "main").
 /// @param logLevel The log level string (e.g. "[DEBUG]").
 /// @param format The format string (uses std::format_string,
 /// for info on syntax @see
@@ -126,10 +127,12 @@ void init();
 /// @param args Variable arguments pack to format into the string.
 template <typename... Args>
 inline void
-logf(const std::string_view& logLevel,
+logf(const std::string_view& facility, const std::string_view& logLevel,
      const std::format_string<std::type_identity_t<Args>...>& format,
      Args&&... args)
 {
+  assert(!facility.empty() && "Facility string must not be empty");
+
   using namespace implementation;
 
   {
@@ -160,12 +163,11 @@ logf(const std::string_view& logLevel,
     std::size_t formatSize =
         std::formatted_size(format, std::forward<Args>(args)...);
 
-    std::size_t requiredSize = logLevel.size() + formatSize +
-                               1 // +1 for newline
+    std::size_t requiredSize =
 #if MCU_LOG_TIMESTAMP_ENABLE
-                               + timestampSize
+        timestampSize +
 #endif
-        ;
+        facility.size() + 1 + logLevel.size() + formatSize + 1;
 
     assert(requiredSize <= MCU_LOG_BUFFER_SIZE &&
            "Log message is too large to fit in the buffer");
@@ -187,6 +189,15 @@ logf(const std::string_view& logLevel,
     std::format_to(&activeBuffer[g_bufferOffset], TIMESTAMP_FORMAT, timestamp);
     g_bufferOffset += timestampSize;
 #endif
+
+    // Facility
+    std::memcpy(&activeBuffer[g_bufferOffset], facility.data(),
+                facility.size());
+    g_bufferOffset += facility.size();
+
+    // Add a space after the facility
+    std::memcpy(&activeBuffer[g_bufferOffset], " ", 1);
+    g_bufferOffset += 1;
 
     // Log level prefix
     std::memcpy(&activeBuffer[g_bufferOffset], logLevel.data(),
@@ -231,56 +242,64 @@ void addTarget(const char* name, Handler handler, UBaseType_t priority,
 #if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_DEBUG
 /// @brief Logs a message at DEBUG level.
 /// Compiled and executed only if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_DEBUG.
+/// @param facility Facility string (e.g., "main").
 /// @param format Format string compatible with std::format.
 /// @param ... Any arguments to format.
-#define mcu_log_debug(format, ...)                                             \
-  ::mcu::log::logf(::mcu::log::PREFIX_DEBUG, format __VA_OPT__(, ) __VA_ARGS__)
+#define mcu_log_debug(facility, format, ...)                                   \
+  ::mcu::log::logf(facility, ::mcu::log::PREFIX_DEBUG,                         \
+                   format __VA_OPT__(, ) __VA_ARGS__)
 #else
-#define mcu_log_debug(format, ...)
+#define mcu_log_debug(facility, format, ...)
 #endif
 
 #if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_INFO
 /// @brief Logs a message at INFO level.
 /// Compiled and executed only if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_INFO.
+/// @param facility Facility string (e.g., "main").
 /// @param format Format string compatible with std::format.
 /// @param ... Any arguments to format.
-#define mcu_log_info(format, ...)                                              \
-  ::mcu::log::logf(::mcu::log::PREFIX_INFO, format __VA_OPT__(, ) __VA_ARGS__)
+#define mcu_log_info(facility, format, ...)                                    \
+  ::mcu::log::logf(facility, ::mcu::log::PREFIX_INFO,                          \
+                   format __VA_OPT__(, ) __VA_ARGS__)
 #else
-#define mcu_log_info(format, ...)
+#define mcu_log_info(facility, format, ...)
 #endif
 
 #if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_WARNING
 /// @brief Logs a message at WARNING level.
 /// Compiled and executed only if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_WARNING.
+/// @param facility Facility string (e.g., "main").
 /// @param format Format string compatible with std::format.
 /// @param ... Optional arguments to format.
-#define mcu_log_warning(format, ...)                                           \
-  ::mcu::log::logf(::mcu::log::PREFIX_WARNING,                                 \
+#define mcu_log_warning(facility, format, ...)                                 \
+  ::mcu::log::logf(facility, ::mcu::log::PREFIX_WARNING,                       \
                    format __VA_OPT__(, ) __VA_ARGS__)
 #else
-#define mcu_log_warning(format, ...)
+#define mcu_log_warning(facility, format, ...)
 #endif
 
 #if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_ERROR
 /// @brief Logs a message at ERROR level.
 /// Compiled and executed only if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_ERROR.
+/// @param facility Facility string (e.g., "[GPS]").
 /// @param format Format string compatible with std::format.
 /// @param ... Optional arguments to format.
-#define mcu_log_error(format, ...)                                             \
-  ::mcu::log::logf(::mcu::log::PREFIX_ERROR, format __VA_OPT__(, ) __VA_ARGS__)
+#define mcu_log_error(facility, format, ...)                                   \
+  ::mcu::log::logf(facility, ::mcu::log::PREFIX_ERROR,                         \
+                   format __VA_OPT__(, ) __VA_ARGS__)
 #else
-#define mcu_log_error(format, ...)
+#define mcu_log_error(facility, format, ...)
 #endif
 
 #if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_CRITICAL
 /// @brief Logs a message at CRITICAL level.
 /// Compiled and executed only if MCU_LOG_LEVEL <= MCU_LOG_LEVEL_CRITICAL.
+/// @param facility Facility string (e.g., "[GPS]").
 /// @param format Format string compatible with std::format.
 /// @param ... Optional arguments to format.
-#define mcu_log_critical(format, ...)                                          \
-  ::mcu::log::logf(::mcu::log::PREFIX_CRITICAL,                                \
+#define mcu_log_critical(facility, format, ...)                                \
+  ::mcu::log::logf(facility, ::mcu::log::PREFIX_CRITICAL,                      \
                    format __VA_OPT__(, ) __VA_ARGS__)
 #else
-#define mcu_log_critical(format, ...)
+#define mcu_log_critical(facility, format, ...)
 #endif

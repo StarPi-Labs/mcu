@@ -53,20 +53,20 @@ sensibile ai cambiamenti di quota, ma dato più tremolante);
 bool barometer_setup(void)
 {
   if (baro1.begin() == false) {
-    mcu_log_error("Barometer 1 " STRINGIFY(BARO1_ADDRESS) " not found");
+    mcu_log_error("baro", "Barometer 1 " STRINGIFY(BARO1_ADDRESS) " not found");
     return false; // se non funziona segnala l'errore e lascia svolgere le altre
                   // tasks
   }
   if (baro2.begin() == false) {
-    mcu_log_error("Barometer 2 " STRINGIFY(BARO2_ADDRESS) " not found");
+    mcu_log_error("baro", "Barometer 2 " STRINGIFY(BARO2_ADDRESS) " not found");
     return false; // se non funziona segnala l'errore e lascia svolgere le altre
                   // tasks
   }
 
   baro1.reset();
-  mcu_log_info("Barometer 1 initialized");
+  mcu_log_info("baro", "Barometer 1 initialized");
   baro2.reset();
-  mcu_log_info("Barometer 2 initialized");
+  mcu_log_info("baro", "Barometer 2 initialized");
 
   // legge un po' di volte per far stabilizzare il sensore
   // calibrate with the highest OSR to get the most accurate ground pressure
@@ -79,20 +79,20 @@ bool barometer_setup(void)
   int status1 = baro1.read(OSR_ULTRA_HIGH);
   if (status1 == 0) {
     ground_pressure_mbar_1 = baro1.getPressure(); // autozero
-    mcu_log_info("Barometer 1: Setting ground pressure to {}mbar",
+    mcu_log_info("baro", "Barometer 1: Setting ground pressure to {}mbar",
                  ground_pressure_mbar_1);
   } else {
-    mcu_log_error("Barometer 1: Calibration failed with error code {}",
+    mcu_log_error("baro", "Barometer 1: Calibration failed with error code {}",
                   status1);
   }
 
   int status2 = baro2.read(OSR_ULTRA_HIGH);
   if (status2 == 0) {
     ground_pressure_mbar_2 = baro2.getPressure(); // autozero
-    mcu_log_info("Barometer 2: Setting ground pressure to {}mbar",
+    mcu_log_info("baro", "Barometer 2: Setting ground pressure to {}mbar",
                  ground_pressure_mbar_2);
   } else {
-    mcu_log_error("Barometer 2: Calibration failed with error code {}",
+    mcu_log_error("baro", "Barometer 2: Calibration failed with error code {}",
                   status2);
   }
 

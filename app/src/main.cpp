@@ -149,14 +149,14 @@ TASK imu_task(TaskDescriptor_t* self)
                          false // TODO: airbrake trigger
         );
 
-        mcu_log_info("[IMU]: Orientation ({:.3f}, {:.3f}, {:.3f})",
+        mcu_log_info("imu", "Orientation ({:.3f}, {:.3f}, {:.3f})",
                      orientation.getRoll(), orientation.getPitch(),
                      orientation.getYaw());
-        mcu_log_info("Acc: ({}, {}, {})", sample.accelerometer[0],
+        mcu_log_info("imu", "Acc: ({}, {}, {})", sample.accelerometer[0],
                      sample.accelerometer[1], sample.accelerometer[2]);
-        mcu_log_info("Gyro: ({}, {}, {})", sample.gyroscope[0],
+        mcu_log_info("imu", "Gyro: ({}, {}, {})", sample.gyroscope[0],
                      sample.gyroscope[1], sample.gyroscope[2]);
-        mcu_log_info("Attitude: {:.3f}", attitude_rad * 57.29578f);
+        mcu_log_info("imu", "Attitude: {:.3f}", attitude_rad * 57.29578f);
       }
       xSemaphoreGive(spi_semaphore);
     }
@@ -180,8 +180,8 @@ TASK barometer_task(TaskDescriptor_t* self)
     // data
     altitude.update(alt);
 
-    mcu_log_info("[BARO]: Altitude {:.3f}", altitude.getState()[0]);
-    mcu_log_info("Baro: ({:.3f}, {:.3f})", sample1.altitude, sample2.altitude);
+    mcu_log_info("baro", "Altitude {:.3f}", altitude.getState()[0]);
+    mcu_log_info("baro", "Baro: ({:.3f}, {:.3f})", sample1.altitude, sample2.altitude);
 
     TASK_WAIT_HZ(self, BARO_TASK_HZ);
   }
@@ -196,10 +196,10 @@ TASK gps_task(TaskDescriptor_t* self)
     gps_update(&data);
 
     if (data.num_sat < GPS_MIN_SATELLITES) {
-      mcu_log_info("[GPS]: Not enough satellites: {}", data.num_sat);
+      mcu_log_info("gps", "Not enough satellites: {}", data.num_sat);
     } else {
-      mcu_log_info(
-          "[GPS]: ({}) pos: ({:f}, {:f}), alt: {:f}m, speed: {:f}kmh, time:{}",
+      mcu_log_info("gps",
+          "({}) pos: ({:f}, {:f}), alt: {:f}m, speed: {:f}kmh, time:{}",
           data.num_sat, data.lat, data.lon, data.alt, data.kmh, data.unix_time);
     }
 
@@ -217,7 +217,7 @@ TASK lora_task(TaskDescriptor_t* self)
         // TODO: transmit the actual message
         // lora_start_transmission(LoRaPayload{0}.bytes, sizeof(LoRaPayload));
       } else {
-        mcu_log_info("[LORA]: Transmission in progress");
+        mcu_log_info("lora", "Transmission in progress");
       }
       xSemaphoreGive(spi_semaphore);
     }

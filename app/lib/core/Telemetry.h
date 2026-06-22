@@ -122,10 +122,11 @@ public:
   {
   }
 
-  /// @brief Deleted copy and move constructors to prevent copying or moving the
-  /// telemetry manager.
+  // Deleted copy and move constructors to prevent copying or moving the manager
   constexpr Manager(const Manager&) = delete;
+  constexpr Manager& operator=(const Manager&) = delete;
   constexpr Manager(Manager&&) = delete;
+  constexpr Manager& operator=(Manager&&) = delete;
 
   /// @brief Updates the current state of the rocket for telemetry
   /// transmission.

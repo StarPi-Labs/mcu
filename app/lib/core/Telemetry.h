@@ -68,11 +68,62 @@ concept ManagerCallback = requires(T t) {
   };
 };
 
+/// @brief A telemetry manager that handles the collection and transmission of
+/// telemetry data. It can manage multiple callback objects that respond to
+/// telemetry updates.
 template <typename... Callbacks>
   requires(ManagerCallback<Callbacks> && ...)
 class Manager
 {
 public:
+  /// @brief Default constructor: calls the default constructor of each
+  /// callback.
+  ///
+  /// @see https://en.cppreference.com/cpp/utility/tuple/tuple (1) for details
+  /// on the requirements for this constructor to be explicit/available.
+  constexpr explicit(!requires { std::tuple<Callbacks...>{}; }) Manager()
+    requires requires { std::tuple<Callbacks...>(); }
+      : m_callbacks()
+  {
+  }
+
+  /// @brief Direct constructor: initializes each callback with the
+  /// correspinding argument.
+  ///
+  /// @param callbacks The callback objects to be used for telemetry updates.
+  ///
+  /// @see https://en.cppreference.com/w/cpp/utility/tuple/tuple (2) for
+  /// details on the requirements for this constructor to be explicit/available.
+  constexpr explicit(!requires(const Callbacks&... callbacks) {
+    std::tuple<Callbacks...>{callbacks...};
+  }) Manager(const Callbacks&... callbacks)
+    requires requires { std::tuple<Callbacks...>(callbacks...); }
+      : m_callbacks(callbacks...)
+  {
+  }
+
+  /// @brief Converting constructor: initializes each callback with the
+  /// corresponding value in @c std::forward<Args>(args)
+  ///
+  /// @tparam Args The types of the arguments to be forwarded to the callbacks.
+  /// @param args The arguments to be forwarded to the callbacks.
+  ///
+  /// @see https://en.cppreference.com/w/cpp/utility/tuple/tuple (3) for details
+  /// on the requirements for this constructor to be explicit/available.
+  template <typename... Args>
+  constexpr explicit(!requires(Args&&... args) {
+    std::tuple<Callbacks...>{std::forward<Args>(args)...};
+  }) Manager(Args&&... args)
+    requires requires { std::tuple<Callbacks...>(std::forward<Args>(args)...); }
+      : m_callbacks(std::forward<Args>(args)...)
+  {
+  }
+
+  /// @brief Deleted copy and move constructors to prevent copying or moving the
+  /// telemetry manager.
+  constexpr Manager(const Manager&) = delete;
+  constexpr Manager(Manager&&) = delete;
+
   /// @brief Updates the current state of the rocket for telemetry
   /// transmission.
   ///

@@ -7,6 +7,7 @@
 
 #include <concepts>
 #include <tuple>
+#include <utility>
 
 namespace mcu::telemetry
 {
@@ -88,8 +89,8 @@ public:
   ///
   /// @see https://en.cppreference.com/w/cpp/utility/tuple/tuple (2) for
   /// details on the requirements for this constructor to be explicit/available.
-  constexpr explicit(!requires(const Callbacks&... callbacks) {
-    [](std::tuple<Callbacks...>) {}({callbacks...});
+  constexpr explicit(!requires {
+    [](std::tuple<Callbacks...>) {}({std::declval<Callbacks>()...});
   }) Manager(const Callbacks&... callbacks)
     requires requires { std::tuple<Callbacks...>(callbacks...); }
       : m_callbacks(callbacks...)
@@ -105,8 +106,8 @@ public:
   /// @see https://en.cppreference.com/w/cpp/utility/tuple/tuple (3) for details
   /// on the requirements for this constructor to be explicit/available.
   template <typename... Args>
-  constexpr explicit(!requires(Args&&... args) {
-    [](std::tuple<Callbacks...>) {}({std::forward<Args>(args)...});
+  constexpr explicit(!requires {
+    [](std::tuple<Callbacks...>) {}({std::declval<Args>()...});
   }) Manager(Args&&... args)
     requires requires { std::tuple<Callbacks...>(std::forward<Args>(args)...); }
       : m_callbacks(std::forward<Args>(args)...)

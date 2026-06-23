@@ -5,20 +5,6 @@
 /// @author Adnaan Juma
 /// @version 1.0
 
-// I would need:
-// * Attitude (roll, pitch, yaw)
-// * Accelerations and angular moments
-// * Pressure from both barometers
-// * State (idle, armed, boost, coast, airbrake, deploy, descent)
-// * Altitude
-// * Airbrake extension percentage
-// * Two temperatures
-// * LoRa link status (RSSI I think)
-// * Position
-// * Vertical velocity
-// It would be nice to see the position on a map and velocity/attitude on a 3D
-// model
-
 #include <concepts>
 #include <tuple>
 
@@ -71,11 +57,15 @@ concept ManagerCallback = requires(T t) {
   };
 };
 
-/// @brief A telemetry manager that handles the collection and transmission of
-/// telemetry data. It can manage multiple callback objects that respond to
-/// telemetry updates.
+/// @brief A @b synchronous telemetry manager that handles the collection and
+/// transmission of telemetry data. It can manage multiple callback objects that
+/// respond to telemetry updates.
+///
+/// @tparam Callbacks A variadic template parameter pack for the callback types.
+/// each type must satisfy the @c ManagerCallback concept.
+/// @pre At least one callback type must be provided.
 template <typename... Callbacks>
-  requires(ManagerCallback<Callbacks> && ...)
+  requires(sizeof...(Callbacks) >= 1 && (ManagerCallback<Callbacks> && ...))
 class Manager
 {
 public:
@@ -84,7 +74,8 @@ public:
   ///
   /// @see https://en.cppreference.com/cpp/utility/tuple/tuple (1) for details
   /// on the requirements for this constructor to be explicit/available.
-  constexpr explicit(!requires { std::tuple<Callbacks...>{}; }) Manager()
+  constexpr explicit(!requires { [](std::tuple<Callbacks...>) {}({}); })
+      Manager()
     requires requires { std::tuple<Callbacks...>(); }
       : m_callbacks()
   {
@@ -98,7 +89,7 @@ public:
   /// @see https://en.cppreference.com/w/cpp/utility/tuple/tuple (2) for
   /// details on the requirements for this constructor to be explicit/available.
   constexpr explicit(!requires(const Callbacks&... callbacks) {
-    std::tuple<Callbacks...>{callbacks...};
+    [](std::tuple<Callbacks...>) {}({callbacks...});
   }) Manager(const Callbacks&... callbacks)
     requires requires { std::tuple<Callbacks...>(callbacks...); }
       : m_callbacks(callbacks...)
@@ -115,7 +106,7 @@ public:
   /// on the requirements for this constructor to be explicit/available.
   template <typename... Args>
   constexpr explicit(!requires(Args&&... args) {
-    std::tuple<Callbacks...>{std::forward<Args>(args)...};
+    [](std::tuple<Callbacks...>) {}({std::forward<Args>(args)...});
   }) Manager(Args&&... args)
     requires requires { std::tuple<Callbacks...>(std::forward<Args>(args)...); }
       : m_callbacks(std::forward<Args>(args)...)
@@ -133,13 +124,25 @@ public:
   ///
   /// @param state A @c State enum value representing the current state of the
   /// rocket.
-  constexpr void updateFlightStatus(FlightStatus status);
+  constexpr void updateFlightStatus(FlightStatus status)
+  {
+    std::apply(
+        [=](auto&... callback) {
+          (callback.onFlightStatusUpdate(status), ...);
+        },
+        m_callbacks);
+  }
 
   /// @brief Updates the link status for telemetry transmission.
   ///
   /// @param status A @c LoRaLinkStatus struct representing the current link
   /// status
-  constexpr void updateLinkStatus(const LoRaLinkStatus& status);
+  constexpr void updateLinkStatus(const LoRaLinkStatus& status)
+  {
+    std::apply(
+        [&](auto&... callback) { (callback.onLinkStatusUpdate(status), ...); },
+        m_callbacks);
+  }
 
   /// @brief Updates the rotation axes (roll, pitch, yaw) for telemetry
   /// transmission.
@@ -147,14 +150,28 @@ public:
   /// @param roll Roll angle in degrees.
   /// @param pitch Pitch angle in degrees.
   /// @param yaw Yaw angle in degrees.
-  constexpr void updateAttitude(float roll, float pitch, float yaw);
+  constexpr void updateAttitude(float roll, float pitch, float yaw)
+  {
+    std::apply(
+        [=](auto&... callback) {
+          (callback.onAttitudeUpdate(roll, pitch, yaw), ...);
+        },
+        m_callbacks);
+  }
 
   /// @brief Updates the position (latitude, longitude) for telemetry
   /// transmission.
   ///
   /// @param latitude Latitude in degrees.
   /// @param longitude Longitude in degrees.
-  constexpr void updateMapPosition(float latitude, float longitude);
+  constexpr void updateMapPosition(float latitude, float longitude)
+  {
+    std::apply(
+        [=](auto&... callback) {
+          (callback.onMapPositionUpdate(latitude, longitude), ...);
+        },
+        m_callbacks);
+  }
 
   /// @brief Updates the acceleration values for telemetry transmission.
   ///
@@ -165,35 +182,75 @@ public:
   /// @param gy Angular velocity around the y-axis in degrees per second.
   /// @param gz Angular velocity around the z-axis in degrees per second.
   constexpr void updateAcceleration(float ax, float ay, float az, float gx,
-                                    float gy, float gz);
+                                    float gy, float gz)
+  {
+    std::apply(
+        [=](auto&... callback) {
+          (callback.onAccelerationUpdate(ax, ay, az, gx, gy, gz), ...);
+        },
+        m_callbacks);
+  }
 
   /// @brief Updates the altitude for telemetry transmission.
   ///
   /// @param altitude Altitude in meters.
-  constexpr void updateAltitude(float altitude);
+  constexpr void updateAltitude(float altitude)
+  {
+    std::apply(
+        [=](auto&... callback) { (callback.onAltitudeUpdate(altitude), ...); },
+        m_callbacks);
+  }
 
   /// @brief Updates the vertical velocity for telemetry transmission.
   ///
   /// @param verticalVelocity Vertical velocity in meters per second.
-  constexpr void updateVerticalVelocity(float verticalVelocity);
+  constexpr void updateVerticalVelocity(float verticalVelocity)
+  {
+    std::apply(
+        [=](auto&... callback) {
+          (callback.onVerticalVelocityUpdate(verticalVelocity), ...);
+        },
+        m_callbacks);
+  }
 
   /// @brief Updates the pressure readings from two barometers for telemetry
   /// transmission.
   ///
   /// @param pressure1 Pressure reading from the first barometer in mBar.
   /// @param pressure2 Pressure reading from the second barometer in mBar.
-  constexpr void updatePressure(float pressure1, float pressure2);
+  constexpr void updatePressure(float pressure1, float pressure2)
+  {
+    std::apply(
+        [=](auto&... callback) {
+          (callback.onPressureUpdate(pressure1, pressure2), ...);
+        },
+        m_callbacks);
+  }
 
   /// @brief Updates the temperature readings for telemetry transmission.
   ///
   /// @param temperature1 Temperature reading from the first sensor in degrees.
   /// @param temperature2 Temperature reading from the second sensor in degrees.
-  constexpr void updateTemperature(float temperature1, float temperature2);
+  constexpr void updateTemperature(float temperature1, float temperature2)
+  {
+    std::apply(
+        [=](auto&... callback) {
+          (callback.onTemperatureUpdate(temperature1, temperature2), ...);
+        },
+        m_callbacks);
+  }
 
   /// @brief Updates the airbrake extension
   ///
   /// @param extension Airbrake extension percentage [0.0, 1.0]
-  constexpr void updateAirbrakeExtension(float extension);
+  constexpr void updateAirbrakeExtension(float extension)
+  {
+    std::apply(
+        [=](auto&... callback) {
+          (callback.onAirbrakeExtensionUpdate(extension), ...);
+        },
+        m_callbacks);
+  }
 
 private:
   std::tuple<Callbacks...> m_callbacks;

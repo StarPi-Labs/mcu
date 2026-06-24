@@ -23,13 +23,6 @@ enum class FlightStatus {
   DESCENT
 };
 
-/// @brief Represents the status of the LoRa link for telemetry purposes.
-struct LoRaLinkStatus {
-  bool connected; //< Whether the LoRa link is currently established
-  float rssi;     //< Received Signal Strength Indicator in dBm
-  float snr;      //< Signal-to-Noise Ratio in dB
-};
-
 /// @brief A concept that defines the required interface for a telemetry
 /// callback. Any class that wants to receive telemetry updates must implement
 /// this interface.
@@ -37,8 +30,8 @@ template <typename T>
 concept ManagerCallback = requires(T t) {
   requires requires(FlightStatus status) {
     { t.onFlightStatusUpdate(status) } -> std::same_as<void>;
-  } && requires(const LoRaLinkStatus& status) {
-    { t.onLinkStatusUpdate(status) } -> std::same_as<void>;
+  } && requires(bool connected, float rssi, float snr) {
+    { t.onLinkStatusUpdate(connected, rssi, snr) } -> std::same_as<void>;
   } && requires(float roll, float pitch, float yaw) {
     { t.onAttitudeUpdate(roll, pitch, yaw) } -> std::same_as<void>;
   } && requires(float latitude, float longitude) {
@@ -136,12 +129,15 @@ public:
 
   /// @brief Updates the link status for telemetry transmission.
   ///
-  /// @param status A @c LoRaLinkStatus struct representing the current link
-  /// status
-  constexpr void updateLinkStatus(const LoRaLinkStatus& status)
+  /// @param connected Whether the LoRa link is currently established.
+  /// @param rssi Received Signal Strength Indicator in dBm.
+  /// @param snr Signal-to-Noise Ratio in dB.
+  constexpr void updateLinkStatus(bool connected, float rssi, float snr)
   {
     std::apply(
-        [&](auto&... callback) { (callback.onLinkStatusUpdate(status), ...); },
+        [&](auto&... callback) {
+          (callback.onLinkStatusUpdate(connected, rssi, snr), ...);
+        },
         m_callbacks);
   }
 

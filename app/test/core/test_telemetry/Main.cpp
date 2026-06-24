@@ -12,7 +12,7 @@ using namespace mcu::telemetry;
 
 struct Result {
   FlightStatus flightStatus;
-  LoRaLinkStatus linkStatus;
+  float connected, rssi, snr;
   float roll, pitch, yaw;
   float latitude, longitude;
   float ax, ay, az, gx, gy, gz;
@@ -24,10 +24,8 @@ struct Result {
 
   bool equals(const Result& other) const
   {
-    return flightStatus == other.flightStatus &&
-           linkStatus.connected == other.linkStatus.connected &&
-           linkStatus.rssi == other.linkStatus.rssi &&
-           linkStatus.snr == other.linkStatus.snr && roll == other.roll &&
+    return flightStatus == other.flightStatus && connected == other.connected &&
+           rssi == other.rssi && snr == other.snr && roll == other.roll &&
            pitch == other.pitch && yaw == other.yaw &&
            latitude == other.latitude && longitude == other.longitude &&
            ax == other.ax && ay == other.ay && az == other.az &&
@@ -48,10 +46,9 @@ struct Result {
         "{}, ay: {}, az: {}, gx: {}, gy: {}, gz: {}, altitude: {}, "
         "verticalVelocity: {}, pressure1: {}, pressure2: {}, temperature1: {}, "
         "temperature2: {}, airbrakeExtension: {} }}",
-        static_cast<int>(flightStatus), linkStatus.connected, linkStatus.rssi,
-        linkStatus.snr, roll, pitch, yaw, latitude, longitude, ax, ay, az, gx,
-        gy, gz, altitude, verticalVelocity, pressure1, pressure2, temperature1,
-        temperature2, airbrakeExtension);
+        static_cast<int>(flightStatus), connected, rssi, snr, roll, pitch, yaw,
+        latitude, longitude, ax, ay, az, gx, gy, gz, altitude, verticalVelocity,
+        pressure1, pressure2, temperature1, temperature2, airbrakeExtension);
   }
 };
 
@@ -65,9 +62,11 @@ public:
     g_testResult.flightStatus = status;
   }
 
-  void onLinkStatusUpdate(const LoRaLinkStatus& status)
+  void onLinkStatusUpdate(bool connected, float rssi, float snr)
   {
-    g_testResult.linkStatus = status;
+    g_testResult.connected = connected;
+    g_testResult.rssi = rssi;
+    g_testResult.snr = snr;
   }
 
   void onAttitudeUpdate(float roll, float pitch, float yaw)
@@ -124,7 +123,9 @@ void test_telemetry_manager(void)
   Manager<TestCallback> manager;
 
   Result expected{FlightStatus::DESCENT,
-                  {true, -65.0f, 8.0f},
+                  true,
+                  -65.0f,
+                  8.0f,
                   15.0f,
                   25.0f,
                   35.0f,
@@ -145,7 +146,7 @@ void test_telemetry_manager(void)
                   .75f};
 
   manager.updateFlightStatus(expected.flightStatus);
-  manager.updateLinkStatus(expected.linkStatus);
+  manager.updateLinkStatus(expected.connected, expected.rssi, expected.snr);
   manager.updateAttitude(expected.roll, expected.pitch, expected.yaw);
   manager.updateMapPosition(expected.latitude, expected.longitude);
   manager.updateAcceleration(expected.ax, expected.ay, expected.az, expected.gx,

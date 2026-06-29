@@ -108,7 +108,11 @@ float compute_altitude(float air_pressure, float ground_pressure)
 	const float R = 8.31432;  // Universal gas constant [N*m/mol*K]
 	const float g0 = 9.80665; // Gravitational constant [m/s^2]
 
-	return ((ground_temperature_k)/Lb)*pow((0.001*(air_pressure/ground_pressure)), (-(R*Lb)/(g0*M))-1);
+	float x = ground_temperature_k / Lb;
+	float p = air_pressure / ground_pressure;
+	float e = -(R*Lb)/(g0*M);
+
+	return x*(pow(p, e) - 1);
 }
 
 

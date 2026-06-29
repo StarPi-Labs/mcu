@@ -57,7 +57,7 @@ void setup(void)
 	altitude.setG(g_cal);
 
 	barometer_setup();
-	lora_setup();
+	lora_setup(BAND_L);
 	gps_setup();
 
 	if (!sdcard_init()) {
@@ -213,16 +213,60 @@ TASK gps_task(TaskDescriptor_t *self)
 TASK lora_task(TaskDescriptor_t *self)
 {
 	self->last_wake = xTaskGetTickCount();
+	int32_t last_id = -1;
+	uint8_t packet_num = 0;
+	int32_t chunks = 0;
+	int32_t curr_chunk = 0;
 
 	while (true) {
+		const char *buf = NULL;
+		uint32_t len = 0;
+		int32_t id;
+
+		// TODO: make this task asynchronous by waiting on the new buffer notification
+		//       and on the trasmission done interrupt, this can be done with 
+		//       another notification sent by the interrupt handler
+		
+		// check if a signal was received indicating the write buffer is full
+		// if so forcibly ...
+		if (ulTaskNotifyTake(pdTRUE, 0) != 0) { // FIXME: is this correct?
+			logger_read_end(DEST_LORA);
+			// skips the remaining chunks, this allows the receiver to check wether
+			// some packets were lost due to LoRa being slow
+			packet_num += chunks-curr_chunk;
+			Serial.printf("[LoRa]: lost %ld/%ld chunks, id=%ld\n", chunks-curr_chunk, chunks, id);
+			// yield to let a LOG() call swap the buffers
+			taskYIELD(); // FIXME: is this correct?
+		}
+
+		buf = logger_read_begin(&len, &id);
+		if (last_id != id && buf != NULL && len > 0) {
+			chunks = len / LORA_PACKET_LEN + (int32_t)((len % LORA_PACKET_LEN) > 0);
+			curr_chunk = 0;
+			Serial.printf("[LoRa]: new buffer, len=%ld, chunks=%ld, id=%ld\n", len, chunks, id);
+			// TODO: maybe compress the buffer to send
+			last_id = id;
+		}
+
 		if (xSemaphoreTake(spi_semaphore, portMAX_DELAY) == pdTRUE) {
 			if (lora_is_transmission_done()) {
-					// TODO: transmit the actual message
-					// lora_start_transmission(LoRaPayload{0}.bytes, sizeof(LoRaPayload));
-			} else {
-				LOG("[LORA]: Transmission in progress");
+					if (curr_chunk < chunks) {
+						static LoRaPayload p;
+						p.number = packet_num++;
+						memcpy(
+							p.data,
+							&buf[curr_chunk*LORA_PACKET_LEN],
+							(curr_chunk+1)*LORA_PACKET_LEN <= len ? LORA_PACKET_LEN : len-curr_chunk*LORA_PACKET_LEN
+						);
+						lora_start_transmission((uint8_t*)&p, sizeof(p));
+						Serial.printf("[LoRa]: sending chunk %ld\n", curr_chunk);
+						curr_chunk++;
+					} else {
+						// All chunks transmitted, release the buffer
+						logger_read_end(DEST_LORA);
+						// TODO: listen, implement half-duplex communication
+					}
 			}
-			logger_read_end(DEST_LORA);
 			xSemaphoreGive(spi_semaphore);
 		}
 		TASK_WAIT_HZ(self, LORA_TASK_HZ);

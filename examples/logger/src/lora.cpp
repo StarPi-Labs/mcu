@@ -14,6 +14,16 @@ volatile bool operation_done = false;
 volatile int tx_state = RADIOLIB_ERR_NONE;
 
 
+// As per EN 300 220-2 V3.3.1; Annex B table 1
+// https://www.etsi.org/deliver/etsi_en/300200_300299/30022002/03.03.01_60/en_30022002v030301p.pdf
+const struct BandRequirements bands[] = {
+	[BAND_K] = {.freq_start_mhz = 863.0, .ch_bw_khz = 500, .num_channels = 4, .max_power_mw = 25,  .max_duty = 0.1, .polite_access = true},
+	[BAND_L] = {.freq_start_mhz = 865.0, .ch_bw_khz = 500, .num_channels = 6, .max_power_mw = 25,  .max_duty = 1,   .polite_access = true},
+	[BAND_M] = {.freq_start_mhz = 868.0, .ch_bw_khz = 500, .num_channels = 1, .max_power_mw = 25,  .max_duty = 1,   .polite_access = true},
+	[BAND_N] = {.freq_start_mhz = 868.7, .ch_bw_khz = 500, .num_channels = 1, .max_power_mw = 25,  .max_duty = 0.1, .polite_access = true},
+	[BAND_O] = {.freq_start_mhz = 869.4, .ch_bw_khz = 250, .num_channels = 1, .max_power_mw = 500, .max_duty = 10,  .polite_access = true},
+};
+
 
 static void operation_done_cb(void)
 {
@@ -21,7 +31,7 @@ static void operation_done_cb(void)
 }
 
 
-void lora_setup (void)
+void lora_setup(FrequencyBands band)
 {
 	int state = radio.begin();
 	if (state != RADIOLIB_ERR_NONE) {
@@ -30,9 +40,9 @@ void lora_setup (void)
 	}
 
 	radio.setDio2AsRfSwitch(true);
-	radio.setFrequency(LORA_FREQUENCY);
-	radio.setOutputPower(LORA_OUTPUT_POWER);
-	radio.setBandwidth(LORA_BANDWIDTH);
+	radio.setFrequency(bands[band].freq_start_mhz);
+	radio.setOutputPower(LORA_OUTPUT_POWER); // TODO: limit power
+	radio.setBandwidth(bands[band].ch_bw_khz); // TODO: switch channel
 	radio.setSpreadingFactor(LORA_SPREADING_FACTOR);
 	radio.setCodingRate(LORA_CODING_RATE);
 	radio.forceLDRO(false);

@@ -4,42 +4,35 @@
 #include <float16.h>
 
 
-enum LoRaPayloadType : uint8_t {
-	PAYLOAD_1,
-	PAYLOAD_2,
-	PAYLOAD_3,
-	PAYLOAD_STR
-};
+#define LORA_PACKET_LEN 200
 
 //payload da trasmettere
 // TODO: utlizza meglio lo spazio
-typedef union {
-	struct {
-		uint64_t timestamp;
-		LoRaPayloadType type;
-		union {
-			struct {
-				float16 roll, pitch, yaw;
-				float16 vert_acc;
-				float16 airbrake_angle;
-			} p1;
-			struct {
-				float16 temp1, temp2, temp3;
-				uint8_t para_state;
-			} p2;
-			struct {
-				float16 pos_dx, pos_dy, pos_dz;
-			} p3;
-			char str[10];
-		};
-		uint8_t err_flag;
-	} data;
-	uint8_t bytes[sizeof(data)];
+typedef struct {
+	uint8_t number; // order number
+	uint8_t data[LORA_PACKET_LEN]; // FIXME
 } LoRaPayload;
 
 
+enum FrequencyBands {
+	BAND_K = 0,
+	BAND_L,
+	BAND_M,
+	BAND_N,
+	BAND_O,
+};
 
-void lora_setup(void);
+struct BandRequirements {
+	float freq_start_mhz;
+	int   ch_bw_khz;
+	int   num_channels;
+	int   max_power_mw;
+	float max_duty;
+	bool  polite_access;
+};
+
+
+void lora_setup(FrequencyBands band);
 void lora_start_transmission(uint8_t* data, size_t size);
 bool lora_is_transmission_done(void);
 

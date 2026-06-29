@@ -53,8 +53,6 @@
 
 
 // LoRa configuration
-#define LORA_FREQUENCY        868.3 // MHz, this channel supports 250kHz bandwidth
-#define LORA_BANDWIDTH        250   // kHz
 #define LORA_OUTPUT_POWER     0     // dBm, da capire
 #define LORA_SPREADING_FACTOR 7     // minimo spread factor
 #define LORA_CODING_RATE      5     // 4 + 1, 1 bit su 8 di correzione di errore

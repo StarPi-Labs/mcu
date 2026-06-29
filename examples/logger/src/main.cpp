@@ -108,7 +108,7 @@ void setup(void)
 	// Register consumer tasks to the logger, these tasks will get notified when
 	// new data is ready to be read
 	logger_register(TASK_HANDLE(logger_task));
-	logger_register(TASK_HANDLE(lora_task));
+	//logger_register(TASK_HANDLE(lora_task));
 	logger_register(TASK_HANDLE(sd_task));
 }
 
@@ -160,6 +160,8 @@ TASK imu_task(TaskDescriptor_t *self)
 				LOG("Acc: (%ld, %ld, %ld)", sample.accelerometer[0], sample.accelerometer[1], sample.accelerometer[2]);
 				LOG("Gyro: (%ld, %ld, %ld)", sample.gyroscope[0], sample.gyroscope[1], sample.gyroscope[2]);
 				LOG("Attitude: %.3f", attitude_rad*57.29578f);
+				
+				lora_update_imu_data(now_us(), altitude.getState()[0], altitude.getState()[1], attitude_rad*57.29578f);
 			}
 			xSemaphoreGive(spi_semaphore);
 		}
@@ -185,6 +187,8 @@ TASK barometer_task(TaskDescriptor_t *self)
 		LOG("[BARO]: Altitude %.3f", altitude.getState()[0]);
 		LOG("Baro: (%.3f, %.3f)", sample1.altitude, sample2.altitude);
 
+		lora_update_baro_data(now_us(), sample1.altitude, sample2.altitude);
+
 		TASK_WAIT_HZ(self, BARO_TASK_HZ);
 	}
 }
@@ -203,6 +207,8 @@ TASK gps_task(TaskDescriptor_t *self)
 		} else {
 			LOG("[GPS]: (%d) pos: (%f, %f), alt: %fm, speed: %fkmh, time:%llu",
 				data.num_sat, data.lat, data.lon, data.alt, data.kmh, data.unix_time);
+			
+			lora_update_gps_data(now_us(), data.lat, data.lon);
 		}
 
 		TASK_WAIT_HZ(self, GPS_TASK_HZ);
@@ -213,59 +219,16 @@ TASK gps_task(TaskDescriptor_t *self)
 TASK lora_task(TaskDescriptor_t *self)
 {
 	self->last_wake = xTaskGetTickCount();
-	int32_t last_id = -1;
 	uint8_t packet_num = 0;
-	int32_t chunks = 0;
-	int32_t curr_chunk = 0;
 
 	while (true) {
-		const char *buf = NULL;
-		uint32_t len = 0;
-		int32_t id;
-
-		// TODO: make this task asynchronous by waiting on the new buffer notification
-		//       and on the trasmission done interrupt, this can be done with 
-		//       another notification sent by the interrupt handler
-		
-		// check if a signal was received indicating the write buffer is full
-		// if so forcibly ...
-		if (ulTaskNotifyTake(pdTRUE, 0) != 0) { // FIXME: is this correct?
-			logger_read_end(DEST_LORA);
-			// skips the remaining chunks, this allows the receiver to check wether
-			// some packets were lost due to LoRa being slow
-			packet_num += chunks-curr_chunk;
-			Serial.printf("[LoRa]: lost %ld/%ld chunks, id=%ld\n", chunks-curr_chunk, chunks, id);
-			// yield to let a LOG() call swap the buffers
-			taskYIELD(); // FIXME: is this correct?
-		}
-
-		buf = logger_read_begin(&len, &id);
-		if (last_id != id && buf != NULL && len > 0) {
-			chunks = len / LORA_PACKET_LEN + (int32_t)((len % LORA_PACKET_LEN) > 0);
-			curr_chunk = 0;
-			Serial.printf("[LoRa]: new buffer, len=%ld, chunks=%ld, id=%ld\n", len, chunks, id);
-			// TODO: maybe compress the buffer to send
-			last_id = id;
-		}
-
 		if (xSemaphoreTake(spi_semaphore, portMAX_DELAY) == pdTRUE) {
-			if (lora_is_transmission_done()) {
-					if (curr_chunk < chunks) {
-						static LoRaPayload p;
-						p.number = packet_num++;
-						memcpy(
-							p.data,
-							&buf[curr_chunk*LORA_PACKET_LEN],
-							(curr_chunk+1)*LORA_PACKET_LEN <= len ? LORA_PACKET_LEN : len-curr_chunk*LORA_PACKET_LEN
-						);
-						lora_start_transmission((uint8_t*)&p, sizeof(p));
-						Serial.printf("[LoRa]: sending chunk %ld\n", curr_chunk);
-						curr_chunk++;
-					} else {
-						// All chunks transmitted, release the buffer
-						logger_read_end(DEST_LORA);
-						// TODO: listen, implement half-duplex communication
-					}
+			if (packet_num == 0 || lora_is_transmission_done()) {
+				LOG("[LoRa]: Sending packet %d", packet_num);
+				lora_start_transmission();
+				lora_prepare_next_packet(packet_num++);
+			} else {
+				// TODO: listen, implement half-duplex communication
 			}
 			xSemaphoreGive(spi_semaphore);
 		}

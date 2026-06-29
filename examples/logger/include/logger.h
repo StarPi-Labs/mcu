@@ -1,6 +1,7 @@
 #pragma once
 
 #include <FreeRTOS.h>
+#include <time.h>
 
 #define LOG_TIMEOUT     1
 #define LOG_MAX_READERS 4
@@ -11,11 +12,20 @@ enum log_destination {
 	DEST_SD   = 1 << 2
 };
 
-const uint32_t DEST_ALL = DEST_UART | DEST_LORA | DEST_SD;
+// const uint32_t DEST_ALL = DEST_UART | DEST_LORA | DEST_SD;
+const uint32_t DEST_ALL = DEST_UART | DEST_SD;
 
 int log(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 bool logger_init(void);
 void logger_register(TaskHandle_t handle);
+
+static uint64_t now_us(void)
+{
+	struct timeval tv_now;
+	gettimeofday(&tv_now, NULL);
+	return (uint64_t)tv_now.tv_sec * 1000000ULL + tv_now.tv_usec;
+}
+
 
 const char *logger_read_begin(uint32_t *len, int32_t *id);
 void logger_read_end(log_destination dest);

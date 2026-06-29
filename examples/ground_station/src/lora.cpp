@@ -1,7 +1,6 @@
 #include <Arduino.h>
 #include <RadioLib.h>
 
-#include "logger.h"
 #include "lora.h"
 #include "board.h"
 
@@ -10,10 +9,10 @@ extern SPIClass SPI2;
 Module radio_module(LORA_CS, LORA_DIO1, LORA_RST, LORA_BUSY, SPI2); //nello stack anziché heap
 SX1262 radio(&radio_module);
 
-volatile bool tx_operation_done = false;
-volatile bool rx_operation_done = false;
-volatile int tx_state = RADIOLIB_ERR_NONE;
-volatile int rx_state = RADIOLIB_ERR_NONE;
+static volatile bool tx_operation_done = false;
+static volatile bool rx_operation_done = false;
+static volatile int tx_state = RADIOLIB_ERR_NONE;
+static volatile int rx_state = RADIOLIB_ERR_NONE;
 
 static uint8_t rx_buffer[sizeof(LoRaPayload)];
 LoRaPayload next_packet;
@@ -46,7 +45,7 @@ void lora_setup(FrequencyBands band)
 {
 	int state = radio.begin();
 	if (state != RADIOLIB_ERR_NONE) {
-		ERR("failed to initialize radio, code %d", state);
+		Serial.printf("failed to initialize radio, code %d\n", state);
 		while (true);
 	}
 
@@ -60,13 +59,13 @@ void lora_setup(FrequencyBands band)
 	radio.implicitHeader(sizeof(LoRaPayload)); // PACCHETTI A LUNGHEZZA FISSA
 	radio.setCRC(LORA_CRC_BYTES);
 
-	radio.setPacketSentAction(tx_operation_done_cb);
 	// TODO: DIO1 cannot be set as both the transmission done and receprion done
 	//        interrupt so we need to implement a mode switch behavior which
 	//         reassigns the interrupt pin with a different callback
-	//radio.setPacketReceivedAction(rx_operation_done_cb);
+	//radio.setPacketSentAction(tx_operation_done_cb);
+	radio.setPacketReceivedAction(rx_operation_done_cb);
 
-	LOG("Expected LoRa Time-on-Air %lums", (uint32_t)(radio.getTimeOnAir(sizeof(LoRaPayload))/1000));
+	Serial.printf("Expected LoRa Time-on-Air %lums\n", (uint32_t)(radio.getTimeOnAir(sizeof(LoRaPayload))/1000));
 
 	//primo pacchetto
 	//start_transmission(LoRaPayload{0}.bytes, sizeof(LoRaPayload));
@@ -96,7 +95,7 @@ bool lora_is_transmission_done(void)
 		if (tx_state == RADIOLIB_ERR_NONE) {
 			//Serial.println(F("transmission finished!"));
 		} else {
-			ERR("transmission failed: %d", tx_state);
+			Serial.printf("transmission failed: %d\n", tx_state);
 		}
 
 		radio.finishTransmit();
@@ -163,7 +162,7 @@ bool lora_is_reception_done(void)
 			size_t len = sizeof(LoRaPayload);
 			rx_state = radio.readData(rx_buffer, len);
 			if (rx_state != RADIOLIB_ERR_NONE) {
-				ERR("receive failed: %d", rx_state);
+				Serial.printf("receive failed: %d\n", rx_state);
 			}
 		}
 		return true;

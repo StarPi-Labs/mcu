@@ -76,6 +76,7 @@ bool barometer_setup(void)
 	if (status1 == 0) {
 		ground_pressure_mbar_1 = baro1.getPressure(); // autozero
 		LOG("Barometer 1: Setting ground pressure to %fmbar", ground_pressure_mbar_1);
+		LOG("Barometer 1: Ground temperature %fC", baro1.getTemperature());
 	} else {
 		ERR("Barometer 1: Calibration failed with error code %d", status1);
 	}
@@ -84,11 +85,12 @@ bool barometer_setup(void)
 	if (status2 == 0) {
 		ground_pressure_mbar_2 = baro2.getPressure(); // autozero
 		LOG("Barometer 2: Setting ground pressure to %fmbar", ground_pressure_mbar_2);
+		LOG("Barometer 2: Ground temperature %fC", baro2.getTemperature());
 	} else {
 		ERR("Barometer 2: Calibration failed with error code %d", status2);
 	}
 
-	ground_temperature_k = (baro1.getTemperature()+baro2.getTemperature())/2.0;
+	ground_temperature_k = (baro1.getTemperature()+baro2.getTemperature())/2.0 + 273.15;
 
 	if (status1 != 0 || status2 != 0) {
 		return false;

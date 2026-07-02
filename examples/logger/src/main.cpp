@@ -221,15 +221,15 @@ TASK lora_task(TaskDescriptor_t *self)
 	uint8_t packet_num = 0;
 
 	while (true) {
-		if (xSemaphoreTake(spi_semaphore, portMAX_DELAY) == pdTRUE) {
-			if (packet_num == 0 || lora_is_transmission_done()) {
+		if (lora_is_transmission_done()) {
+			if (xSemaphoreTake(spi_semaphore, portMAX_DELAY) == pdTRUE) {
 				LOG("[LoRa]: Sending packet %d", packet_num);
 				lora_start_transmission();
 				lora_prepare_next_packet(packet_num++);
-			} else {
-				// TODO: listen, implement half-duplex communication
+				xSemaphoreGive(spi_semaphore);
 			}
-			xSemaphoreGive(spi_semaphore);
+		} else {
+			// TODO: listen, implement half-duplex communication
 		}
 		TASK_WAIT_HZ(self, LORA_TASK_HZ);
 	}

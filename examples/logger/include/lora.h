@@ -32,6 +32,11 @@ typedef union {
 	uint8_t padding[64]; // Force payload size to 64 bytes
 } LoRaPayload;
 
+enum LoRaTxMode {
+	TX_FORCE,
+	TX_DUTY,
+	TX_POLITE,
+};
 
 enum FrequencyBands {
 	BAND_K = 0,
@@ -42,18 +47,20 @@ enum FrequencyBands {
 };
 
 struct BandRequirements {
-	float freq_start_mhz;
-	int   ch_bw_khz;
-	int   num_channels;
-	int   max_power_mw;
-	float max_duty;
-	bool  polite_access;
+	float freq_start_mhz;  // Start of the frequency band
+	int   ch_bw_khz;       // (max) bandwidth that the channel supports
+	int   num_channels;    // Number of channels given the bandwith
+	int   max_power_mw;    // Maximum effective radiated power 
+	float max_duty;        // Maximum transmission duty cycle (see spec)
+	bool  polite_access;   // Channel supports polite access for transmission
 };
 
 
-void lora_setup(FrequencyBands band);
+void lora_setup(FrequencyBands band, LoRaTxMode tx_mode);
 void lora_start_transmission(void);
 bool lora_is_transmission_done(void);
+void lora_enter_tx(void);
+void lora_enter_rx(void);
 
 void lora_prepare_next_packet(uint8_t order_number);
 void lora_update_imu_data(uint64_t time, float altitude, float vspeed, float attitude);

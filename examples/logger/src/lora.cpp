@@ -14,11 +14,13 @@ SX1262 radio(&radio_module);
 
 volatile bool tx_operation_done = false;
 volatile bool rx_operation_done = false;
-volatile int tx_state = RADIOLIB_ERR_NONE;
-volatile int rx_state = RADIOLIB_ERR_NONE;
 
 static uint8_t rx_buffer[sizeof(LoRaPayload)];
-LoRaPayload next_packet;
+static LoRaPayload next_packet;
+static LoRaTxMode tx_mode;
+static FrequencyBands freq_band;
+static bool is_tx = true;
+
 DECLARE_STATIC_SEMAPHORE(next_packet_mutex);
 
 
@@ -36,21 +38,26 @@ const struct BandRequirements bands[] = {
 static void tx_operation_done_cb(void)
 {
 	tx_operation_done = true;
+	radio.finishTransmit();
 }
 
 static void rx_operation_done_cb(void)
 {
 	rx_operation_done = true;
+	radio.finishReceive();
 }
 
 
-void lora_setup(FrequencyBands band)
+void lora_setup(FrequencyBands band, LoRaTxMode mode)
 {
 	int state = radio.begin();
 	if (state != RADIOLIB_ERR_NONE) {
 		ERR("failed to initialize radio, code %d", state);
 		while (true);
 	}
+
+	freq_band = band;
+	tx_mode = mode;
 
 	radio.setDio2AsRfSwitch(true);
 	radio.setFrequency(bands[band].freq_start_mhz);
@@ -62,11 +69,11 @@ void lora_setup(FrequencyBands band)
 	radio.implicitHeader(sizeof(LoRaPayload)); // PACCHETTI A LUNGHEZZA FISSA
 	radio.setCRC(LORA_CRC_BYTES);
 
+	/* DIO1 cannot be set as both the transmission done and receprion done
+	 * interrupt so we need to implement a mode switch behavior which reassigns
+	 * the interrupt pin with a different callback */
+	is_tx = true;
 	radio.setPacketSentAction(tx_operation_done_cb);
-	// TODO: DIO1 cannot be set as both the transmission done and receprion done
-	//        interrupt so we need to implement a mode switch behavior which
-	//         reassigns the interrupt pin with a different callback
-	//radio.setPacketReceivedAction(rx_operation_done_cb);
 
 	LOG("Expected LoRa Time-on-Air %lums", (uint32_t)(radio.getTimeOnAir(sizeof(LoRaPayload))/1000));
 
@@ -86,6 +93,32 @@ void lora_setup(FrequencyBands band)
 }
 
 
+void lora_enter_tx(void)
+{
+	// If not in transmit mode, wait for the operation done and enter
+	if (is_tx == false) {
+		while(lora_is_reception_done() == false) {
+			vTaskDelay(10); // TODO: change wait amount
+		}
+		is_tx = true;
+		radio.setPacketSentAction(tx_operation_done_cb);
+	}
+}
+
+
+void lora_enter_rx(void)
+{
+	// If not in transmit mode, wait for the operation done and enter
+	if (is_tx == true) {
+		while(lora_is_transmission_done() == false) {
+			vTaskDelay(10); // TODO: change wait amount
+		}
+		is_tx = false;
+		radio.setPacketReceivedAction(rx_operation_done_cb);
+	}
+}
+
+
 void lora_start_transmission()
 {
 	static LoRaPayload tx_packet;
@@ -93,26 +126,31 @@ void lora_start_transmission()
 	xSemaphoreTake(next_packet_mutex, portMAX_DELAY);
 	memcpy(&tx_packet, &next_packet, sizeof(tx_packet));
 	xSemaphoreGive(next_packet_mutex);
-	// TODO: check if the radio is busy and return an error if it is, for now we just assume it is always ready
-	tx_operation_done = false;
-	tx_state = radio.startTransmit((uint8_t*)&tx_packet, sizeof(tx_packet));
+
+	switch (tx_mode) {
+	case TX_FORCE:
+		tx_operation_done = false;
+		radio.startTransmit((uint8_t*)&tx_packet, sizeof(tx_packet));
+		break;
+	case TX_DUTY:
+	case TX_POLITE:
+		ERR("[LoRa]: TX_DUTY and TX_POLITE modes are not yet implemented");
+		// TODO
+		break;
+	default:
+		ERR("[LoRa]: tx mode %d is not valid", tx_mode);
+		break;
+	}
 }
 
 
 bool lora_is_transmission_done(void)
 {
-	if (tx_operation_done) {
-		if (tx_state == RADIOLIB_ERR_NONE) {
-			//Serial.println(F("transmission finished!"));
-		} else {
-			ERR("transmission failed: %d", tx_state);
-		}
-
-		radio.finishTransmit();
-		return true;
+	if (is_tx == false) {
+		return false;
 	}
 
-	return false;
+	return tx_operation_done;
 }
 
 
@@ -169,20 +207,25 @@ bool lora_is_channel_free(void)
 void lora_start_receive(uint32_t timeout_ms)
 {
 	rx_operation_done = false;
-	rx_state = radio.startReceive((uint32_t)timeout_ms * 1000);
+	radio.startReceive((uint32_t)timeout_ms * 1000);
 }
 
 
 bool lora_is_reception_done(void)
 {
+	if (is_tx == true) {
+		return false;
+	}
+
 	if (rx_operation_done) {
-		if (rx_state == RADIOLIB_ERR_NONE) {
-			size_t len = sizeof(LoRaPayload);
-			rx_state = radio.readData(rx_buffer, len);
-			if (rx_state != RADIOLIB_ERR_NONE) {
-				ERR("receive failed: %d", rx_state);
-			}
+		size_t len = sizeof(LoRaPayload);
+		int rx_state = RADIOLIB_ERR_NONE;
+
+		rx_state = radio.readData(rx_buffer, len);
+		if (rx_state != RADIOLIB_ERR_NONE) {
+			ERR("receive failed: %d", rx_state);
 		}
+
 		return true;
 	}
 

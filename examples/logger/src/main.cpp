@@ -57,7 +57,7 @@ void setup(void)
 	altitude.setG(g_cal);
 
 	barometer_setup();
-	lora_setup(BAND_L);
+	lora_setup(BAND_L, TX_FORCE);
 	gps_setup();
 
 	if (!sdcard_init()) {

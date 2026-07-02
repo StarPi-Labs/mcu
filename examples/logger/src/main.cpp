@@ -126,7 +126,6 @@ TASK imu_task(TaskDescriptor_t *self)
 	self->last_wake = xTaskGetTickCount();
 	FIFO_Sample sample;
 	orientation.begin(IMU_TASK_HZ);
-	uint64_t call, prev_call;
 
 	while (true) {
 		if (xSemaphoreTake(spi_semaphore, portMAX_DELAY) == pdTRUE) {

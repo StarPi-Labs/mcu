@@ -5,6 +5,7 @@
 #include <inttypes.h>
 
 #include "board.h"
+#include "logger.h"
 #include "task.h"
 #include "lora.h"
 
@@ -27,7 +28,9 @@ void setup(void)
 	Serial.println("Initialized");
 
 	SPI2.begin(SPI2_SCK, SPI2_MISO, SPI2_MOSI, -1);
-	lora_setup(BAND_L);
+	lora_setup(BAND_L, TX_FORCE);
+	lora_enter_rx();
+	lora_start_receive(1000);
 
 
 	INIT_STATIC_SEMAPHORE(spi_semaphore);
@@ -73,25 +76,25 @@ TASK lora_task(TaskDescriptor_t *self)
 				if (!first_packet) {
 					uint8_t diff = p.number - prev_number;
 					if (diff > 1) {
-						Serial.printf("[LoRa] LOST %" PRIu8 " packets (prev #%" PRIu8 " -> #%" PRIu8 ")\n",
+						WARN("[LoRa] LOST %" PRIu8 " packets (prev #%" PRIu8 " -> #%" PRIu8 ")",
 							diff - 1, prev_number, p.number);
 					}
 				}
 				first_packet = false;
 				prev_number = p.number;
 
-				Serial.printf("[LoRa] Packet #%" PRIu8 "\n", p.number);
-				Serial.printf("  timestamp: %" PRIu64 "\n", p.sensor_data.timestamp);
-				Serial.printf("  IMU: alt=%.2f vspeed=%.2f att=%.2f dt=%" PRId32 "\n",
+				LOG("[LoRa] Packet #%" PRIu8, p.number);
+				LOG("  timestamp: %" PRIu64, p.sensor_data.timestamp);
+				LOG("  IMU: alt=%.2f vspeed=%.2f att=%.2f dt=%" PRId32,
 					p.sensor_data.imu.altitude,
 					p.sensor_data.imu.vspeed,
 					p.sensor_data.imu.attitude,
 					p.sensor_data.imu.dt);
-				Serial.printf("  Baro: alt1=%.2f alt2=%.2f dt=%" PRId32 "\n",
+				LOG("  Baro: alt1=%.2f alt2=%.2f dt=%" PRId32,
 					p.sensor_data.baro.alt1,
 					p.sensor_data.baro.alt2,
 					p.sensor_data.baro.dt);
-				Serial.printf("  GPS: lat=%.6f lon=%.6f\n",
+				LOG("  GPS: lat=%.6f lon=%.6f",
 					p.sensor_data.gps.latitude,
 					p.sensor_data.gps.longitude);
 
@@ -101,6 +104,5 @@ TASK lora_task(TaskDescriptor_t *self)
 			}
 			xSemaphoreGive(spi_semaphore);
 		}
-		TASK_WAIT_HZ(self, LORA_TASK_HZ);
 	}
 }

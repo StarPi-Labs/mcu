@@ -19,13 +19,7 @@ int log(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 bool logger_init(void);
 void logger_register(TaskHandle_t handle);
 
-static uint64_t now_us(void)
-{
-	struct timeval tv_now;
-	gettimeofday(&tv_now, NULL);
-	return (uint64_t)tv_now.tv_sec * 1000000ULL + tv_now.tv_usec;
-}
-
+uint64_t now_us(void);
 
 const char *logger_read_begin(uint32_t *len, int32_t *id);
 void logger_read_end(log_destination dest);

@@ -28,6 +28,14 @@ DECLARE_STATIC_SEMAPHORE(write_sem);
 DECLARE_STATIC_SEMAPHORE(read_sem);
 
 
+uint64_t now_us(void)
+{
+	struct timeval tv_now;
+	gettimeofday(&tv_now, NULL);
+	return (uint64_t)tv_now.tv_sec * 1000000ULL + tv_now.tv_usec;
+}
+
+
 // initialize the default message queue, this should be called before using any
 // of the other message queue functions
 bool logger_init(void)

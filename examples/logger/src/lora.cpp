@@ -38,13 +38,11 @@ const struct BandRequirements bands[] = {
 static void tx_operation_done_cb(void)
 {
 	tx_operation_done = true;
-	radio.finishTransmit();
 }
 
 static void rx_operation_done_cb(void)
 {
 	rx_operation_done = true;
-	radio.finishReceive();
 }
 
 
@@ -150,6 +148,9 @@ bool lora_is_transmission_done(void)
 		return false;
 	}
 
+	if (tx_operation_done) {
+		radio.finishTransmit();
+	}
 	return tx_operation_done;
 }
 
@@ -220,6 +221,8 @@ bool lora_is_reception_done(void)
 	if (rx_operation_done) {
 		size_t len = sizeof(LoRaPayload);
 		int rx_state = RADIOLIB_ERR_NONE;
+
+		radio.finishReceive();
 
 		rx_state = radio.readData(rx_buffer, len);
 		if (rx_state != RADIOLIB_ERR_NONE) {

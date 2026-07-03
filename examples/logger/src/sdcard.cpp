@@ -1,8 +1,26 @@
 #include <Arduino.h>
 #include <FS.h>      // Necessario per l'ESP32 File System
 #include <SD_MMC.h>  // Libreria hardware SDIO per ESP32
+#include <string.h>
 
 #include "sdcard.h"
+#include "task.h"
+
+
+// Double-buffer state for non-blocking SD writes
+enum { BUF_FREE, BUF_PENDING, BUF_FLUSHING };
+
+typedef struct {
+	char data[SD_BUF_SIZE];
+	uint32_t len;
+	int state;
+} sd_buf_t;
+
+static sd_buf_t bufs[2];
+static int active_idx;   // buffer being filled by sdcard_write()
+static int flush_idx;    // buffer being flushed to file (-1 = none)
+
+DECLARE_STATIC_SEMAPHORE(buf_lock);
 
 
 #define MAX_STREAMS 8
@@ -61,6 +79,17 @@ bool sdcard_init(void)
 		f.print(0);
 		f.close();
 	}
+
+	// Initialize double buffer
+	INIT_STATIC_SEMAPHORE(buf_lock);
+	if (buf_lock == NULL) return false;
+
+	bufs[0].len = 0;
+	bufs[0].state = BUF_FREE;
+	bufs[1].len = 0;
+	bufs[1].state = BUF_FREE;
+	active_idx = 0;
+	flush_idx = -1;
 
 	return true;
 }
@@ -200,9 +229,80 @@ bool sdcard_write_str(const char *str)
 }
 
 
-bool sdcard_write(const char *buf, uint32_t len)
+bool sdcard_flush(void)
 {
 	if (!log_file) return false;
-	log_file.write((const uint8_t*)buf, len);
+
+	if (xSemaphoreTake(buf_lock, portMAX_DELAY) != pdTRUE) return false;
+
+	// If no buffer is pending, mark the active buffer as pending first
+	if (flush_idx < 0 && bufs[active_idx].len > 0) {
+		bufs[active_idx].state = BUF_PENDING;
+		flush_idx = active_idx;
+		active_idx = !active_idx;
+		bufs[active_idx].len = 0;
+		bufs[active_idx].state = BUF_FREE;
+	}
+
+	int idx = flush_idx;
+	if (idx < 0 || bufs[idx].state != BUF_PENDING || bufs[idx].len == 0) {
+		xSemaphoreGive(buf_lock);
+		return true;
+	}
+
+	bufs[idx].state = BUF_FLUSHING;
+	xSemaphoreGive(buf_lock);
+
+	log_file.write((const uint8_t *)bufs[idx].data, bufs[idx].len);
+	log_file.flush();
+	// FIXME: flush here does not prevent losing data
+
+	if (xSemaphoreTake(buf_lock, portMAX_DELAY) == pdTRUE) {
+		bufs[idx].len = 0;
+		bufs[idx].state = BUF_FREE;
+		if (flush_idx == idx) flush_idx = -1;
+		xSemaphoreGive(buf_lock);
+	}
+
+	return true;
+}
+
+
+bool sdcard_write(const char *buf, uint32_t len)
+{
+	if (!buf || len == 0) return false;
+
+	if (xSemaphoreTake(buf_lock, portMAX_DELAY) != pdTRUE) return false;
+
+	sd_buf_t *active = &bufs[active_idx];
+
+	// If there's no space and the other buffer is free, swap
+	if (active->len + len > SD_BUF_SIZE) {
+		int other = !active_idx;
+
+		if (bufs[other].state == BUF_FREE) {
+			// Mark current as pending, switch to other
+			active->state = BUF_PENDING;
+			flush_idx = active_idx;
+			active_idx = other;
+			bufs[other].len = 0;
+			active = &bufs[other];
+		} else {
+			// Both buffers full — auto-flush the pending one
+			xSemaphoreGive(buf_lock);
+			sdcard_flush();
+			if (xSemaphoreTake(buf_lock, portMAX_DELAY) != pdTRUE) return false;
+			active = &bufs[active_idx];
+			if (active->len + len > SD_BUF_SIZE) {
+				xSemaphoreGive(buf_lock);
+				return false;
+			}
+		}
+	}
+
+	memcpy(active->data + active->len, buf, len);
+	active->len += len;
+
+	xSemaphoreGive(buf_lock);
 	return true;
 }

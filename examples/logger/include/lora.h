@@ -17,8 +17,8 @@ typedef union {
 				int32_t dt;
 			} imu;
 			struct {
-				float alt1;
-				float alt2;
+				float p1;
+				float p2;
 				int32_t dt;
 			} baro;
 			struct {
@@ -63,11 +63,11 @@ void lora_enter_tx(void);
 void lora_enter_rx(void);
 
 void lora_prepare_next_packet(uint8_t order_number);
-void lora_update_imu_data(uint64_t time, float altitude, float vspeed, float attitude);
-void lora_update_baro_data(uint64_t time, float alt1, float alt2);
-void lora_update_gps_data(uint64_t time, float latitude, float longitude);
+LoRaPayload* lora_get_tx_packet(void);
+void lora_release_tx_packet(void);
+uint32_t lora_compute_dt(LoRaPayload *p, uint64_t time);
 
 bool lora_is_channel_free(void);
 void lora_start_receive(uint32_t timeout_ms);
 bool lora_is_reception_done(void);
-LoRaPayload lora_get_packet(void);
+LoRaPayload lora_get_rx_packet(void);

@@ -1,10 +1,13 @@
 #pragma once
 
+#include <stdint.h>
 #include <stddef.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#define SD_BUF_SIZE 2048
 
 bool sdcard_init(void);
 bool sdcard_start_session(void);
@@ -15,6 +18,7 @@ bool sdcard_close_log(void);
 bool sdcard_write_str(const char *str);
 bool sdcard_log_text(const char* text_message);
 bool sdcard_write(const char *buf, uint32_t len);
+bool sdcard_flush(void);
 
 #ifdef __cplusplus
 }

@@ -26,12 +26,14 @@
 
 
 // Task Timings
-#define IMU_TASK_HZ    100
-#define BARO_TASK_HZ   20
-#define GPS_TASK_HZ    2
-#define LOGGER_TASK_HZ 50
-#define LORA_TASK_HZ   50
-#define SD_TASK_HZ     50
+#define IMU_TASK_HZ       100
+#define BARO_TASK_HZ      20
+#define GPS_TASK_HZ       2
+#define UART_TASK_HZ      50
+#define LORA_FMT_TASK_HZ  20
+#define LORA_TX_TASK_HZ   50
+#define SD_FMT_TASK_HZ    50
+#define SD_WRITER_TASK_HZ 10
 
 
 // IMU FIFO Configuration

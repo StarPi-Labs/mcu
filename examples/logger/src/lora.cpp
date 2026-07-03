@@ -50,7 +50,8 @@ void lora_setup(FrequencyBands band, LoRaTxMode mode)
 {
 	int state = radio.begin();
 	if (state != RADIOLIB_ERR_NONE) {
-		ERR("failed to initialize radio, code %d", state);
+		// FIXME: log state
+		log(S_LORA, T_SYSLOG, "[ERR] failed to initialize radio");
 		while (true);
 	}
 
@@ -73,11 +74,12 @@ void lora_setup(FrequencyBands band, LoRaTxMode mode)
 	is_tx = true;
 	radio.setPacketSentAction(tx_operation_done_cb);
 
-	LOG("Expected LoRa Time-on-Air %lums", (uint32_t)(radio.getTimeOnAir(sizeof(LoRaPayload))/1000));
+	// TODO: restore this
+	// LOG("Expected LoRa Time-on-Air %lums", (uint32_t)(radio.getTimeOnAir(sizeof(LoRaPayload))/1000));
 
 	INIT_STATIC_SEMAPHORE(next_packet_mutex);
 	if (next_packet_mutex == NULL) {
-		ERR("failed to create next_packet mutex");
+		log(S_LORA, T_SYSLOG, "[ERR] failed to create next_packet mutex");
 		while (true);
 	}
 
@@ -132,11 +134,11 @@ void lora_start_transmission()
 		break;
 	case TX_DUTY:
 	case TX_POLITE:
-		ERR("[LoRa]: TX_DUTY and TX_POLITE modes are not yet implemented");
+		log(S_LORA, T_SYSLOG, "[ERR] TX_DUTY and TX_POLITE modes are not yet implemented");
 		// TODO
 		break;
 	default:
-		ERR("[LoRa]: tx mode %d is not valid", tx_mode);
+		log(S_LORA, T_SYSLOG, "[ERR]: invalid tx mode");
 		break;
 	}
 }
@@ -167,34 +169,22 @@ void lora_prepare_next_packet(uint8_t order_number)
 }
 
 
-void lora_update_imu_data(uint64_t time, float altitude, float vspeed, float attitude)
+LoRaPayload* lora_get_tx_packet(void)
 {
-	// TODO: verify valid packet
 	xSemaphoreTake(next_packet_mutex, portMAX_DELAY);
-	next_packet.sensor_data.imu.altitude = altitude;
-	next_packet.sensor_data.imu.vspeed = vspeed;
-	next_packet.sensor_data.imu.attitude = attitude;
-	next_packet.sensor_data.imu.dt = next_packet.sensor_data.timestamp - time;
+	return &next_packet;
+}
+
+
+void lora_release_tx_packet(void)
+{
 	xSemaphoreGive(next_packet_mutex);
 }
 
 
-void lora_update_baro_data(uint64_t time, float alt1, float alt2)
+uint32_t lora_compute_dt(LoRaPayload *p, uint64_t time)
 {
-	xSemaphoreTake(next_packet_mutex, portMAX_DELAY);
-	next_packet.sensor_data.baro.alt1 = alt1;
-	next_packet.sensor_data.baro.alt2 = alt2;
-	next_packet.sensor_data.baro.dt = next_packet.sensor_data.timestamp - time;
-	xSemaphoreGive(next_packet_mutex);
-}
-
-
-void lora_update_gps_data(uint64_t time, float latitude, float longitude)
-{
-	xSemaphoreTake(next_packet_mutex, portMAX_DELAY);
-	next_packet.sensor_data.gps.latitude = latitude;
-	next_packet.sensor_data.gps.longitude = longitude;
-	xSemaphoreGive(next_packet_mutex);
+	return p->sensor_data.timestamp - time;
 }
 
 
@@ -226,7 +216,8 @@ bool lora_is_reception_done(void)
 
 		rx_state = radio.readData(rx_buffer, len);
 		if (rx_state != RADIOLIB_ERR_NONE) {
-			ERR("receive failed: %d", rx_state);
+			// FIXME: log state
+			log(S_LORA, T_SYSLOG, "[ERR] receive failed");
 		}
 
 		return true;
@@ -236,7 +227,7 @@ bool lora_is_reception_done(void)
 }
 
 
-LoRaPayload lora_get_packet(void)
+LoRaPayload lora_get_rx_packet(void)
 {
 	LoRaPayload packet;
 	memcpy(&packet, rx_buffer, sizeof(packet));

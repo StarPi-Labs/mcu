@@ -28,7 +28,7 @@ void imu_setup()
 {
 	if (IMU.begin() != 0) {
 		while(1) {
-			ERR("Failed to initialize IMU");
+			log(S_IMU, T_SYSLOG, "[ERR] Failed to initialize IMU");
 			delay(1000);
 		}
 	}
@@ -38,7 +38,8 @@ void imu_setup()
 	IMU.ReadID(&id);
 	if (id != 0x6C) {
 		while(1) {
-			ERR("IMU ID mismatch: expected 0x6C, got %lu", (uint32_t)id);
+			//ERR("IMU ID mismatch: expected 0x6C, got %lu", (uint32_t)id);
+			log(S_IMU, T_SYSLOG, "[ERR] ID mismatch");
 			delay(1000);
 		}
 	}

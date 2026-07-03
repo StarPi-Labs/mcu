@@ -88,7 +88,7 @@ typedef struct _TaskDescriptor_t {
 		desc->was_delayed = xTaskDelayUntil(&(desc->last_wake), pdMS_TO_TICKS(1000/freq)); \
 		if (desc->was_delayed == false) { \
 			desc->last_wake = xTaskGetTickCount(); \
-			WARN("[" TO_XSTR(__FILE__) ":" TO_XSTR(__LINE__) "]: task failed to meet deadline, took %ldms", pdTICKS_TO_MS(desc->last_wake - wake)); \
+			//WARN("[" TO_XSTR(__FILE__) ":" TO_XSTR(__LINE__) "]: task failed to meet deadline, took %ldms", pdTICKS_TO_MS(desc->last_wake - wake)); \
 		} \
 	} while (0)
 
@@ -98,7 +98,7 @@ typedef struct _TaskDescriptor_t {
 		desc->was_delayed = xTaskDelayUntil(&(desc->last_wake), pdMS_TO_TICKS(sec*1000)); \
 		if (desc->was_delayed == false) { \
 			desc->last_wake = xTaskGetTickCount(); \
-			WARN("[" TO_XSTR(__FILE__) ":" TO_XSTR(__LINE__) "]: task failed to meet deadline, took %ldms", pdTICKS_TO_MS(desc->last_wake - wake)); \
+			//WARN("[" TO_XSTR(__FILE__) ":" TO_XSTR(__LINE__) "]: task failed to meet deadline, took %ldms", pdTICKS_TO_MS(desc->last_wake - wake)); \
 		} \
 	} while (0)
 
@@ -135,4 +135,16 @@ typedef struct _TaskDescriptor_t {
 		if (symbol != NULL) { \
 			xSemaphoreGive(symbol); \
 		} \
+	} while (0)
+
+
+#define DECLARE_STATIC_QUEUE(symbol, elem_type, size) \
+	QueueHandle_t symbol; \
+	StaticQueue_t symbol##_buffer; \
+	const size_t  symbol##_size = size; \
+	elem_type symbol##_storage[size]
+
+
+#define INIT_STATIC_QUEUE(symbol) do { \
+		symbol = xQueueCreateStatic((symbol##_size), sizeof((symbol##_storage)[0]), (uint8_t*)(symbol##_storage), &(symbol##_buffer)); \
 	} while (0)

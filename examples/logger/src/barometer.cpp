@@ -51,18 +51,18 @@ parametri di variazione: 1. Frequenza(ora a 20 hz);
 bool barometer_setup(void)
 {
 	if (baro1.begin() == false) {
-		ERR("Barometer 1 " TO_XSTR(BARO1_ADDRESS) " not found");
+		log(S_BARO, T_SYSLOG, "[ERR] Barometer 1 " TO_XSTR(BARO1_ADDRESS) " not found");
 		return false; //se non funziona segnala l'errore e lascia svolgere le altre tasks
 	}
 	if (baro2.begin() == false) {
-		ERR("Barometer 2 " TO_XSTR(BARO2_ADDRESS) " not found");
+		log(S_BARO, T_SYSLOG, "[ERR] Barometer 2 " TO_XSTR(BARO2_ADDRESS) " not found");
 		return false; //se non funziona segnala l'errore e lascia svolgere le altre tasks
 	}
 
 	baro1.reset();
-	LOG("Barometer 1 initialized");
+	log(S_BARO, T_SYSLOG, "Barometer 1 initialized");
 	baro2.reset();
-	LOG("Barometer 2 initialized");
+	log(S_BARO, T_SYSLOG, "Barometer 2 initialized");
 
 	// legge un po' di volte per far stabilizzare il sensore
 	// calibrate with the highest OSR to get the most accurate ground pressure
@@ -75,21 +75,21 @@ bool barometer_setup(void)
 	int status1 = baro1.read(OSR_ULTRA_HIGH);
 	if (status1 == 0) {
 		ground_pressure_mbar_1 = baro1.getPressure(); // autozero
-		LOG("Barometer 1: Setting ground pressure to %fmbar", ground_pressure_mbar_1);
-		LOG("Barometer 1: Ground temperature %fC", baro1.getTemperature());
 	} else {
-		ERR("Barometer 1: Calibration failed with error code %d", status1);
+		// FIXME: log the error code
+		log(S_BARO, T_SYSLOG, "[ERR] Barometer 1: Calibration failed");
 	}
 
 	int status2 = baro2.read(OSR_ULTRA_HIGH);
 	if (status2 == 0) {
 		ground_pressure_mbar_2 = baro2.getPressure(); // autozero
-		LOG("Barometer 2: Setting ground pressure to %fmbar", ground_pressure_mbar_2);
-		LOG("Barometer 2: Ground temperature %fC", baro2.getTemperature());
 	} else {
-		ERR("Barometer 2: Calibration failed with error code %d", status2);
+		// FIXME: log the error code
+		log(S_BARO, T_SYSLOG, "[ERR] Barometer 2: Calibration failed");
 	}
 
+	log(S_BARO, T_PRESSURE, ground_pressure_mbar_1, ground_pressure_mbar_2);
+	log(S_BARO, T_TEMPERATURE, baro1.getTemperature(), baro2.getTemperature());
 	ground_temperature_k = (baro1.getTemperature()+baro2.getTemperature())/2.0 + 273.15;
 
 	if (status1 != 0 || status2 != 0) {

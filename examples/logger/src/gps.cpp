@@ -66,7 +66,7 @@ void gps_update(GPSData *data)
 					.tv_usec = (suseconds_t)(new_time % 1000000ULL),
 				};
 				settimeofday(&tv, NULL);
-				LOG("[GPS]: System time updated to %llu", new_time);
+				log(S_GPS, T_SYSLOG, "System time updated");
 			}
 		}
 	}

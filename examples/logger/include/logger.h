@@ -3,31 +3,82 @@
 #include <FreeRTOS.h>
 #include <time.h>
 
-#define LOG_TIMEOUT     1
-#define LOG_MAX_READERS 4
+#define LOG_TIMEOUT       1
+#define LOG_MAX_CONSUMERS 8
 
-enum log_destination {
-	DEST_UART = 1 << 0,
-	DEST_LORA = 1 << 1,
-	DEST_SD   = 1 << 2
+
+enum MessagePayloadType {
+	P_NONE   = 1 << 0,
+	P_BOOL   = 1 << 1,
+	P_FLOAT  = 1 << 2,
+	P_DOUBLE = 1 << 3,
+	P_INT    = 1 << 4,
+	P_LONG   = 1 << 5,
+	P_FVEC2  = 1 << 6,
+	P_FVEC3  = 1 << 7,
+	P_STRING = 1 << 8,
 };
 
-// const uint32_t DEST_ALL = DEST_UART | DEST_LORA | DEST_SD;
-const uint32_t DEST_ALL = DEST_UART | DEST_SD;
+enum SourceSubsystem {
+	S_OTHER = 1 << 0,
+	S_IMU   = 1 << 1,
+	S_BARO  = 1 << 2,
+	S_GPS   = 1 << 3,
+	S_LORA  = 1 << 4,
+	S_SD    = 1 << 5,
+};
 
-int log(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
+enum MessageType {
+	T_ACCELLERATION = 1 << 0,
+	T_GYRO          = 1 << 1,
+	T_ALT_SPEED     = 1 << 2,
+	T_PRESSURE      = 1 << 3,
+	T_TEMPERATURE   = 1 << 4,
+	T_GPS           = 1 << 5,
+	T_SYSLOG        = 1 << 6,
+	T_ORIENTATION   = 1 << 7,
+};
+
+typedef struct {
+	uint64_t timestamp;
+	MessagePayloadType payload_type;
+	SourceSubsystem src;
+	MessageType type;
+	union {
+		bool b;
+		float f;
+		double d;
+		int i;
+		long l;
+		struct { float x, y; } fv2;
+		struct { float x, y, z; } fv3;
+		const char *s;
+	} payload;
+} LogMessage;
+
+typedef struct {
+	uint32_t payload_filter;
+	uint32_t type_filter;
+	TaskHandle_t task_handle;
+	QueueHandle_t msg_queue;
+} LogConsumer;
+
+
+bool logger_register_consumer(TaskHandle_t task_handle, QueueHandle_t msg_queue, uint32_t payload_filter, uint32_t type_filter);
+bool logger_sort_message(LogMessage *msg);
+size_t logger_message_to_str(const char **str, LogMessage *msg);
+void log(SourceSubsystem src, MessageType type, bool b);
+void log(SourceSubsystem src, MessageType type, float f);
+void log(SourceSubsystem src, MessageType type, double d);
+void log(SourceSubsystem src, MessageType type, int i);
+void log(SourceSubsystem src, MessageType type, long l);
+void log(SourceSubsystem src, MessageType type, float x, float y);
+void log(SourceSubsystem src, MessageType type, float x, float y, float z);
+void log(SourceSubsystem src, MessageType type, const char *s);
+
 bool logger_init(void);
-void logger_register(TaskHandle_t handle);
 
 uint64_t now_us(void);
 
-const char *logger_read_begin(uint32_t *len, int32_t *id);
-void logger_read_end(log_destination dest);
-
-
 #define TO_XSTR(s) TO_STR(s)
 #define TO_STR(s) #s
-
-#define LOG(s, ...) log((s) __VA_OPT__(,) __VA_ARGS__)
-#define WARN(s, ...) log("[WARN] " s __VA_OPT__(,) __VA_ARGS__)
-#define ERR(s, ...) log("[ERR] " s __VA_OPT__(,) __VA_ARGS__)

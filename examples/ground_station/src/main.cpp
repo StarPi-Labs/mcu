@@ -57,7 +57,7 @@ void setup(void)
 void loop(void)
 {
 	if (Serial)
-		Serial.println("LOOP");
+		Serial.println("GROUND STATION LOOP");
 	delay(1000);
 }
 
@@ -69,7 +69,7 @@ TASK lora_task(TaskDescriptor_t *self)
 	bool first_packet = true;
 
 	while (true) {
-		if (xSemaphoreTake(spi_semaphore, portMAX_DELAY) == pdTRUE) {
+//		if (xSemaphoreTake(spi_semaphore, portMAX_DELAY) == pdTRUE) {
 			if (lora_is_reception_done()) {
 				LoRaPayload p = lora_get_packet();
 
@@ -90,7 +90,7 @@ TASK lora_task(TaskDescriptor_t *self)
 					p.sensor_data.imu.vspeed,
 					p.sensor_data.imu.attitude,
 					p.sensor_data.imu.dt);
-				LOG("  Baro: alt1=%.2f alt2=%.2f dt=%" PRId32,
+				LOG("  Baro: p1=%.2f p2=%.2f dt=%" PRId32,
 					p.sensor_data.baro.alt1,
 					p.sensor_data.baro.alt2,
 					p.sensor_data.baro.dt);
@@ -100,9 +100,9 @@ TASK lora_task(TaskDescriptor_t *self)
 
 				lora_start_receive(1000);
 			} else {
-				// TODO: listen, implement half-duplex communication
+				vTaskDelay(1);
 			}
-			xSemaphoreGive(spi_semaphore);
-		}
+//			xSemaphoreGive(spi_semaphore);
+//		}
 	}
 }

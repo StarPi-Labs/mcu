@@ -184,7 +184,7 @@ void lora_release_tx_packet(void)
 
 uint32_t lora_compute_dt(LoRaPayload *p, uint64_t time)
 {
-	return p->sensor_data.timestamp - time;
+	return time - p->sensor_data.timestamp;
 }
 
 

@@ -72,7 +72,7 @@ void setup(void)
 			delay(500);
 		}
 	}
-	
+
 	// creates folder /session_<session_num>
 	if (!sdcard_start_session()) {
 		while (true) {
@@ -122,7 +122,7 @@ void setup(void)
 	    !TASK_IS_INITIALIZED(gps_task)              ||
 	    !TASK_IS_INITIALIZED(uart_task)             ||
 	    !TASK_IS_INITIALIZED(lora_transmitter_task) ||
-		!TASK_IS_INITIALIZED(lora_formatter_task)   ||
+	    !TASK_IS_INITIALIZED(lora_formatter_task)   ||
 	    !TASK_IS_INITIALIZED(sd_formatter_task)     ||
 	    !TASK_IS_INITIALIZED(sd_writer_task)) {
 		while (true) {
@@ -253,41 +253,41 @@ TASK lora_formatter_task(TaskDescriptor_t *self)
 		ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000/LORA_FMT_TASK_HZ));
 
 		LogMessage msg;
-		
+
 		LoRaPayload *pl = lora_get_tx_packet();
 		while (xQueueReceive(lora_msg_queue, &msg, 0) == pdTRUE) {
 			switch (msg.type) {
 			case T_ALT_SPEED:
 				if (msg.payload_type == P_FVEC2) {
-					pl->sensor_data.imu.altitude = msg.payload.fv2.x;
-					pl->sensor_data.imu.vspeed = msg.payload.fv2.y;
-					pl->sensor_data.imu.dt = lora_compute_dt(pl, msg.timestamp);
+					pl->data.imu.altitude = float16(msg.payload.fv2.x);
+					pl->data.imu.vspeed = float16(msg.payload.fv2.y);
+					pl->data.imu.dt = lora_compute_dt(pl, msg.timestamp);
 				}
 				break;
-			case T_ORIENTATION:
-				{
+			case T_ORIENTATION: {
 				if (msg.payload_type == P_FVEC3) {
 					// FIXME: don't repeat this computation here
 					float r = msg.payload.fv3.x * 0.0174533; // roll in radians
 					float p = msg.payload.fv3.y * 0.0174533; // pitch in radians
 					float a = acos(cos(p)*cos(r)) * 57.2958; // total pitch from vertical in degrees
-					
-					pl->sensor_data.imu.attitude = a;
-					pl->sensor_data.imu.dt = lora_compute_dt(pl, msg.timestamp);
-				}
+
+					pl->data.imu.attitude = float16(a);
+					pl->data.imu.dt = lora_compute_dt(pl, msg.timestamp);
 				}
 				break;
+			}
 			case T_PRESSURE:
 				if (msg.payload_type == P_FVEC2) {
-					pl->sensor_data.baro.p1 = msg.payload.fv2.x;
-					pl->sensor_data.baro.p2 = msg.payload.fv2.y;
-					pl->sensor_data.baro.dt = lora_compute_dt(pl, msg.timestamp);
+					pl->data.baro.p1 = float16(msg.payload.fv2.x);
+					pl->data.baro.p2 = float16(msg.payload.fv2.y);
+					pl->data.baro.dt = lora_compute_dt(pl, msg.timestamp);
 				}
 				break;
 			case T_GPS:
 				if (msg.payload_type == P_FVEC2) {
-					pl->sensor_data.gps.latitude = msg.payload.fv2.x;
-					pl->sensor_data.gps.longitude = msg.payload.fv2.y;
+					pl->data.gps.latitude = msg.payload.fv2.x;
+					pl->data.gps.longitude = msg.payload.fv2.y;
+					pl->data.gps.dt = lora_compute_dt(pl, msg.timestamp);
 				}
 				break;
 			// TODO: append syslog

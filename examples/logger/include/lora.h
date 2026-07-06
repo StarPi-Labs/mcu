@@ -4,32 +4,32 @@
 #include <float16.h>
 
 
+const uint16_t FLIGHT_COMPUTER_ID = 0xf1ca;
+
 // payload da trasmettere
-// TODO: da float a float16
-typedef union {
+typedef struct {
 	struct {
-		struct {
-			uint64_t timestamp;
-			struct  {
-				float altitude;
-				float vspeed;
-				float attitude;
-				int32_t dt;
-			} imu;
-			struct {
-				float p1;
-				float p2;
-				int32_t dt;
-			} baro;
-			struct {
-				float latitude;
-				float longitude;
-				// TODO: time
-			} gps;
-		} sensor_data;
+		uint16_t id; // ID of the device
 		uint8_t number; // order number
-	}; // Data
-	uint8_t padding[64]; // Force payload size to 64 bytes
+		uint64_t tx_time;
+
+		struct {
+			float16 altitude;
+			float16 vspeed;
+			float16 attitude;
+			int32_t dt;
+		} imu;
+		struct {
+			float16 p1;
+			float16 p2;
+			int32_t dt;
+		} baro;
+		struct {
+			float latitude;
+			float longitude;
+			int32_t dt;
+		} gps;
+	} data;
 } LoRaPayload;
 
 enum LoRaTxMode {
@@ -50,7 +50,7 @@ struct BandRequirements {
 	float freq_start_mhz;  // Start of the frequency band
 	int   ch_bw_khz;       // (max) bandwidth that the channel supports
 	int   num_channels;    // Number of channels given the bandwith
-	int   max_power_mw;    // Maximum effective radiated power 
+	int   max_power_mw;    // Maximum effective radiated power
 	float max_duty;        // Maximum transmission duty cycle (see spec)
 	bool  polite_access;   // Channel supports polite access for transmission
 };

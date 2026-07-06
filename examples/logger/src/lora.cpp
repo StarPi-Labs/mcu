@@ -29,12 +29,45 @@ DECLARE_STATIC_SEMAPHORE(next_packet_mutex);
 
 // As per EN 300 220-2 V3.3.1; Annex B table 1
 // https://www.etsi.org/deliver/etsi_en/300200_300299/30022002/03.03.01_60/en_30022002v030301p.pdf
-const struct BandRequirements bands[] = {
+const struct BandRequirements EU_868_BANDS[] = {
 	[BAND_K] = {.freq_start_mhz = 863.0, .ch_bw_khz = 500, .num_channels = 4, .max_power_mw = 25,  .max_duty = 0.1, .polite_access = true},
 	[BAND_L] = {.freq_start_mhz = 865.0, .ch_bw_khz = 500, .num_channels = 6, .max_power_mw = 25,  .max_duty = 1,   .polite_access = true},
 	[BAND_M] = {.freq_start_mhz = 868.0, .ch_bw_khz = 500, .num_channels = 1, .max_power_mw = 25,  .max_duty = 1,   .polite_access = true},
 	[BAND_N] = {.freq_start_mhz = 868.7, .ch_bw_khz = 500, .num_channels = 1, .max_power_mw = 25,  .max_duty = 0.1, .polite_access = true},
 	[BAND_O] = {.freq_start_mhz = 869.4, .ch_bw_khz = 250, .num_channels = 1, .max_power_mw = 500, .max_duty = 10,  .polite_access = true},
+};
+
+
+// Ebyte E22-900M33S module power output, since it has an LNA and a PA,
+// the actual output power is not the same as the value passed to RadioLib's
+// setOutputPower() function. The table below maps the two values.
+// Note that this is the output power of the module, not the effective radiated
+// power (ERP) of the antenna.
+// Refer to image in page 10, chapter 4.2 of the manual: https://www.cdebyte.com/products/E22-900M33S/4#Downloads
+// Useful to extract data: https://plotdigitizer.com/app
+// NOTE: THE X SCALE ON THIS GRAPH IS NOT CONSTANT, WHY????
+const struct {
+	uint16_t power_mw;     // The actual power in mW, for reference
+	int8_t radiolib_value; // The value to pass to RadioLib's setOutputPower() function
+} LORA_OUTPUT_POWER_TABLE[] = {
+	{ .power_mw = 59,   .radiolib_value = -9 },
+	{ .power_mw = 75,   .radiolib_value = -8 },
+	{ .power_mw = 98,   .radiolib_value = -7 },
+	{ .power_mw = 126,  .radiolib_value = -6 },
+	{ .power_mw = 173,  .radiolib_value = -5 },
+	{ .power_mw = 237,  .radiolib_value = -4 },
+	{ .power_mw = 299,  .radiolib_value = -3 },
+	{ .power_mw = 390,  .radiolib_value = -2 },
+	{ .power_mw = 487,  .radiolib_value = -1 },
+	{ .power_mw = 619,  .radiolib_value =  0 },
+	{ .power_mw = 750,  .radiolib_value =  1 },
+	{ .power_mw = 1044, .radiolib_value =  2 },
+	{ .power_mw = 1202, .radiolib_value =  3 },
+	{ .power_mw = 1409, .radiolib_value =  4 },
+	{ .power_mw = 1492, .radiolib_value =  5 },
+	{ .power_mw = 1585, .radiolib_value =  6 },
+	{ .power_mw = 1745, .radiolib_value =  7 },
+	{ .power_mw = 2218, .radiolib_value =  8 },
 };
 
 
@@ -49,7 +82,7 @@ static void rx_operation_done_cb(void)
 }
 
 
-void lora_setup(FrequencyBands band, LoRaTxMode mode)
+void lora_setup(FrequencyBands band, LoRaTxMode mode, bool respect_power_limit = true)
 {
 	int state = radio.begin();
 	if (state != RADIOLIB_ERR_NONE) {
@@ -60,10 +93,10 @@ void lora_setup(FrequencyBands band, LoRaTxMode mode)
 
 	freq_band = band;
 
-	if (mode == TX_DUTY && bands[band].polite_access) {
+	if (mode == TX_DUTY && EU_868_BANDS[band].polite_access) {
 		tx_mode = TX_POLITE;
 		log(S_LORA, T_SYSLOG, "Upgrading from TX_DUTY to TX_POLITE");
-	} else if (mode == TX_POLITE && !bands[band].polite_access) {
+	} else if (mode == TX_POLITE && !EU_868_BANDS[band].polite_access) {
 		tx_mode = TX_POLITE;
 		log(S_LORA, T_SYSLOG, "polite access not supported in this band, using TX_DUTY instead");
 	} else {
@@ -71,9 +104,25 @@ void lora_setup(FrequencyBands band, LoRaTxMode mode)
 	}
 
 	radio.setDio2AsRfSwitch(true);
-	radio.setFrequency(bands[band].freq_start_mhz);
-	radio.setOutputPower(LORA_OUTPUT_POWER); // TODO: limit power
-	radio.setBandwidth(bands[band].ch_bw_khz); // TODO: switch channel
+
+	radio.setFrequency(EU_868_BANDS[band].freq_start_mhz); // TODO: switch channel
+	radio.setBandwidth(EU_868_BANDS[band].ch_bw_khz);
+
+	if (respect_power_limit) {
+		// find the closest power value in the table that is less than or equal to the max power
+		int8_t radiolib_power = LORA_OUTPUT_POWER_TABLE[0].radiolib_value;
+		for (size_t i = 0; i < sizeof(LORA_OUTPUT_POWER_TABLE)/sizeof(LORA_OUTPUT_POWER_TABLE[0]); i++) {
+			if (LORA_OUTPUT_POWER_TABLE[i].power_mw <= EU_868_BANDS[band].max_power_mw) {
+				radiolib_power = LORA_OUTPUT_POWER_TABLE[i].radiolib_value;
+			} else {
+				break;
+			}
+		}
+		radio.setOutputPower(radiolib_power);
+	} else {
+		radio.setOutputPower(LORA_OUTPUT_POWER);
+	}
+
 	radio.setSpreadingFactor(LORA_SPREADING_FACTOR);
 	radio.setCodingRate(LORA_CODING_RATE);
 	radio.forceLDRO(false);
@@ -179,7 +228,7 @@ void lora_start_transmission()
 	// duty = Tx_time / interval. For a fixed packet size this guarantees
 	// the long-term average stays within the regulatory limit.
 	case TX_DUTY: {
-		float duty = bands[freq_band].max_duty / 100.0f;
+		float duty = EU_868_BANDS[freq_band].max_duty / 100.0f;
 		if (duty <= 0.0f) duty = 1.0f;
 		uint64_t min_interval_us = (uint64_t)((float)max_toa_us / duty);
 		uint64_t now = now_us();

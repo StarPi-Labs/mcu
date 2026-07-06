@@ -259,9 +259,9 @@ TASK lora_formatter_task(TaskDescriptor_t *self)
 			switch (msg.type) {
 			case T_ALT_SPEED:
 				if (msg.payload_type == P_FVEC2) {
-					pl->data.imu.altitude = float16(msg.payload.fv2.x);
-					pl->data.imu.vspeed = float16(msg.payload.fv2.y);
-					pl->data.imu.dt = lora_compute_dt(pl, msg.timestamp);
+					pl->imu.altitude = float16(msg.payload.fv2.x).getBinary();
+					pl->imu.vspeed = float16(msg.payload.fv2.y).getBinary();
+					pl->imu.dt = lora_compute_dt(pl, msg.timestamp);
 				}
 				break;
 			case T_ORIENTATION: {
@@ -271,23 +271,23 @@ TASK lora_formatter_task(TaskDescriptor_t *self)
 					float p = msg.payload.fv3.y * 0.0174533; // pitch in radians
 					float a = acos(cos(p)*cos(r)) * 57.2958; // total pitch from vertical in degrees
 
-					pl->data.imu.attitude = float16(a);
-					pl->data.imu.dt = lora_compute_dt(pl, msg.timestamp);
+					pl->imu.attitude = float16(a).getBinary();
+					pl->imu.dt = lora_compute_dt(pl, msg.timestamp);
 				}
 				break;
 			}
 			case T_PRESSURE:
 				if (msg.payload_type == P_FVEC2) {
-					pl->data.baro.p1 = float16(msg.payload.fv2.x);
-					pl->data.baro.p2 = float16(msg.payload.fv2.y);
-					pl->data.baro.dt = lora_compute_dt(pl, msg.timestamp);
+					pl->baro.p1 = float16(msg.payload.fv2.x).getBinary();
+					pl->baro.p2 = float16(msg.payload.fv2.y).getBinary();
+					pl->baro.dt = lora_compute_dt(pl, msg.timestamp);
 				}
 				break;
 			case T_GPS:
 				if (msg.payload_type == P_FVEC2) {
-					pl->data.gps.latitude = msg.payload.fv2.x;
-					pl->data.gps.longitude = msg.payload.fv2.y;
-					pl->data.gps.dt = lora_compute_dt(pl, msg.timestamp);
+					pl->gps.latitude = msg.payload.fv2.x;
+					pl->gps.longitude = msg.payload.fv2.y;
+					pl->gps.dt = lora_compute_dt(pl, msg.timestamp);
 				}
 				break;
 			// TODO: append syslog

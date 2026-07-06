@@ -7,30 +7,30 @@
 const uint16_t FLIGHT_COMPUTER_ID = 0xf1ca;
 
 // payload da trasmettere
-typedef struct {
-	struct {
-		uint16_t id; // ID of the device
-		uint8_t number; // order number
-		uint64_t tx_time;
+typedef struct [[gnu::packed]] {
+	uint16_t id; // ID of the device
+	uint8_t number; // order number
+	uint64_t tx_time;
 
-		struct {
-			float16 altitude;
-			float16 vspeed;
-			float16 attitude;
-			int32_t dt;
-		} imu;
-		struct {
-			float16 p1;
-			float16 p2;
-			int32_t dt;
-		} baro;
-		struct {
-			float latitude;
-			float longitude;
-			int32_t dt;
-		} gps;
-	} data;
+	struct {
+		uint16_t altitude; // float16, changed to uint16_t for packing
+		uint16_t vspeed;   // float16, changed to uint16_t for packing
+		uint16_t attitude; // float16, changed to uint16_t for packing
+		int32_t dt;
+	} imu;
+	struct {
+		uint16_t p1;       // float16, changed to uint16_t for packing
+		uint16_t p2;       // float16, changed to uint16_t for packing
+		int32_t dt;
+	} baro;
+	struct {
+		float latitude;
+		float longitude;
+		int32_t dt;
+	} gps;
 } LoRaPayload;
+
+// static_assert(sizeof(LoRaPayload) == 0, "");
 
 enum LoRaTxMode {
 	TX_FORCE,

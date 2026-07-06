@@ -134,10 +134,10 @@ void lora_enter_rx(void)
 static void adjust_dt(LoRaPayload *p)
 {
 	// adjust time from packet creation to packet transmission start
-	uint64_t base = p->data.tx_time;
-	p->data.tx_time = now_us();
-	p->data.imu.dt = lora_compute_dt(p, p->data.imu.dt + base);
-	p->data.baro.dt = lora_compute_dt(p, p->data.baro.dt + base);
+	uint64_t base = p->tx_time;
+	p->tx_time = now_us();
+	p->imu.dt = lora_compute_dt(p, p->imu.dt + base);
+	p->baro.dt = lora_compute_dt(p, p->baro.dt + base);
 }
 
 
@@ -221,9 +221,9 @@ void lora_prepare_next_packet(uint8_t order_number)
 	gettimeofday(&tv_now, NULL);
 	xSemaphoreTake(next_packet_mutex, portMAX_DELAY);
 	memset(&next_packet, 0, sizeof(next_packet));
-	next_packet.data.id = FLIGHT_COMPUTER_ID; // TODO: change id if ground station
-	next_packet.data.tx_time = (uint64_t)tv_now.tv_sec * 1000000ULL + tv_now.tv_usec;
-	next_packet.data.number = order_number;
+	next_packet.id = FLIGHT_COMPUTER_ID; // TODO: change id if ground station
+	next_packet.tx_time = (uint64_t)tv_now.tv_sec * 1000000ULL + tv_now.tv_usec;
+	next_packet.number = order_number;
 	xSemaphoreGive(next_packet_mutex);
 }
 
@@ -243,7 +243,7 @@ void lora_release_tx_packet(void)
 
 uint32_t lora_compute_dt(LoRaPayload *p, uint64_t time)
 {
-	return time - p->data.tx_time;
+	return time - p->tx_time;
 }
 
 

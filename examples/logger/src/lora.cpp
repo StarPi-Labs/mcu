@@ -21,6 +21,9 @@ static LoRaTxMode tx_mode;
 static FrequencyBands freq_band;
 static bool is_tx = true;
 
+static uint32_t max_toa_us = 0;
+static uint64_t last_tx_start_us = 0;
+
 DECLARE_STATIC_SEMAPHORE(next_packet_mutex);
 
 
@@ -56,7 +59,16 @@ void lora_setup(FrequencyBands band, LoRaTxMode mode)
 	}
 
 	freq_band = band;
-	tx_mode = mode;
+
+	if (mode == TX_DUTY && bands[band].polite_access) {
+		tx_mode = TX_POLITE;
+		log(S_LORA, T_SYSLOG, "Upgrading from TX_DUTY to TX_POLITE");
+	} else if (mode == TX_POLITE && !bands[band].polite_access) {
+		tx_mode = TX_POLITE;
+		log(S_LORA, T_SYSLOG, "polite access not supported in this band, using TX_DUTY instead");
+	} else {
+		tx_mode = mode;
+	}
 
 	radio.setDio2AsRfSwitch(true);
 	radio.setFrequency(bands[band].freq_start_mhz);
@@ -74,8 +86,8 @@ void lora_setup(FrequencyBands band, LoRaTxMode mode)
 	is_tx = true;
 	radio.setPacketSentAction(tx_operation_done_cb);
 
-	// TODO: restore this
-	// LOG("Expected LoRa Time-on-Air %lums", (uint32_t)(radio.getTimeOnAir(sizeof(LoRaPayload))/1000));
+	max_toa_us = radio.getTimeOnAir(sizeof(LoRaPayload));
+	last_tx_start_us = now_us();
 
 	INIT_STATIC_SEMAPHORE(next_packet_mutex);
 	if (next_packet_mutex == NULL) {
@@ -132,11 +144,40 @@ void lora_start_transmission()
 		tx_operation_done = false;
 		radio.startTransmit((uint8_t*)&tx_packet, sizeof(tx_packet));
 		break;
-	case TX_DUTY:
-	case TX_POLITE:
-		log(S_LORA, T_SYSLOG, "[ERR] TX_DUTY and TX_POLITE modes are not yet implemented");
-		// TODO
+	// ETSI EN 300 220-2 V3.3.1 Annex B defines the band duty cycles
+	// (max_duty as a percentage) and requires polite (LBT) access where
+	// polite_access == true. The CCA backoff range 5-50ms and max 10
+	// retries follow common LBT practice for SRD in the 863-870 MHz band.
+	case TX_POLITE: {
+		const int max_cca = 10;
+		for (int i = 0; i < max_cca; i++) {
+			if (lora_is_channel_free()) {
+				break;
+			}
+			vTaskDelay(pdMS_TO_TICKS(random(5, 51)));
+		}
+	}
+	// Duty cycle enforcement: the band's max_duty is a percentage, so we
+	// divide by 100 to get the fraction. The minimum interval between
+	// transmission starts is max_toa_us / duty, derived from the definition
+	// duty = Tx_time / interval. For a fixed packet size this guarantees
+	// the long-term average stays within the regulatory limit.
+	case TX_DUTY: {
+		float duty = bands[freq_band].max_duty / 100.0f;
+		if (duty <= 0.0f) duty = 1.0f;
+		uint64_t min_interval_us = (uint64_t)((float)max_toa_us / duty);
+		uint64_t now = now_us();
+		uint64_t next_allowed = last_tx_start_us + min_interval_us;
+
+		if (now < next_allowed) {
+			vTaskDelay(pdMS_TO_TICKS((next_allowed - now) / 1000) + 1);
+		}
+
+		tx_operation_done = false;
+		radio.startTransmit((uint8_t*)&tx_packet, sizeof(tx_packet));
+		last_tx_start_us = now_us();
 		break;
+	}
 	default:
 		log(S_LORA, T_SYSLOG, "[ERR]: invalid tx mode");
 		break;

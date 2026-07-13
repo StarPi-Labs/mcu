@@ -30,3 +30,8 @@
 // (time since boot).
 #define MCU_LOG_TIMESTAMP_ABSOLUTE 1
 #endif
+
+#ifndef MCU_BLE_DEVICE_NAME
+// Default Bluetooth device name
+#define MCU_BLE_DEVICE_NAME "John StarPi's Rocket"
+#endif

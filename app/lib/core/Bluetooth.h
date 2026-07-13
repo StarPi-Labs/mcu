@@ -15,38 +15,14 @@ namespace mcu::bluetooth
 {
 class Manager
 {
-public: // Data Structures
-  /// @brief Callback class for handling telemetry data to be sent over
-  /// Bluetooth.
-  /// @implements @c mcu::telemetry::ManagerCallback
-  class TelemetryCallback
-  {
-  public:
-    TelemetryCallback(Manager& manager);
-
-    void onFlightStatusUpdate(mcu::telemetry::FlightStatus status) const;
-    void onLinkStatusUpdate(bool connected, float rssi, float snr) const;
-    void onAttitudeUpdate(float roll, float pitch, float yaw) const;
-    void onMapPositionUpdate(double latitude, double longitude) const;
-    void onAccelerationUpdate(float ax, float ay, float az, float gx, float gy,
-                              float gz) const;
-    void onAltitudeUpdate(float altitude) const;
-    void onVerticalVelocityUpdate(float verticalVelocity) const;
-    void onPressureUpdate(float pressure1, float pressure2) const;
-    void onTemperatureUpdate(float temperature1, float temperature2) const;
-    void onAirbrakeExtensionUpdate(float extension) const;
-
-  private:
-    Manager& m_manager; //< Reference to the parent Bluetooth manager.
-  };
-
 public:
   /// @brief Initializes the Bluetooth stack and manager.
   Manager();
 
   /// @brief Returns a telemetry callback instance for this Bluetooth manager.
-  /// @return A @c TelemetryCallback instance.
-  TelemetryCallback getTelemetryCallback();
+  ///
+  /// @return A @c Callback instance.
+  mcu::telemetry::Manager::Callback getTelemetryCallback();
 
   /// @brief Returns the number of connected Bluetooth clients.
   /// @return The number of connected clients as a @c std::uint8_t.

@@ -8,167 +8,270 @@
 void setUp() {}
 void tearDown() {}
 
-using namespace mcu::telemetry;
+static mcu::telemetry::Manager g_manager;
 
-struct Result {
-  FlightStatus flightStatus;
-  float connected, rssi, snr;
-  float roll, pitch, yaw;
-  float latitude, longitude;
-  float ax, ay, az, gx, gy, gz;
-  float altitude;
-  float verticalVelocity;
-  float pressure1, pressure2;
-  float temperature1, temperature2;
-  float airbrakeExtension;
+static mcu::telemetry::FlightStatus g_flightStatus;
+static bool g_connected;
+static float g_rssi;
+static float g_snr;
+static float g_roll;
+static float g_pitch;
+static float g_yaw;
+static double g_latitude;
+static double g_longitude;
+static float g_ax;
+static float g_ay;
+static float g_az;
+static float g_gx;
+static float g_gy;
+static float g_gz;
+static float g_altitude;
+static float g_verticalVelocity;
+static float g_pressure1;
+static float g_pressure2;
+static float g_temperature1;
+static float g_temperature2;
+static float g_airbrakeExtension;
 
-  bool equals(const Result& other) const
-  {
-    return flightStatus == other.flightStatus && connected == other.connected &&
-           rssi == other.rssi && snr == other.snr && roll == other.roll &&
-           pitch == other.pitch && yaw == other.yaw &&
-           latitude == other.latitude && longitude == other.longitude &&
-           ax == other.ax && ay == other.ay && az == other.az &&
-           gx == other.gx && gy == other.gy && gz == other.gz &&
-           altitude == other.altitude &&
-           verticalVelocity == other.verticalVelocity &&
-           pressure1 == other.pressure1 && pressure2 == other.pressure2 &&
-           temperature1 == other.temperature1 &&
-           temperature2 == other.temperature2 &&
-           airbrakeExtension == other.airbrakeExtension;
-  }
-
-  std::string toString() const
-  {
-    return std::format(
-        "{{ flightStatus: {}, linkStatus: {{ connected: {}, rssi: {}, snr: {} "
-        "}}, roll: {}, pitch: {}, yaw: {}, latitude: {}, longitude: {}, ax: "
-        "{}, ay: {}, az: {}, gx: {}, gy: {}, gz: {}, altitude: {}, "
-        "verticalVelocity: {}, pressure1: {}, pressure2: {}, temperature1: {}, "
-        "temperature2: {}, airbrakeExtension: {} }}",
-        static_cast<int>(flightStatus), connected, rssi, snr, roll, pitch, yaw,
-        latitude, longitude, ax, ay, az, gx, gy, gz, altitude, verticalVelocity,
-        pressure1, pressure2, temperature1, temperature2, airbrakeExtension);
-  }
-};
-
-static Result g_testResult;
-
-class TestCallback
+void test_add_callback(void)
 {
-public:
-  void onFlightStatusUpdate(FlightStatus status)
-  {
-    g_testResult.flightStatus = status;
-  }
+  constexpr mcu::telemetry::Manager::Callback callback = {
+      nullptr,
+      [](mcu::telemetry::FlightStatus status, void* context) {
+        g_flightStatus = status;
+      },
+      [](bool connected, float rssi, float snr, void* context) {
+        g_connected = connected;
+        g_rssi = rssi;
+        g_snr = snr;
+      },
+      [](float roll, float pitch, float yaw, void* context) {
+        g_roll = roll;
+        g_pitch = pitch;
+        g_yaw = yaw;
+      },
+      [](double latitude, double longitude, void* context) {
+        g_latitude = latitude;
+        g_longitude = longitude;
+      },
+      [](float ax, float ay, float az, float gx, float gy, float gz,
+         void* context) {
+        g_ax = ax;
+        g_ay = ay;
+        g_az = az;
+        g_gx = gx;
+        g_gy = gy;
+        g_gz = gz;
+      },
+      [](float altitude, void* context) { g_altitude = altitude; },
+      [](float verticalVelocity, void* context) {
+        g_verticalVelocity = verticalVelocity;
+      },
+      [](float pressure1, float pressure2, void* context) {
+        g_pressure1 = pressure1;
+        g_pressure2 = pressure2;
+      },
+      [](float temperature1, float temperature2, void* context) {
+        g_temperature1 = temperature1;
+        g_temperature2 = temperature2;
+      },
+      [](float extension, void* context) { g_airbrakeExtension = extension; }};
 
-  void onLinkStatusUpdate(bool connected, float rssi, float snr)
-  {
-    g_testResult.connected = connected;
-    g_testResult.rssi = rssi;
-    g_testResult.snr = snr;
-  }
+  g_manager.pushCallback(callback);
+}
 
-  void onAttitudeUpdate(float roll, float pitch, float yaw)
-  {
-    g_testResult.roll = roll;
-    g_testResult.pitch = pitch;
-    g_testResult.yaw = yaw;
-  }
-
-  void onMapPositionUpdate(float latitude, float longitude)
-  {
-    g_testResult.latitude = latitude;
-    g_testResult.longitude = longitude;
-  }
-
-  void onAccelerationUpdate(float ax, float ay, float az, float gx, float gy,
-                            float gz)
-  {
-    g_testResult.ax = ax;
-    g_testResult.ay = ay;
-    g_testResult.az = az;
-    g_testResult.gx = gx;
-    g_testResult.gy = gy;
-    g_testResult.gz = gz;
-  }
-
-  void onAltitudeUpdate(float altitude) { g_testResult.altitude = altitude; }
-
-  void onVerticalVelocityUpdate(float verticalVelocity)
-  {
-    g_testResult.verticalVelocity = verticalVelocity;
-  }
-
-  void onPressureUpdate(float pressure1, float pressure2)
-  {
-    g_testResult.pressure1 = pressure1;
-    g_testResult.pressure2 = pressure2;
-  }
-
-  void onTemperatureUpdate(float temperature1, float temperature2)
-  {
-    g_testResult.temperature1 = temperature1;
-    g_testResult.temperature2 = temperature2;
-  }
-
-  void onAirbrakeExtensionUpdate(float extension)
-  {
-    g_testResult.airbrakeExtension = extension;
-  }
-};
-
-void test_telemetry_manager(void)
+void test_update_functions(void)
 {
-  Manager<TestCallback> manager;
+  using namespace mcu::telemetry;
 
-  Result expected{FlightStatus::DESCENT,
-                  true,
-                  -65.0f,
-                  8.0f,
-                  15.0f,
-                  25.0f,
-                  35.0f,
-                  38.0f,
-                  -122.0f,
-                  1.5f,
-                  2.5f,
-                  3.5f,
-                  4.5f,
-                  5.5f,
-                  6.5f,
-                  1500.0f,
-                  -10.0f,
-                  1012.0f,
-                  1011.5f,
-                  26.0f,
-                  25.5f,
-                  .75f};
+  constexpr Manager::Callback callback = {
+      nullptr,
+      [](FlightStatus status, void* context) { g_flightStatus = status; },
+      [](bool connected, float rssi, float snr, void* context) {
+        g_connected = connected;
+        g_rssi = rssi;
+        g_snr = snr;
+      },
+      [](float roll, float pitch, float yaw, void* context) {
+        g_roll = roll;
+        g_pitch = pitch;
+        g_yaw = yaw;
+      },
+      [](double latitude, double longitude, void* context) {
+        g_latitude = latitude;
+        g_longitude = longitude;
+      },
+      [](float ax, float ay, float az, float gx, float gy, float gz,
+         void* context) {
+        g_ax = ax;
+        g_ay = ay;
+        g_az = az;
+        g_gx = gx;
+        g_gy = gy;
+        g_gz = gz;
+      },
+      [](float altitude, void* context) { g_altitude = altitude; },
+      [](float verticalVelocity, void* context) {
+        g_verticalVelocity = verticalVelocity;
+      },
+      [](float pressure1, float pressure2, void* context) {
+        g_pressure1 = pressure1;
+        g_pressure2 = pressure2;
+      },
+      [](float temperature1, float temperature2, void* context) {
+        g_temperature1 = temperature1;
+        g_temperature2 = temperature2;
+      },
+      [](float extension, void* context) { g_airbrakeExtension = extension; }};
 
-  manager.updateFlightStatus(expected.flightStatus);
-  manager.updateLinkStatus(expected.connected, expected.rssi, expected.snr);
-  manager.updateAttitude(expected.roll, expected.pitch, expected.yaw);
-  manager.updateMapPosition(expected.latitude, expected.longitude);
-  manager.updateAcceleration(expected.ax, expected.ay, expected.az, expected.gx,
-                             expected.gy, expected.gz);
-  manager.updateAltitude(expected.altitude);
-  manager.updateVerticalVelocity(expected.verticalVelocity);
-  manager.updatePressure(expected.pressure1, expected.pressure2);
-  manager.updateTemperature(expected.temperature1, expected.temperature2);
-  manager.updateAirbrakeExtension(expected.airbrakeExtension);
+  g_manager.pushCallback(callback);
 
-  TEST_ASSERT_TRUE_MESSAGE(g_testResult.equals(expected),
-                           std::format("Expected: {}, Got: {}",
-                                       expected.toString(),
-                                       g_testResult.toString())
-                               .c_str());
+  {
+    constexpr FlightStatus EXPECTED = FlightStatus::BOOST;
+    g_manager.updateFlightStatus(EXPECTED);
+    TEST_ASSERT_EQUAL_INT(EXPECTED, g_flightStatus);
+  }
+
+  {
+    constexpr struct {
+      bool connected;
+      float rssi;
+      float snr;
+    } EXPECTED = {true, -70.0f, 5.0f};
+
+    g_manager.updateLinkStatus(EXPECTED.connected, EXPECTED.rssi, EXPECTED.snr);
+
+    TEST_ASSERT_EQUAL_INT(EXPECTED.connected, g_connected);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, EXPECTED.rssi, g_rssi);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, EXPECTED.snr, g_snr);
+  }
+
+  {
+    constexpr struct {
+      float roll;
+      float pitch;
+      float yaw;
+    } EXPECTED = {10.0f, 20.0f, 30.0f};
+
+    g_manager.updateAttitude(EXPECTED.roll, EXPECTED.pitch, EXPECTED.yaw);
+
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, EXPECTED.roll, g_roll);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, EXPECTED.pitch, g_pitch);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, EXPECTED.yaw, g_yaw);
+  }
+
+  {
+    constexpr struct {
+      double latitude;
+      double longitude;
+    } EXPECTED = {37.7749, -122.4194};
+
+    g_manager.updateMapPosition(EXPECTED.latitude, EXPECTED.longitude);
+
+    TEST_ASSERT_FLOAT_WITHIN(0.001, EXPECTED.latitude, g_latitude);
+    TEST_ASSERT_FLOAT_WITHIN(0.001, EXPECTED.longitude, g_longitude);
+  }
+
+  {
+    constexpr struct {
+      float ax;
+      float ay;
+      float az;
+      float gx;
+      float gy;
+      float gz;
+    } EXPECTED = {0.1f, 0.2f, 0.3f, 1.0f, 2.0f, 3.0f};
+    g_manager.updateAcceleration(EXPECTED.ax, EXPECTED.ay, EXPECTED.az,
+                                 EXPECTED.gx, EXPECTED.gy, EXPECTED.gz);
+
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, EXPECTED.ax, g_ax);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, EXPECTED.ay, g_ay);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, EXPECTED.az, g_az);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, EXPECTED.gx, g_gx);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, EXPECTED.gy, g_gy);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, EXPECTED.gz, g_gz);
+  }
+
+  {
+    constexpr float EXPECTED_ALTITUDE = 1000.0f;
+    g_manager.updateAltitude(EXPECTED_ALTITUDE);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, EXPECTED_ALTITUDE, g_altitude);
+  }
+
+  {
+    constexpr float EXPECTED_VERTICAL_VELOCITY = 50.0f;
+    g_manager.updateVerticalVelocity(EXPECTED_VERTICAL_VELOCITY);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, EXPECTED_VERTICAL_VELOCITY,
+                             g_verticalVelocity);
+  }
+
+  {
+    constexpr struct {
+      float pressure1;
+      float pressure2;
+    } EXPECTED = {1013.25f, 1012.75f};
+    g_manager.updatePressure(EXPECTED.pressure1, EXPECTED.pressure2);
+
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, EXPECTED.pressure1, g_pressure1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, EXPECTED.pressure2, g_pressure2);
+  }
+
+  {
+    constexpr struct {
+      float temperature1;
+      float temperature2;
+    } EXPECTED = {25.0f, 24.5f};
+    g_manager.updateTemperature(EXPECTED.temperature1, EXPECTED.temperature2);
+
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, EXPECTED.temperature1, g_temperature1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, EXPECTED.temperature2, g_temperature2);
+  }
+
+  {
+    constexpr float EXPECTED_AIRBRAKE_EXTENSION = 0.75f;
+    g_manager.updateAirbrakeExtension(EXPECTED_AIRBRAKE_EXTENSION);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, EXPECTED_AIRBRAKE_EXTENSION,
+                             g_airbrakeExtension);
+  }
+
+  {
+    constexpr struct {
+      float temperature1;
+      float temperature2;
+    } EXPECTED = {25.0f, 24.5f};
+    g_manager.updateTemperature(EXPECTED.temperature1, EXPECTED.temperature2);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, EXPECTED.temperature1, g_temperature1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, EXPECTED.temperature2, g_temperature2);
+  }
+
+  {
+    constexpr struct {
+      float airbrakeExtension;
+    } EXPECTED = {0.75f};
+    g_manager.updateAirbrakeExtension(EXPECTED.airbrakeExtension);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, EXPECTED.airbrakeExtension,
+                             g_airbrakeExtension);
+  }
+}
+
+void test_remove_callback(void)
+{
+  g_manager.updateFlightStatus(mcu::telemetry::FlightStatus::IDLE);
+
+  g_manager.popBackCallback();
+
+  // Update should do nothing
+  g_manager.updateFlightStatus(mcu::telemetry::FlightStatus::BOOST);
+
+  TEST_ASSERT_EQUAL_INT(mcu::telemetry::FlightStatus::IDLE, g_flightStatus);
 }
 
 void setup()
 {
   delay(2000);
   UNITY_BEGIN();
-  RUN_TEST(test_telemetry_manager);
+  RUN_TEST(test_update_functions);
+  RUN_TEST(test_remove_callback);
   UNITY_END();
 }
 

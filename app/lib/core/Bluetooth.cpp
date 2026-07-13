@@ -6,13 +6,13 @@
 #include "Bluetooth.h"
 #include "CoreConfig.h"
 #include "NimBLEServer.h"
-#include "class/cdc/cdc.h"
 
 namespace mcu::bluetooth
 {
 /// ---------------------------------------------------------------------------
 /// ------------------------------- CONSTANTS ---------------------------------
 /// ---------------------------------------------------------------------------
+
 static constexpr uint32_t READ_NOTIFY_PROP =
     NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY;
 
@@ -104,100 +104,102 @@ static constexpr const char* AIRBRAKE_EXTENSION_DESCRIPTION =
 /// ---------------------------------------------------------------------------
 /// -------------------------- MANAGER CALLBACK -------------------------------
 /// ---------------------------------------------------------------------------
-
-Manager::TelemetryCallback::TelemetryCallback(Manager& manager)
-    : m_manager(manager)
+mcu::telemetry::Manager::Callback Manager::getTelemetryCallback()
 {
-}
+  using namespace mcu::telemetry;
 
-void Manager::TelemetryCallback::onFlightStatusUpdate(
-    mcu::telemetry::FlightStatus status) const
-{
-  m_manager.updateFlightStatus(status);
-  bool success = m_manager.m_pFlightStatus->notify();
-  assert(success && "Failed to notify on flight status update");
-  (void)success;
-}
+  return {this,
+          [](FlightStatus status, void* context) {
+            bluetooth::Manager* self =
+                reinterpret_cast<bluetooth::Manager*>(context);
 
-void Manager::TelemetryCallback::onLinkStatusUpdate(bool connected, float rssi,
-                                                    float snr) const
-{
-  m_manager.updateLinkStatus(connected, rssi, snr);
-  bool success = m_manager.m_pLinkStatus->notify();
-  assert(success && "Failed to notify on link status update");
-  (void)success;
-}
+            self->updateFlightStatus(status);
+            bool success = self->m_pFlightStatus->notify();
+            assert(success && "Failed to notify on flight status update");
+            (void)success;
+          },
+          [](bool connected, float rssi, float snr, void* context) {
+            bluetooth::Manager* self =
+                reinterpret_cast<bluetooth::Manager*>(context);
 
-void Manager::TelemetryCallback::onAttitudeUpdate(float roll, float pitch,
-                                                  float yaw) const
-{
-  m_manager.updateAttitude(roll, pitch, yaw);
-  bool success = m_manager.m_pAttitude->notify();
-  assert(success && "Failed to notify on attitude update");
-  (void)success;
-}
+            self->updateLinkStatus(connected, rssi, snr);
+            bool success = self->m_pLinkStatus->notify();
+            assert(success && "Failed to notify on link status update");
+            (void)success;
+          },
+          [](float roll, float pitch, float yaw, void* context) {
+            bluetooth::Manager* self =
+                reinterpret_cast<bluetooth::Manager*>(context);
 
-void Manager::TelemetryCallback::onMapPositionUpdate(double latitude,
-                                                     double longitude) const
-{
-  m_manager.updateMapPosition(latitude, longitude);
-  bool success = m_manager.m_pMapPosition->notify();
-  assert(success && "Failed to notify on map position update");
-  (void)success;
-}
+            self->updateAttitude(roll, pitch, yaw);
+            bool success = self->m_pAttitude->notify();
+            assert(success && "Failed to notify on attitude update");
+            (void)success;
+          },
+          [](double latitude, double longitude, void* context) {
+            bluetooth::Manager* self =
+                reinterpret_cast<bluetooth::Manager*>(context);
 
-void Manager::TelemetryCallback::onAccelerationUpdate(float ax, float ay,
-                                                      float az, float gx,
-                                                      float gy, float gz) const
-{
-  m_manager.updateAcceleration(ax, ay, az, gx, gy, gz);
-  bool success = m_manager.m_pAcceleration->notify();
-  assert(success && "Failed to notify on acceleration update");
-  (void)success;
-}
+            self->updateMapPosition(latitude, longitude);
+            bool success = self->m_pMapPosition->notify();
+            assert(success && "Failed to notify on map position update");
+            (void)success;
+          },
+          [](float ax, float ay, float az, float gx, float gy, float gz,
+             void* context) {
+            bluetooth::Manager* self =
+                reinterpret_cast<bluetooth::Manager*>(context);
 
-void Manager::TelemetryCallback::onAltitudeUpdate(float altitude) const
-{
-  m_manager.updateAltitude(altitude);
-  bool success = m_manager.m_pAltitude->notify();
-  assert(success && "Failed to notify on altitude update");
-  (void)success;
-}
+            self->updateAcceleration(ax, ay, az, gx, gy, gz);
+            bool success = self->m_pAcceleration->notify();
+            assert(success && "Failed to notify on acceleration update");
+            (void)success;
+          },
+          [](float altitude, void* context) {
+            bluetooth::Manager* self =
+                reinterpret_cast<bluetooth::Manager*>(context);
 
-void Manager::TelemetryCallback::onVerticalVelocityUpdate(
-    float verticalVelocity) const
-{
-  m_manager.updateVerticalVelocity(verticalVelocity);
-  bool success = m_manager.m_pVerticalVelocity->notify();
-  assert(success && "Failed to notify on vertical velocity update");
-  (void)success;
-}
+            self->updateAltitude(altitude);
+            bool success = self->m_pAltitude->notify();
+            assert(success && "Failed to notify on altitude update");
+            (void)success;
+          },
+          [](float verticalVelocity, void* context) {
+            bluetooth::Manager* self =
+                reinterpret_cast<bluetooth::Manager*>(context);
 
-void Manager::TelemetryCallback::onPressureUpdate(float pressure1,
-                                                  float pressure2) const
-{
-  m_manager.updatePressure(pressure1, pressure2);
-  bool success = m_manager.m_pPressure->notify();
-  assert(success && "Failed to notify on pressure update");
-  (void)success;
-}
+            self->updateVerticalVelocity(verticalVelocity);
+            bool success = self->m_pVerticalVelocity->notify();
+            assert(success && "Failed to notify on vertical velocity update");
+            (void)success;
+          },
+          [](float pressure1, float pressure2, void* context) {
+            bluetooth::Manager* self =
+                reinterpret_cast<bluetooth::Manager*>(context);
 
-void Manager::TelemetryCallback::onTemperatureUpdate(float temperature1,
-                                                     float temperature2) const
-{
-  m_manager.updateTemperature(temperature1, temperature2);
-  bool success = m_manager.m_pTemperature->notify();
-  assert(success && "Failed to notify on temperature update");
-  (void)success;
-}
+            self->updatePressure(pressure1, pressure2);
+            bool success = self->m_pPressure->notify();
+            assert(success && "Failed to notify on pressure update");
+            (void)success;
+          },
+          [](float temperature1, float temperature2, void* context) {
+            bluetooth::Manager* self =
+                reinterpret_cast<bluetooth::Manager*>(context);
 
-void Manager::TelemetryCallback::onAirbrakeExtensionUpdate(
-    float extension) const
-{
-  m_manager.updateAirbrakeExtension(extension);
-  bool success = m_manager.m_pAirbrakeExtension->notify();
-  assert(success && "Failed to notify on airbrake extension update");
-  (void)success;
+            self->updateTemperature(temperature1, temperature2);
+            bool success = self->m_pTemperature->notify();
+            assert(success && "Failed to notify on temperature update");
+            (void)success;
+          },
+          [](float extension, void* context) {
+            bluetooth::Manager* self =
+                reinterpret_cast<bluetooth::Manager*>(context);
+
+            self->updateAirbrakeExtension(extension);
+            bool success = self->m_pAirbrakeExtension->notify();
+            assert(success && "Failed to notify on airbrake extension update");
+            (void)success;
+          }};
 }
 
 /// ---------------------------------------------------------------------------
@@ -407,23 +409,6 @@ Manager::Manager()
   pServer->start();
 
   NimBLEAdvertising* pAdvertising = NimBLEDevice::getAdvertising();
-  //   success = pAdvertising->addServiceUUID(FLIGHT_CONTROL_SERVICE_UUID);
-  //   assert(success && "Failed to add flight control service UUID to
-  //   advertising");
-
-  //   success = pAdvertising->addServiceUUID(NAVIGATION_CONTROL_SERVICE_UUID);
-  //   assert(success &&
-  //          "Failed to add navigation control service UUID to advertising");
-
-  //   success =
-  //   pAdvertising->addServiceUUID(ENVIRONMENTAL_CONTROL_SERVICE_UUID);
-  //   assert(success &&
-  //          "Failed to add environmental control service UUID to
-  //          advertising");
-
-  //   success = pAdvertising->addServiceUUID(ACTUATOR_CONTROL_SERVICE_UUID);
-  //   assert(success &&
-  //          "Failed to add actuator control service UUID to advertising");
 
   pAdvertising->enableScanResponse(true);
   success = pAdvertising->setName(MCU_BLE_DEVICE_NAME);
@@ -431,11 +416,6 @@ Manager::Manager()
 
   success = pAdvertising->start();
   assert(success && "Failed to start advertising");
-}
-
-Manager::TelemetryCallback Manager::getTelemetryCallback()
-{
-  return TelemetryCallback(*this);
 }
 
 std::uint8_t Manager::getConnectedClients() const

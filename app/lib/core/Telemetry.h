@@ -7,6 +7,8 @@
 
 #include <concepts>
 #include <cstdint>
+#include <functional>
+#include <initializer_list>
 #include <tuple>
 #include <utility>
 
@@ -24,123 +26,83 @@ enum class FlightStatus : std::uint8_t {
   DESCENT
 };
 
-/// @brief A concept that defines the required interface for a telemetry
-/// callback. Any class that wants to receive telemetry updates must implement
-/// this interface.
-template <typename T>
-concept ManagerCallback = requires(T t) {
-  requires requires(FlightStatus status) {
-    { t.onFlightStatusUpdate(status) } -> std::same_as<void>;
-  } && requires(bool connected, float rssi, float snr) {
-    { t.onLinkStatusUpdate(connected, rssi, snr) } -> std::same_as<void>;
-  } && requires(float roll, float pitch, float yaw) {
-    { t.onAttitudeUpdate(roll, pitch, yaw) } -> std::same_as<void>;
-  } && requires(double latitude, double longitude) {
-    { t.onMapPositionUpdate(latitude, longitude) } -> std::same_as<void>;
-  } && requires(float ax, float ay, float az, float gx, float gy, float gz) {
-    { t.onAccelerationUpdate(ax, ay, az, gx, gy, gz) } -> std::same_as<void>;
-  } && requires(float altitude) {
-    { t.onAltitudeUpdate(altitude) } -> std::same_as<void>;
-  } && requires(float verticalVelocity) {
-    { t.onVerticalVelocityUpdate(verticalVelocity) } -> std::same_as<void>;
-  } && requires(float pressure1, float pressure2) {
-    { t.onPressureUpdate(pressure1, pressure2) } -> std::same_as<void>;
-  } && requires(float temperature1, float temperature2) {
-    { t.onTemperatureUpdate(temperature1, temperature2) } -> std::same_as<void>;
-  } && requires(float extension) {
-    { t.onAirbrakeExtensionUpdate(extension) } -> std::same_as<void>;
-  };
-};
-
 /// @brief A @b synchronous telemetry manager that handles the collection and
 /// transmission of telemetry data. It can manage multiple callback objects that
 /// respond to telemetry updates.
-///
-/// @tparam Callbacks A variadic template parameter pack for the callback types.
-/// each type must satisfy the @c ManagerCallback concept.
-/// @pre At least one callback type must be provided.
-template <typename... Callbacks>
-  requires(sizeof...(Callbacks) >= 1 && (ManagerCallback<Callbacks> && ...))
 class Manager
 {
 public:
-  /// @brief Default constructor: calls the default constructor of each
-  /// callback.
-  ///
-  /// @see https://en.cppreference.com/cpp/utility/tuple/tuple (1) for details
-  /// on the requirements for this constructor to be explicit/available.
-  constexpr explicit(!requires { [](std::tuple<Callbacks...>) {}({}); })
-      Manager()
-    requires requires { std::tuple<Callbacks...>(); }
-      : m_callbacks()
-  {
-  }
+  /// @brief A callback interface for telemetry updates.
+  struct Callback {
+    void* context; //< User-defined context pointer for callback functions.
+    void (*onFlightStatusUpdate)(FlightStatus status, void* context);
+    void (*onLinkStatusUpdate)(bool connected, float rssi, float snr,
+                               void* context);
+    void (*onAttitudeUpdate)(float roll, float pitch, float yaw, void* context);
+    void (*onMapPositionUpdate)(double latitude, double longitude,
+                                void* context);
+    void (*onAccelerationUpdate)(float ax, float ay, float az, float gx,
+                                 float gy, float gz, void* context);
+    void (*onAltitudeUpdate)(float altitude, void* context);
+    void (*onVerticalVelocityUpdate)(float verticalVelocity, void* context);
+    void (*onPressureUpdate)(float pressure1, float pressure2, void* context);
+    void (*onTemperatureUpdate)(float temperature1, float temperature2,
+                                void* context);
+    void (*onAirbrakeExtensionUpdate)(float extension, void* context);
+  };
 
-  /// @brief Direct constructor: initializes each callback with the
-  /// correspinding argument.
-  ///
-  /// @param callbacks The callback objects to be used for telemetry updates.
-  ///
-  /// @see https://en.cppreference.com/w/cpp/utility/tuple/tuple (2) for
-  /// details on the requirements for this constructor to be explicit/available.
-  constexpr explicit(!requires {
-    [](std::tuple<Callbacks...>) {}({std::declval<Callbacks>()...});
-  }) Manager(const Callbacks&... callbacks)
-    requires requires { std::tuple<Callbacks...>(callbacks...); }
-      : m_callbacks(callbacks...)
-  {
-  }
+  /// @brief Default constructor initializes the telemetry manager with no
+  /// callbacks.
+  Manager();
 
-  /// @brief Converting constructor: initializes each callback with the
-  /// corresponding value in @c std::forward<Args>(args)
+  /// @brief Initializes the telemetry manager with a list of callbacks.
   ///
-  /// @tparam Args The types of the arguments to be forwarded to the callbacks.
-  /// @param args The arguments to be forwarded to the callbacks.
+  /// @param callbacks A list of @c Callback objects to be managed by the
+  /// telemetry manager.
+  Manager(std::initializer_list<Callback> callbacks);
+
+  Manager(const Manager&) = delete;
+  Manager& operator=(const Manager&) = delete;
+  Manager(Manager&&) = delete;
+  Manager& operator=(Manager&&) = delete;
+
+  /// @brief Pushes a new callback to the telemetry manager.
   ///
-  /// @see https://en.cppreference.com/w/cpp/utility/tuple/tuple (3) for details
-  /// on the requirements for this constructor to be explicit/available.
+  /// @param callback A @c Callback object to be added to the telemetry manager.
+  void pushCallback(const Callback& callback);
+
+  /// @brief Emplaces a new callback to the telemetry manager.
+  ///
+  /// @tparam Args The types of the arguments to construct the callback.
+  /// @param args The arguments to construct the callback.
+  /// @pre The arguments must be constructible into a @c Callback object.
   template <typename... Args>
-  constexpr explicit(!requires {
-    [](std::tuple<Callbacks...>) {}({std::declval<Args>()...});
-  }) Manager(Args&&... args)
-    requires requires { std::tuple<Callbacks...>(std::forward<Args>(args)...); }
-      : m_callbacks(std::forward<Args>(args)...)
+    requires(std::constructible_from<Callback, Args...>)
+  void emplaceCallback(Args&&... args)
   {
+    assert(isValidCallback(Callback{std::forward<Args>(args)...}) &&
+           "Invalid callback: all function pointers must be non-nullptr");
+    m_callbacks.emplace_back(std::forward<Args>(args)...);
   }
 
-  // Deleted copy and move constructors to prevent copying or moving the manager
-  constexpr Manager(const Manager&) = delete;
-  constexpr Manager& operator=(const Manager&) = delete;
-  constexpr Manager(Manager&&) = delete;
-  constexpr Manager& operator=(Manager&&) = delete;
+  /// @brief Removes the last callback from the telemetry manager.
+  ///
+  /// @pre There must be at least one callback in the manager.
+  void popBackCallback();
 
   /// @brief Updates the current state of the rocket for telemetry
   /// transmission.
   ///
   /// @param state A @c State enum value representing the current state of the
   /// rocket.
-  constexpr void updateFlightStatus(FlightStatus status)
-  {
-    std::apply(
-        [=](auto&... callback) {
-          (callback.onFlightStatusUpdate(status), ...);
-        },
-        m_callbacks);
-  }
+  void updateFlightStatus(FlightStatus status);
 
   /// @brief Updates the link status for telemetry transmission.
   ///
   /// @param connected Whether the LoRa link is currently established.
   /// @param rssi Received Signal Strength Indicator in dBm.
   /// @param snr Signal-to-Noise Ratio in dB.
-  constexpr void updateLinkStatus(bool connected, float rssi, float snr)
-  {
-    std::apply(
-        [&](auto&... callback) {
-          (callback.onLinkStatusUpdate(connected, rssi, snr), ...);
-        },
-        m_callbacks);
-  }
+  void updateLinkStatus(bool connected, float rssi, float snr);
 
   /// @brief Updates the rotation axes (roll, pitch, yaw) for telemetry
   /// transmission.
@@ -148,28 +110,14 @@ public:
   /// @param roll Roll angle in degrees.
   /// @param pitch Pitch angle in degrees.
   /// @param yaw Yaw angle in degrees.
-  constexpr void updateAttitude(float roll, float pitch, float yaw)
-  {
-    std::apply(
-        [=](auto&... callback) {
-          (callback.onAttitudeUpdate(roll, pitch, yaw), ...);
-        },
-        m_callbacks);
-  }
+  void updateAttitude(float roll, float pitch, float yaw);
 
   /// @brief Updates the position (latitude, longitude) for telemetry
   /// transmission.
   ///
   /// @param latitude Latitude in degrees.
   /// @param longitude Longitude in degrees.
-  constexpr void updateMapPosition(double latitude, double longitude)
-  {
-    std::apply(
-        [=](auto&... callback) {
-          (callback.onMapPositionUpdate(latitude, longitude), ...);
-        },
-        m_callbacks);
-  }
+  void updateMapPosition(double latitude, double longitude);
 
   /// @brief Updates the acceleration values for telemetry transmission.
   ///
@@ -179,78 +127,45 @@ public:
   /// @param gx Angular velocity around the x-axis in degrees per second.
   /// @param gy Angular velocity around the y-axis in degrees per second.
   /// @param gz Angular velocity around the z-axis in degrees per second.
-  constexpr void updateAcceleration(float ax, float ay, float az, float gx,
-                                    float gy, float gz)
-  {
-    std::apply(
-        [=](auto&... callback) {
-          (callback.onAccelerationUpdate(ax, ay, az, gx, gy, gz), ...);
-        },
-        m_callbacks);
-  }
+  void updateAcceleration(float ax, float ay, float az, float gx, float gy,
+                          float gz);
 
   /// @brief Updates the altitude for telemetry transmission.
   ///
   /// @param altitude Altitude in meters.
-  constexpr void updateAltitude(float altitude)
-  {
-    std::apply(
-        [=](auto&... callback) { (callback.onAltitudeUpdate(altitude), ...); },
-        m_callbacks);
-  }
+  void updateAltitude(float altitude);
 
   /// @brief Updates the vertical velocity for telemetry transmission.
   ///
   /// @param verticalVelocity Vertical velocity in meters per second.
-  constexpr void updateVerticalVelocity(float verticalVelocity)
-  {
-    std::apply(
-        [=](auto&... callback) {
-          (callback.onVerticalVelocityUpdate(verticalVelocity), ...);
-        },
-        m_callbacks);
-  }
+  void updateVerticalVelocity(float verticalVelocity);
 
   /// @brief Updates the pressure readings from two barometers for telemetry
   /// transmission.
   ///
   /// @param pressure1 Pressure reading from the first barometer in mBar.
   /// @param pressure2 Pressure reading from the second barometer in mBar.
-  constexpr void updatePressure(float pressure1, float pressure2)
-  {
-    std::apply(
-        [=](auto&... callback) {
-          (callback.onPressureUpdate(pressure1, pressure2), ...);
-        },
-        m_callbacks);
-  }
+  void updatePressure(float pressure1, float pressure2);
 
   /// @brief Updates the temperature readings for telemetry transmission.
   ///
   /// @param temperature1 Temperature reading from the first sensor in degrees.
   /// @param temperature2 Temperature reading from the second sensor in degrees.
-  constexpr void updateTemperature(float temperature1, float temperature2)
-  {
-    std::apply(
-        [=](auto&... callback) {
-          (callback.onTemperatureUpdate(temperature1, temperature2), ...);
-        },
-        m_callbacks);
-  }
+  void updateTemperature(float temperature1, float temperature2);
 
   /// @brief Updates the airbrake extension
   ///
   /// @param extension Airbrake extension percentage [0.0, 1.0]
-  constexpr void updateAirbrakeExtension(float extension)
-  {
-    std::apply(
-        [=](auto&... callback) {
-          (callback.onAirbrakeExtensionUpdate(extension), ...);
-        },
-        m_callbacks);
-  }
+  void updateAirbrakeExtension(float extension);
 
 private:
-  std::tuple<Callbacks...> m_callbacks;
+  /// @brief Checks if a given callback is valid: all fptrs are non-nullptr
+  ///
+  /// @param callback The callback to validate.
+  /// @return True if the callback is valid, false otherwise.
+  static bool isValidCallback(const Callback& callback);
+
+  std::vector<Callback>
+      m_callbacks; //< List of registered callbacks for telemetry updates.
 };
 } // namespace mcu::telemetry

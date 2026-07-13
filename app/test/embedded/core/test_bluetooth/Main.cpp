@@ -12,8 +12,8 @@ void tearDown(void) {}
 void test_flight_status_update()
 {
   mcu::bluetooth::Manager bluetoothManager;
-  mcu::telemetry::Manager<mcu::bluetooth::Manager::TelemetryCallback>
-      telemetryManager(bluetoothManager.getTelemetryCallback());
+  mcu::telemetry::Manager telemetryManager(
+      {bluetoothManager.getTelemetryCallback()});
 
   Serial.print("Waiting for Bluetooth client to connect...");
   while (!bluetoothManager.getConnectedClients()) {

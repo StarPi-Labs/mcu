@@ -6,6 +6,7 @@
 /// @version 1.0
 
 #include <concepts>
+#include <cstdint>
 #include <tuple>
 #include <utility>
 
@@ -13,7 +14,7 @@ namespace mcu::telemetry
 {
 /// @brief Represents the different states of the rocket for telemetry
 /// purposes.
-enum class FlightStatus {
+enum class FlightStatus : std::uint8_t {
   IDLE,
   ARMED,
   BOOST,
@@ -34,7 +35,7 @@ concept ManagerCallback = requires(T t) {
     { t.onLinkStatusUpdate(connected, rssi, snr) } -> std::same_as<void>;
   } && requires(float roll, float pitch, float yaw) {
     { t.onAttitudeUpdate(roll, pitch, yaw) } -> std::same_as<void>;
-  } && requires(float latitude, float longitude) {
+  } && requires(double latitude, double longitude) {
     { t.onMapPositionUpdate(latitude, longitude) } -> std::same_as<void>;
   } && requires(float ax, float ay, float az, float gx, float gy, float gz) {
     { t.onAccelerationUpdate(ax, ay, az, gx, gy, gz) } -> std::same_as<void>;
@@ -161,7 +162,7 @@ public:
   ///
   /// @param latitude Latitude in degrees.
   /// @param longitude Longitude in degrees.
-  constexpr void updateMapPosition(float latitude, float longitude)
+  constexpr void updateMapPosition(double latitude, double longitude)
   {
     std::apply(
         [=](auto&... callback) {

@@ -121,6 +121,8 @@ TASK imu_task(TaskDescriptor_t *self)
 			// Update the relative orientation of the board using
 			// the Madgwick filter, readings are in mg and mdps, so
 			// conversion is needed
+			correct_gyro(&calib, &sample);
+			
 			orientation.updateIMU(
 				(float)sample.gyroscope[0]/1000.0f,
 				(float)sample.gyroscope[1]/1000.0f,

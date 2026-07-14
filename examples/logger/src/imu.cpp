@@ -20,9 +20,43 @@ static void IRAM_ATTR imu_fifo_interrupt()
 	interrupt_flag = true;
 }
  */
+volatile bool in_free_fall = false;
+
+
+void update_sensitivity(const FIFO_Sample &sample){
+	if (in_free_fall){
+		float sens;
+		if (IMU.Get_X_Sensitivity(&sens) == LSM6DSO32_OK) 
+			IMU.Set_X_FS(LSM6DSO32_4g);
+		return;
+	}
+	
+	int32_t accTot = sample.accelerometer[0]*sample.accelerometer[0] + sample.accelerometer[1]*sample.accelerometer[1] + sample.accelerometer[2]*sample.accelerometer[2];
+
+	
+	if (accTot < 4 * 1000) {
+		IMU.Set_X_FS(LSM6DSO32_4g);
+		return;
+	}
+
+	if (accTot < 8 * 1000) {
+		IMU.Set_X_FS(LSM6DSO32_8g);		
+		return;	
+	}
+
+	if (accTot < 16 * 1000) { 
+		IMU.Set_X_FS(LSM6DSO32_16g);		
+		return;
+	}
+}
+
 
 float g_cal = 0.0f;
 
+void IRAM_ATTR check_free_fall()
+{
+	in_free_fall = true;
+}
 
 void imu_setup()
 {
@@ -46,13 +80,15 @@ void imu_setup()
 	IMU.Enable_X();
 	IMU.Enable_G();
 
-	/*
-	// TODO: define in imu.h
 	IMU.Set_X_FS(LSM6DSO32_32g);
 	IMU.Set_G_FS(LSM6DSO32_2000dps);
 
-	// TODO: define in imu.h
-	*/
+	IMU.Enable_Free_Fall_Detection(LSM6DSO32_INT1_PIN);
+	IMU.Set_Free_Fall_Threshold(500);// 500 - 438 - 312 mg
+
+	//da controllare che sia giusto
+	IMU.Set_Free_Fall_Duration(63); //cicli ODR   
+
 
 #if IMU_FIFO_ENABLE
 	// FIFO Configuration
@@ -67,7 +103,7 @@ void imu_setup()
 	// FIFO Interrupt
 //	IMU.Set_FIFO_Watermark_Level(IMU_FIFO_WATERMARK);
 //	pinMode(IMU_INT1, INPUT_PULLDOWN);
-//	attachInterrupt(digitalPinToInterrupt(IMU_INT1), imu_fifo_interrupt, RISING);
+	attachInterrupt(digitalPinToInterrupt(IMU_INT1), check_free_fall, RISING);
 #endif
 
 	const int cal_time_ms = 5000;
@@ -87,6 +123,8 @@ void imu_setup()
 	}
 	g_cal /= samples;
 }
+
+
 
 
 int imu_get_sample(FIFO_Sample *sample)

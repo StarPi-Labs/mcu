@@ -14,7 +14,9 @@ typedef struct {
 
 
 extern LSM6DSO32Sensor IMU;
-
+extern volatile bool in_free_fall;
 
 void imu_setup();
+void update_sensitivity(const FIFO_Sample &sample);
+void IRAM_ATTR check_free_fall();
 int imu_get_sample(FIFO_Sample *sample);

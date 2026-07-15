@@ -67,6 +67,7 @@ void gps_update(GPSData *data)
 				};
 				settimeofday(&tv, NULL);
 				log(S_GPS, T_SYSLOG, "System time updated");
+				// TODO: the lora should re-sync
 			}
 		}
 	}

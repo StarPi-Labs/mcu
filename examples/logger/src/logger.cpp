@@ -20,6 +20,14 @@ uint64_t now_us(void)
 }
 
 
+uint64_t now_ms(void)
+{
+	struct timeval tv_now;
+	gettimeofday(&tv_now, NULL);
+	return (uint64_t)tv_now.tv_sec * 1000ULL + tv_now.tv_usec / 1000;
+}
+
+
 // initialize the default message queue, this should be called before using any
 // of the other message queue functions
 bool logger_init(void)
@@ -239,4 +247,3 @@ void log(SourceSubsystem src, MessageType type, const char *s)
 	msg.payload.s = s;
 	logger_sort_message(&msg);
 }
-

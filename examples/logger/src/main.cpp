@@ -63,7 +63,7 @@ void setup(void)
 	altitude.setG(g_cal);
 
 	barometer_setup();
-	lora_setup(BAND_L, TX_FORCE);
+	lora_setup(BAND_L, TX_FORCE, LORA_FC_ID);
 	gps_setup();
 
 	if (!sdcard_init()) {
@@ -254,14 +254,14 @@ TASK lora_formatter_task(TaskDescriptor_t *self)
 
 		LogMessage msg;
 
-		LoRaPayload *pl = lora_get_tx_packet();
+		LoRaDataPacket *dp = lora_get_tx_packet();
 		while (xQueueReceive(lora_msg_queue, &msg, 0) == pdTRUE) {
 			switch (msg.type) {
 			case T_ALT_SPEED:
 				if (msg.payload_type == P_FVEC2) {
-					pl->imu.altitude = float16(msg.payload.fv2.x).getBinary();
-					pl->imu.vspeed = float16(msg.payload.fv2.y).getBinary();
-					pl->imu.dt = lora_compute_dt(pl, msg.timestamp);
+					dp->imu.altitude = float16(msg.payload.fv2.x).getBinary();
+					dp->imu.vspeed = float16(msg.payload.fv2.y).getBinary();
+					dp->imu.dt = msg.timestamp/1000 - u48le_to_u64(dp->header.tx_time);
 				}
 				break;
 			case T_ORIENTATION: {
@@ -271,23 +271,23 @@ TASK lora_formatter_task(TaskDescriptor_t *self)
 					float p = msg.payload.fv3.y * 0.0174533; // pitch in radians
 					float a = acos(cos(p)*cos(r)) * 57.2958; // total pitch from vertical in degrees
 
-					pl->imu.attitude = float16(a).getBinary();
-					pl->imu.dt = lora_compute_dt(pl, msg.timestamp);
+					dp->imu.attitude = float16(a).getBinary();
+					dp->imu.dt = msg.timestamp/1000 - u48le_to_u64(dp->header.tx_time);
 				}
 				break;
 			}
 			case T_PRESSURE:
 				if (msg.payload_type == P_FVEC2) {
-					pl->baro.p1 = float16(msg.payload.fv2.x).getBinary();
-					pl->baro.p2 = float16(msg.payload.fv2.y).getBinary();
-					pl->baro.dt = lora_compute_dt(pl, msg.timestamp);
+					dp->baro.p1 = float16(msg.payload.fv2.x).getBinary();
+					dp->baro.p2 = float16(msg.payload.fv2.y).getBinary();
+					dp->baro.dt = msg.timestamp/1000 - u48le_to_u64(dp->header.tx_time);
 				}
 				break;
 			case T_GPS:
 				if (msg.payload_type == P_FVEC2) {
-					pl->gps.latitude = msg.payload.fv2.x;
-					pl->gps.longitude = msg.payload.fv2.y;
-					pl->gps.dt = lora_compute_dt(pl, msg.timestamp);
+					dp->gps.latitude = msg.payload.fv2.x;
+					dp->gps.longitude = msg.payload.fv2.y;
+					dp->gps.dt = msg.timestamp/1000 - u48le_to_u64(dp->header.tx_time);
 				}
 				break;
 			// TODO: append syslog
@@ -303,20 +303,11 @@ TASK lora_formatter_task(TaskDescriptor_t *self)
 TASK lora_transmitter_task(TaskDescriptor_t *self)
 {
 	self->last_wake = xTaskGetTickCount();
-	uint8_t packet_num = 0;
 
 	while (true) {
-		if (lora_is_transmission_done()) {
-			if (xSemaphoreTake(spi_semaphore, portMAX_DELAY) == pdTRUE) {
-				//LOG("[LoRa]: Sending packet %d", packet_num);
-				lora_start_transmission();
-				lora_prepare_next_packet(packet_num++);
-				xSemaphoreGive(spi_semaphore);
-			}
-		} else {
-			// TODO: listen, implement half-duplex communication
-		}
-		TASK_WAIT_HZ(self, LORA_TX_TASK_HZ);
+		// Run the lora radio state machine
+		LoRaFCState state = lora_fc_state_machine();
+		Serial.println(state);
 	}
 }
 

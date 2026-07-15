@@ -79,6 +79,7 @@ void log(SourceSubsystem src, MessageType type, const char *s);
 bool logger_init(void);
 
 uint64_t now_us(void);
+uint64_t now_ms(void);
 
 #define TO_XSTR(s) TO_STR(s)
 #define TO_STR(s) #s

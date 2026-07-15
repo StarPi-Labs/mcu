@@ -10,7 +10,9 @@
 #include "lora.h"
 #include "sdcard.h"
 #include "task.h"
+#include <Bluetooth.h>
 #include <Logging.h>
+#include <Telemetry.h>
 
 SPIClass SPI2(FSPI);
 TwoWire I2C1(0);
@@ -21,6 +23,9 @@ Adafruit_Mahony orientation;
 // Altitude and veritcal velocity state filter, used to sense when to deploy
 // the parachute
 KalmanFilter altitude;
+
+static mcu::telemetry::Manager g_telemetryManager;
+static mcu::bluetooth::Manager g_bluetoothManager;
 
 extern float g_cal;
 
@@ -67,6 +72,10 @@ void setup(void)
       tskIDLE_PRIORITY + 1, 4096);
 
   mcu::log::init();
+
+  g_telemetryManager.pushBackCallback(mcu::telemetry::LOG_CALLBACK);
+  g_telemetryManager.pushBackCallback(
+      g_bluetoothManager.getTelemetryCallback());
 
   imu_setup();
   altitude.setG(g_cal);
@@ -149,14 +158,17 @@ TASK imu_task(TaskDescriptor_t* self)
                          false // TODO: airbrake trigger
         );
 
-        mcu_log_info("imu", "Orientation ({:.3f}, {:.3f}, {:.3f})",
-                     orientation.getRoll(), orientation.getPitch(),
-                     orientation.getYaw());
-        mcu_log_info("imu", "Acc: ({}, {}, {})", sample.accelerometer[0],
-                     sample.accelerometer[1], sample.accelerometer[2]);
-        mcu_log_info("imu", "Gyro: ({}, {}, {})", sample.gyroscope[0],
-                     sample.gyroscope[1], sample.gyroscope[2]);
-        mcu_log_info("imu", "Attitude: {:.3f}", attitude_rad * 57.29578f);
+        g_telemetryManager.updateAttitude(orientation.getRoll(),
+                                          orientation.getPitch(),
+                                          orientation.getYaw());
+
+        g_telemetryManager.updateAcceleration(
+            (float)sample.accelerometer[0] / 1000.0f,
+            (float)sample.accelerometer[1] / 1000.0f,
+            (float)sample.accelerometer[2] / 1000.0f,
+            (float)sample.gyroscope[0] / 1000.0f,
+            (float)sample.gyroscope[1] / 1000.0f,
+            (float)sample.gyroscope[2] / 1000.0f);
       }
       xSemaphoreGive(spi_semaphore);
     }
@@ -180,8 +192,11 @@ TASK barometer_task(TaskDescriptor_t* self)
     // data
     altitude.update(alt);
 
-    mcu_log_info("baro", "Altitude {:.3f}", altitude.getState()[0]);
-    mcu_log_info("baro", "Baro: ({:.3f}, {:.3f})", sample1.altitude, sample2.altitude);
+    g_telemetryManager.updateAltitude(altitude.getState()[0]);
+    g_telemetryManager.updateVerticalVelocity(altitude.getState()[1]);
+    g_telemetryManager.updatePressure(sample1.pressure, sample2.pressure);
+    g_telemetryManager.updateTemperature(sample1.temperature,
+                                         sample2.temperature);
 
     TASK_WAIT_HZ(self, BARO_TASK_HZ);
   }
@@ -198,9 +213,7 @@ TASK gps_task(TaskDescriptor_t* self)
     if (data.num_sat < GPS_MIN_SATELLITES) {
       mcu_log_info("gps", "Not enough satellites: {}", data.num_sat);
     } else {
-      mcu_log_info("gps",
-          "({}) pos: ({:f}, {:f}), alt: {:f}m, speed: {:f}kmh, time:{}",
-          data.num_sat, data.lat, data.lon, data.alt, data.kmh, data.unix_time);
+      g_telemetryManager.updateMapPosition(data.lat, data.lon);
     }
 
     TASK_WAIT_HZ(self, GPS_TASK_HZ);

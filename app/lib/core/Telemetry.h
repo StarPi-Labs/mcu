@@ -138,8 +138,8 @@ public:
 
   /// @brief Updates the temperature readings for telemetry transmission.
   ///
-  /// @param temperature1 Temperature reading from the first sensor in degrees.
-  /// @param temperature2 Temperature reading from the second sensor in degrees.
+  /// @param temperature1 Temperature reading from the first sensor in C.
+  /// @param temperature2 Temperature reading from the second sensor in C.
   void updateTemperature(float temperature1, float temperature2);
 
   /// @brief Updates the airbrake extension

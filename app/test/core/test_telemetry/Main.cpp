@@ -77,7 +77,7 @@ void test_update_functions(void)
       },
       [](float extension, void* context) { g_airbrakeExtension = extension; }};
 
-  g_manager.pushCallback(callback);
+  g_manager.pushBackCallback(callback);
 
   {
     constexpr FlightStatus EXPECTED = FlightStatus::BOOST;

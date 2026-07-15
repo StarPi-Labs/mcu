@@ -69,24 +69,10 @@ public:
   Manager(Manager&&) = delete;
   Manager& operator=(Manager&&) = delete;
 
-  /// @brief Pushes a new callback to the telemetry manager.
+  /// @brief Pushes a new callback at the back of the telemetry manager.
   ///
   /// @param callback A @c Callback object to be added to the telemetry manager.
-  void pushCallback(const Callback& callback);
-
-  /// @brief Emplaces a new callback to the telemetry manager.
-  ///
-  /// @tparam Args The types of the arguments to construct the callback.
-  /// @param args The arguments to construct the callback.
-  /// @pre The arguments must be constructible into a @c Callback object.
-  template <typename... Args>
-    requires(std::constructible_from<Callback, Args...>)
-  void emplaceCallback(Args&&... args)
-  {
-    assert(isValidCallback(Callback{std::forward<Args>(args)...}) &&
-           "Invalid callback: all function pointers must be non-nullptr");
-    m_callbacks.emplace_back(std::forward<Args>(args)...);
-  }
+  void pushBackCallback(const Callback& callback);
 
   /// @brief Removes the last callback from the telemetry manager.
   ///
@@ -168,7 +154,18 @@ private:
   /// @return True if the callback is valid, false otherwise.
   static bool isValidCallback(const Callback& callback);
 
-  std::vector<Callback>
-      m_callbacks; //< List of registered callbacks for telemetry updates.
+  std::vector<decltype(Callback::context)> m_context;
+  std::vector<decltype(Callback::onFlightStatusUpdate)> m_onFlightStatusUpdate;
+  std::vector<decltype(Callback::onLinkStatusUpdate)> m_onLinkStatusUpdate;
+  std::vector<decltype(Callback::onAttitudeUpdate)> m_onAttitudeUpdate;
+  std::vector<decltype(Callback::onMapPositionUpdate)> m_onMapPositionUpdate;
+  std::vector<decltype(Callback::onAccelerationUpdate)> m_onAccelerationUpdate;
+  std::vector<decltype(Callback::onAltitudeUpdate)> m_onAltitudeUpdate;
+  std::vector<decltype(Callback::onVerticalVelocityUpdate)>
+      m_onVerticalVelocityUpdate;
+  std::vector<decltype(Callback::onPressureUpdate)> m_onPressureUpdate;
+  std::vector<decltype(Callback::onTemperatureUpdate)> m_onTemperatureUpdate;
+  std::vector<decltype(Callback::onAirbrakeExtensionUpdate)>
+      m_onAirbrakeExtensionUpdate;
 };
 } // namespace mcu::telemetry

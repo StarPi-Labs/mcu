@@ -6,8 +6,8 @@
 #include <array>
 #include <cassert>
 #include <chrono>
-#include <cstdint>
 #include <condition_variable>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <format>
@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "CoreConfig.h"
+#include "Telemetry.h"
 
 #define STRINGIFY(x) _STRINGIFY(x)
 #define _STRINGIFY(x) #x
@@ -299,3 +300,50 @@ void addTarget(const char* name, Handler handler, UBaseType_t priority,
 #else
 #define mcu_log_critical(facility, format, ...)
 #endif
+
+namespace mcu::telemetry
+{
+constexpr Manager::Callback LOG_CALLBACK = {
+    nullptr,
+    [](mcu::telemetry::FlightStatus status, void* context) {
+      mcu_log_info("telemetry", "Flight status: {}", (int)status);
+    },
+    [](bool connected, float rssi, float snr, void* context) {
+      mcu_log_info("telemetry", "Link status: {}, RSSI: {}, SNR: {}", connected,
+                   rssi, snr);
+    },
+    [](float roll, float pitch, float yaw, void* context) {
+      mcu_log_info("telemetry", "Attitude: ({:.3f}d, {:.3f}d, {:.3f}d)", roll,
+                   pitch, yaw);
+    },
+    [](double latitude, double longitude, void* context) {
+      mcu_log_info("telemetry", "Map position: ({:.6f}d, {:.6f}d)", latitude,
+                   longitude);
+    },
+    [](float ax, float ay, float az, float gx, float gy, float gz,
+       void* context) {
+      mcu_log_info("telemetry",
+                   "Acceleration: ({:.3f}g, {:.3f}g, {:.3f}g), "
+                   "Gyroscope: ({:.3f}d/s, {:.3f}d/s, {:.3f}d/s)",
+                   ax, ay, az, gx, gy, gz);
+    },
+    [](float altitude, void* context) {
+      mcu_log_info("telemetry", "Altitude: {:.3f}m", altitude);
+    },
+    [](float verticalVelocity, void* context) {
+      mcu_log_info("telemetry", "Vertical velocity: {:.3f}m/s",
+                   verticalVelocity);
+    },
+    [](float pressure1, float pressure2, void* context) {
+      mcu_log_info("telemetry", "Pressure readings: ({:.3f}mbar, {:.3f}mbar)",
+                   pressure1, pressure2);
+    },
+    [](float temperature1, float temperature2, void* context) {
+      mcu_log_info("telemetry", "Temperature readings: ({:.3f}C, {:.3f}C)",
+                   temperature1, temperature2);
+    },
+    [](float extension, void* context) {
+      mcu_log_info("telemetry", "Airbrake extension: {:.3f}%",
+                   extension * 100.0f);
+    }};
+} // namespace mcu::telemetry

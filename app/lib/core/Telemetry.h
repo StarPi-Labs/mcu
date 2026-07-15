@@ -5,12 +5,14 @@
 /// @author Adnaan Juma
 /// @version 1.0
 
+#include <cassert>
 #include <concepts>
 #include <cstdint>
 #include <functional>
 #include <initializer_list>
 #include <tuple>
 #include <utility>
+#include <vector>
 
 namespace mcu::telemetry
 {

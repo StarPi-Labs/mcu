@@ -33,53 +33,6 @@ static float g_temperature1;
 static float g_temperature2;
 static float g_airbrakeExtension;
 
-void test_add_callback(void)
-{
-  constexpr mcu::telemetry::Manager::Callback callback = {
-      nullptr,
-      [](mcu::telemetry::FlightStatus status, void* context) {
-        g_flightStatus = status;
-      },
-      [](bool connected, float rssi, float snr, void* context) {
-        g_connected = connected;
-        g_rssi = rssi;
-        g_snr = snr;
-      },
-      [](float roll, float pitch, float yaw, void* context) {
-        g_roll = roll;
-        g_pitch = pitch;
-        g_yaw = yaw;
-      },
-      [](double latitude, double longitude, void* context) {
-        g_latitude = latitude;
-        g_longitude = longitude;
-      },
-      [](float ax, float ay, float az, float gx, float gy, float gz,
-         void* context) {
-        g_ax = ax;
-        g_ay = ay;
-        g_az = az;
-        g_gx = gx;
-        g_gy = gy;
-        g_gz = gz;
-      },
-      [](float altitude, void* context) { g_altitude = altitude; },
-      [](float verticalVelocity, void* context) {
-        g_verticalVelocity = verticalVelocity;
-      },
-      [](float pressure1, float pressure2, void* context) {
-        g_pressure1 = pressure1;
-        g_pressure2 = pressure2;
-      },
-      [](float temperature1, float temperature2, void* context) {
-        g_temperature1 = temperature1;
-        g_temperature2 = temperature2;
-      },
-      [](float extension, void* context) { g_airbrakeExtension = extension; }};
-
-  g_manager.pushCallback(callback);
-}
-
 void test_update_functions(void)
 {
   using namespace mcu::telemetry;

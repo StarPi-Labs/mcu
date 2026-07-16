@@ -579,8 +579,7 @@ LoRaFCState lora_fc_state_machine()
 		uint64_t connect_tx_time = 0;
 		uint64_t connect_rx_time = 0;
 
-		lora_start_transmission(&p, sizeof(p), -1, TX_FORCE);
-		if (radio_err) {
+		if (lora_start_transmission(&p, sizeof(p), -1, TX_FORCE) == false || radio_err) {
 			state = STATE_DISCONNECTED;
 			break; // TODO: log err
 		}
@@ -657,17 +656,10 @@ LoRaFCState lora_fc_state_machine()
 		memcpy(&tx_packet, &next_packet, sizeof(tx_packet));
 		xSemaphoreGive(next_packet_mutex);
 
-		lora_start_transmission(&tx_packet, sizeof(LoRaDataPacket), remaining_time - toa);
-		if (radio_err) {
-			state = STATE_DISCONNECTED;
-			break; // TODO: log err
-		}
-		while (lora_is_transmission_done() == false) {
-			vTaskDelay(pdMS_TO_TICKS(WAIT_TIMEOUT_MS));
-		}
-		if (radio_err) {
-			state = STATE_DISCONNECTED;
-			break; // TODO: log err
+		if (lora_start_transmission(&tx_packet, sizeof(LoRaDataPacket), remaining_time - toa)) {
+			while (lora_is_transmission_done() == false) {
+				vTaskDelay(pdMS_TO_TICKS(WAIT_TIMEOUT_MS));
+			}
 		}
 
 		break;
@@ -796,18 +788,15 @@ LoRaFCState lora_gs_state_machine()
 			s.security_window = security_window;
 			s.connected = false;
 
-			lora_start_transmission(&s, sizeof(s), sync_window, TX_FORCE);
-			if (radio_err) {
-				break; // TODO: log err
+			if (lora_start_transmission(&s, sizeof(s), sync_window, TX_FORCE)) {
+				while (lora_is_transmission_done() == false) {
+					vTaskDelay(pdMS_TO_TICKS(WAIT_TIMEOUT_MS));
+				}
+				if (radio_err) {
+					break; // TODO: log err
+				}
+				sync_sent_time = last_tx_time;
 			}
-			while (lora_is_transmission_done() == false) {
-				vTaskDelay(pdMS_TO_TICKS(WAIT_TIMEOUT_MS));
-			}
-			if (radio_err) {
-				break; // TODO: log err
-			}
-
-			sync_sent_time = last_tx_time;
 			break;
 		} else {
 			// Listen for connect response
@@ -851,18 +840,22 @@ LoRaFCState lora_gs_state_machine()
 		a.header.type = PKT_ACCEPT;
 		u64_to_u48le(connect_rx_time, a.connect_time);
 
-		lora_start_transmission(&a, sizeof(a), sync_window/2, TX_FORCE);
-		if (radio_err) {
-			state = STATE_DISCONNECTED;
-			break; // TODO: log err
-		}
+		if (lora_start_transmission(&a, sizeof(a), sync_window/2, TX_FORCE)) {
+			if (radio_err) {
+				state = STATE_DISCONNECTED;
+				break; // TODO: log err
+			}
 
-		while (lora_is_transmission_done() == false) {
-			vTaskDelay(pdMS_TO_TICKS(WAIT_TIMEOUT_MS));
-		}
-		if (radio_err) {
+			while (lora_is_transmission_done() == false) {
+				vTaskDelay(pdMS_TO_TICKS(WAIT_TIMEOUT_MS));
+			}
+			if (radio_err) {
+				state = STATE_DISCONNECTED;
+				break; // TODO: log err
+			}
+		} else {
 			state = STATE_DISCONNECTED;
-			break; // TODO: log err
+			break;
 		}
 		state = STATE_TRANSMIT;
 		break;
@@ -890,10 +883,9 @@ LoRaFCState lora_gs_state_machine()
 			s.security_window = security_window;
 			s.connected = true;
 
-			lora_start_transmission(&s, sizeof(s), sync_window, TX_FORCE);
-			if (radio_err) {
+			if (lora_start_transmission(&s, sizeof(s), sync_window, TX_FORCE) == false || radio_err) {
 				state = STATE_DISCONNECTED;
-				break; // TODO: log err
+				break;
 			}
 			while (lora_is_transmission_done() == false) {
 				vTaskDelay(pdMS_TO_TICKS(WAIT_TIMEOUT_MS));

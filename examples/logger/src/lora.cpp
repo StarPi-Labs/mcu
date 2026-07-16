@@ -738,6 +738,11 @@ LoRaFCState lora_fc_state_machine()
 			if (llabs(drift) > MAX_DRIFT_MS) {
 				clock_delta += drift;
 			}
+
+			// update window parameters from sync packet
+			sync_window = s.sync_window;
+			gs_window = s.gs_window;
+			security_window = s.security_window;
 			break;
 		}
 		case PKT_COMMAND:

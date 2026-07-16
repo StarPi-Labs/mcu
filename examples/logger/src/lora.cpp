@@ -267,7 +267,7 @@ bool lora_start_transmission(void *buffer, uint32_t len, int32_t time_window, Lo
 	case TX_DUTY: {
 		float duty = EU_868_BANDS[freq_band].max_duty / 100.0f;
 		if (duty <= 0.0f) duty = 1.0f;
-		uint64_t min_interval_us = (uint64_t)((float)radio.getTimeOnAir(128) / duty); // FIXME
+		uint64_t min_interval_us = (uint64_t)((float)last_tx_toa / duty); // FIXME
 		uint64_t now = now_us();
 		uint64_t next_allowed = last_tx_time*1000 + min_interval_us;
 

@@ -32,9 +32,6 @@ enum class FlightStatus : std::uint8_t {
 /// @brief A @b synchronous telemetry manager that handles the collection and
 /// transmission of telemetry data. It can manage multiple callback objects that
 /// respond to telemetry updates.
-/// TODO: Consider the use of an entity-component-system (ECS) for the
-/// Callbacks: it would be more cache-friendly and would allow for more flexible
-/// telemetry data management.
 class Manager
 {
 public:

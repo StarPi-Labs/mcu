@@ -626,7 +626,7 @@ LoRaFCState lora_fc_state_machine()
 	case STATE_TRANSMIT: {
 		lora_enter_tx();
 
-		uint32_t toa = radio.getTimeOnAir(sizeof(LoRaDataPacket));
+		uint32_t toa = radio.getTimeOnAir(sizeof(LoRaDataPacket))/1000;
 		int64_t slot = slot_relative_time(sync_time, clock_delta);
 		int64_t remaining_time = sync_window - security_window - slot;
 

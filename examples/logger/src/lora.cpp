@@ -12,11 +12,12 @@ extern SPIClass SPI2;
 Module radio_module(LORA_CS, LORA_DIO1, LORA_RST, LORA_BUSY, SPI2); //nello stack anziché heap
 SX1262 radio(&radio_module);
 
-volatile bool tx_operation_done = false;
-volatile bool rx_operation_done = false;
-volatile uint64_t last_tx_time = 0;
-volatile uint64_t last_rx_time = 0;
-volatile bool radio_err = false;
+static volatile bool tx_operation_done = false;
+static volatile bool rx_operation_done = false;
+static volatile uint64_t last_tx_time = 0;
+static volatile uint64_t last_rx_time = 0;
+static volatile bool radio_err = false;
+static int last_tx_toa = 0;
 
 #define LORA_MAX_PAYLOAD 255
 static uint8_t rx_buffer[LORA_MAX_PAYLOAD];
@@ -286,6 +287,7 @@ bool lora_start_transmission(void *buffer, uint32_t len, int32_t time_window, Lo
 		// ABORT: time window exceeded
 		return false;
 	}
+	last_tx_toa = radio.getTimeOnAir(len)/1000;
 	((LoRaPacketHeader*)buffer)->number = next_order_number++;
 	((LoRaPacketHeader*)buffer)->id = machine_id;
 	adjust_time(buffer);
@@ -312,7 +314,11 @@ bool lora_is_transmission_done(void)
 		} else {
 			radio_err = false;
 		}
+	} else if (millis() - last_tx_time > last_tx_toa*2) {
+		radio_err = true;
+		return true;
 	}
+
 	return tx_operation_done;
 }
 

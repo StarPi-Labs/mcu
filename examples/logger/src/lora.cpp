@@ -718,6 +718,8 @@ LoRaFCState lora_fc_state_machine()
 		}
 
 		LoRaPacketHeader p = lora_get_header();
+		if (p.id != LORA_GS_ID) break;
+
 		switch (p.type) {
 		case PKT_SYNC: {
 			sync_received = true;

@@ -35,3 +35,8 @@
 // Default Bluetooth device name
 #define MCU_BLE_DEVICE_NAME "John StarPi's Rocket"
 #endif
+
+#ifndef MCU_TELEMETRY_MAX_CALLBACKS
+// Maximum number of callbacks for telemetry manager
+#define MCU_TELEMETRY_MAX_CALLBACKS 2
+#endif

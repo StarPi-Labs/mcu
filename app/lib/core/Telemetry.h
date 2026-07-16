@@ -5,6 +5,8 @@
 /// @author Adnaan Juma
 /// @version 1.0
 
+#include "CoreConfig.h"
+#include <array>
 #include <cassert>
 #include <concepts>
 #include <cstdint>
@@ -12,7 +14,6 @@
 #include <initializer_list>
 #include <tuple>
 #include <utility>
-#include <vector>
 
 namespace mcu::telemetry
 {
@@ -156,18 +157,35 @@ private:
   /// @return True if the callback is valid, false otherwise.
   static bool isValidCallback(const Callback& callback);
 
-  std::vector<decltype(Callback::context)> m_context;
-  std::vector<decltype(Callback::onFlightStatusUpdate)> m_onFlightStatusUpdate;
-  std::vector<decltype(Callback::onLinkStatusUpdate)> m_onLinkStatusUpdate;
-  std::vector<decltype(Callback::onAttitudeUpdate)> m_onAttitudeUpdate;
-  std::vector<decltype(Callback::onMapPositionUpdate)> m_onMapPositionUpdate;
-  std::vector<decltype(Callback::onAccelerationUpdate)> m_onAccelerationUpdate;
-  std::vector<decltype(Callback::onAltitudeUpdate)> m_onAltitudeUpdate;
-  std::vector<decltype(Callback::onVerticalVelocityUpdate)>
+  std::size_t m_callbackCount = 0;
+  std::array<decltype(Callback::context), MCU_TELEMETRY_MAX_CALLBACKS>
+      m_context;
+  std::array<decltype(Callback::onFlightStatusUpdate),
+             MCU_TELEMETRY_MAX_CALLBACKS>
+      m_onFlightStatusUpdate;
+  std::array<decltype(Callback::onLinkStatusUpdate),
+             MCU_TELEMETRY_MAX_CALLBACKS>
+      m_onLinkStatusUpdate;
+  std::array<decltype(Callback::onAttitudeUpdate), MCU_TELEMETRY_MAX_CALLBACKS>
+      m_onAttitudeUpdate;
+  std::array<decltype(Callback::onMapPositionUpdate),
+             MCU_TELEMETRY_MAX_CALLBACKS>
+      m_onMapPositionUpdate;
+  std::array<decltype(Callback::onAccelerationUpdate),
+             MCU_TELEMETRY_MAX_CALLBACKS>
+      m_onAccelerationUpdate;
+  std::array<decltype(Callback::onAltitudeUpdate), MCU_TELEMETRY_MAX_CALLBACKS>
+      m_onAltitudeUpdate;
+  std::array<decltype(Callback::onVerticalVelocityUpdate),
+             MCU_TELEMETRY_MAX_CALLBACKS>
       m_onVerticalVelocityUpdate;
-  std::vector<decltype(Callback::onPressureUpdate)> m_onPressureUpdate;
-  std::vector<decltype(Callback::onTemperatureUpdate)> m_onTemperatureUpdate;
-  std::vector<decltype(Callback::onAirbrakeExtensionUpdate)>
+  std::array<decltype(Callback::onPressureUpdate), MCU_TELEMETRY_MAX_CALLBACKS>
+      m_onPressureUpdate;
+  std::array<decltype(Callback::onTemperatureUpdate),
+             MCU_TELEMETRY_MAX_CALLBACKS>
+      m_onTemperatureUpdate;
+  std::array<decltype(Callback::onAirbrakeExtensionUpdate),
+             MCU_TELEMETRY_MAX_CALLBACKS>
       m_onAirbrakeExtensionUpdate;
 };
 } // namespace mcu::telemetry

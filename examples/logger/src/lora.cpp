@@ -118,7 +118,7 @@ void lora_setup(FrequencyBands band, LoRaTxMode mode, uint8_t id, bool respect_p
 
 	radio.setDio2AsRfSwitch(true);
 
-	radio.setFrequency(EU_868_BANDS[band].freq_start_mhz); // TODO: switch channel
+	radio.setFrequency(EU_868_BANDS[band].freq_start_mhz + (float)EU_868_BANDS[band].ch_bw_khz/2000.0); // TODO: switch channel
 	radio.setBandwidth(EU_868_BANDS[band].ch_bw_khz);
 
 	if (respect_power_limit) {

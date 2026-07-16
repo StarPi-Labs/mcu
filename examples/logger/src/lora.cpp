@@ -250,6 +250,7 @@ bool lora_start_transmission(void *buffer, uint32_t len, int32_t time_window, Lo
 	// retries follow common LBT practice for SRD in the 863-870 MHz band.
 	case TX_POLITE: {
 		const int max_cca = 10;
+		randomSeed(millis());
 		for (int i = 0; i < max_cca; i++) {
 			if (lora_is_channel_free()) {
 				break;
@@ -399,9 +400,9 @@ bool lora_is_reception_done(void)
 
 
 
-static bool wait_for_packet(uint64_t timeout_ms)
+static bool wait_for_packet(int64_t timeout_ms)
 {
-	uint64_t start = millis();
+	int64_t start = millis();
 
 	while (lora_is_reception_done() == false) {
 		if (radio_err) {
@@ -858,7 +859,7 @@ LoRaFCState lora_gs_state_machine()
 			state = STATE_DISCONNECTED;
 			break; // TODO: log err
 		}
-		state = STATE_TRANSMIT; // first slot is reserved to FC transmission
+		state = STATE_TRANSMIT;
 		break;
 	}
 

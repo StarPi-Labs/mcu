@@ -381,6 +381,7 @@ bool lora_is_reception_done(void)
 		if (rx_state != RADIOLIB_ERR_NONE) {
 			radio_err = true;
 			log(S_LORA, T_SYSLOG, "[ERR] receive failed");
+			return true;
 		}
 
 		radio_err = false;

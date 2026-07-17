@@ -120,18 +120,12 @@ struct BandRequirements {
 
 
 void lora_setup(FrequencyBands band, LoRaTxMode mode, uint8_t id, bool respect_power_limit = true);
-bool lora_start_transmission(void *buffer, uint32_t len, int32_t time_window, LoRaTxMode tx_mode_override = TX_NONE);
-bool lora_is_transmission_done(void);
-void lora_enter_tx(void);
-void lora_enter_rx(void);
 
 void lora_prepare_next_packet(void);
 LoRaDataPacket* lora_get_tx_packet(void);
 void lora_release_tx_packet(void);
 
 bool lora_is_channel_free(void);
-void lora_start_receive(uint32_t timeout_ms);
-bool lora_is_reception_done(void);
 
 LoRaFCState lora_fc_state_machine(void);
 

@@ -30,16 +30,18 @@ DECLARE_STATIC_SEMAPHORE(spi_semaphore);
 
 DECLARE_STATIC_TASK(imu_task);
 DECLARE_STATIC_TASK(barometer_task);
-DECLARE_STATIC_TASK(gps_task);
+DECLARE_STATIC_TASK_STACK(gps_task, TASK_STACK_2K);
 DECLARE_STATIC_TASK(lora_transmitter_task);
 DECLARE_STATIC_TASK(lora_formatter_task);
-DECLARE_STATIC_TASK(uart_task);
+DECLARE_STATIC_TASK_STACK(uart_task, TASK_STACK_2K);
 DECLARE_STATIC_TASK(sd_formatter_task);
-DECLARE_STATIC_TASK(sd_writer_task);
+DECLARE_STATIC_TASK_STACK(sd_writer_task, TASK_STACK_2K);
+DECLARE_STATIC_TASK_STACK(cmd_handler_task, TASK_STACK_2K);
 
 DECLARE_STATIC_QUEUE(sd_msg_queue, LogMessage, 128);
 DECLARE_STATIC_QUEUE(uart_msg_queue, LogMessage, 128);
 DECLARE_STATIC_QUEUE(lora_msg_queue, LogMessage, 128);
+DECLARE_STATIC_QUEUE(gs_command_queue, uint64_t, 16);
 
 
 void setup(void)
@@ -96,9 +98,11 @@ void setup(void)
 	INIT_STATIC_QUEUE(sd_msg_queue);
 	INIT_STATIC_QUEUE(uart_msg_queue);
 	INIT_STATIC_QUEUE(lora_msg_queue);
+	INIT_STATIC_QUEUE(gs_command_queue);
 	if (sd_msg_queue == NULL   ||
 	    uart_msg_queue == NULL ||
-	    lora_msg_queue == NULL) {
+	    lora_msg_queue == NULL ||
+	    gs_command_queue == NULL) {
 		while (true) {
 			Serial.println("Error creating queues");
 			delay(500);
@@ -115,6 +119,7 @@ void setup(void)
 	INIT_STATIC_TASK(sd_writer_task, "sd writer", NULL, tskIDLE_PRIORITY + 9, 1);
 	INIT_STATIC_TASK(lora_formatter_task, "lora formatter", NULL, tskIDLE_PRIORITY + 8, 1);
 	INIT_STATIC_TASK(lora_transmitter_task, "lora transmitter", NULL, tskIDLE_PRIORITY + 7, 1);
+	INIT_STATIC_TASK(cmd_handler_task, "cmd handler", NULL, tskIDLE_PRIORITY + 6, 1);
 
  	if (
 	    !TASK_IS_INITIALIZED(imu_task)              ||
@@ -124,6 +129,7 @@ void setup(void)
 	    !TASK_IS_INITIALIZED(lora_transmitter_task) ||
 	    !TASK_IS_INITIALIZED(lora_formatter_task)   ||
 	    !TASK_IS_INITIALIZED(sd_formatter_task)     ||
+	    !TASK_IS_INITIALIZED(cmd_handler_task)      ||
 	    !TASK_IS_INITIALIZED(sd_writer_task)) {
 		while (true) {
 			Serial.println("Error creating tasks");
@@ -136,6 +142,9 @@ void setup(void)
 	logger_register_consumer(lora_formatter_task_descriptor.handle, lora_msg_queue, 0xffff, 0xffff);
 	logger_register_consumer(sd_formatter_task_descriptor.handle, sd_msg_queue, 0xffff, 0xffff);
 	logger_register_consumer(uart_task_descriptor.handle, uart_msg_queue, 0xffff, 0xffff);
+
+	lora_set_rx_cmd_task_handle(cmd_handler_task_descriptor.handle);
+	lora_set_rx_cmd_queue(gs_command_queue);
 }
 
 
@@ -307,7 +316,25 @@ TASK lora_transmitter_task(TaskDescriptor_t *self)
 	while (true) {
 		// Run the lora radio state machine
 		LoRaFCState state = lora_fc_state_machine();
-		Serial.println(state);
+		String str;
+		switch(state) {
+		case STATE_DISCONNECTED:
+			str = "STATE_DISCONNECTED";
+			break;
+		case STATE_CONNECTING:
+			str = "STATE_CONNECTING";
+			break;
+		case STATE_TRANSMIT:
+			str = "STATE_TRANSMIT";
+			break;
+		case STATE_RECEIVE:
+			str = "STATE_RECEIVE";
+			break;
+		default:
+			str = "UNKNOWN";
+			break;
+		}
+		Serial.println(str);
 	}
 }
 
@@ -355,5 +382,18 @@ TASK sd_writer_task(TaskDescriptor_t *self)
 	while (true) {
 		sdcard_flush();
 		TASK_WAIT_HZ(self, SD_WRITER_TASK_HZ);
+	}
+}
+
+
+TASK cmd_handler_task(TaskDescriptor_t *self)
+{
+	self->last_wake = xTaskGetTickCount();
+
+	while (true) {
+		ulTaskNotifyTake(pdTRUE, 0);
+		uint64_t cmd;
+		xQueueReceive(gs_command_queue, &cmd, 0);
+		Serial.printf("GROUND STATION COMMAND: %llu\n", cmd);
 	}
 }

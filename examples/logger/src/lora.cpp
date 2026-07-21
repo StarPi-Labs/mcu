@@ -1,3 +1,18 @@
+/*
+ * TODO:
+ * 1. Make get_next_packet() independent of the packet type so that both the GS and FC
+ *    can use the same mechanism
+ * 2. Create RX and TX queues so that a packet can be queued and retransmitted
+ * 3. Add a method for acknowledging packets, especially command packets
+ *
+ * FUTURE IMPROVEMENTS:
+ * 1. The protocol can be simplified by employing slotted CSMA, since there are only
+ *    two peers (the GS and FC) congestion should be manageable
+ * 2. If master-slave syncronization is required then the protocol can be made
+ *    master-polled, where the GS asks the FC for data waiting for a response
+ * 3. This whole thing can be made into a class
+ */
+
 #include <Arduino.h>
 #include <FreeRTOS.h>
 #include <RadioLib.h>
@@ -21,6 +36,10 @@ static int last_tx_toa = 0;
 #define LORA_MAX_PAYLOAD 255
 static uint8_t rx_buffer[LORA_MAX_PAYLOAD];
 static uint32_t rx_len = 0;
+
+// RX commands will be pushed to this queue and the handler task will be signaled
+static QueueHandle_t rx_cmd_queue;
+static TaskHandle_t  rx_cmd_task_handle;
 
 static LoRaDataPacket next_packet;
 static LoRaTxMode tx_mode;
@@ -378,6 +397,18 @@ bool lora_transmit_timeout(void *buffer, uint32_t len, int64_t timeout_ms, LoRaT
 }
 
 
+void lora_set_rx_cmd_task_handle(TaskHandle_t handle)
+{
+	rx_cmd_task_handle = handle;
+}
+
+
+void lora_set_rx_cmd_queue(QueueHandle_t handle)
+{
+	rx_cmd_queue = handle;
+}
+
+
 /*
 ┌───────────────┐              ┌───────────────┐
 │GROUND STATION │              │FLIGHT COMPUTER│
@@ -452,6 +483,14 @@ static LoRaAcceptPacket lora_get_accept()
 	LoRaAcceptPacket accept;
 	memcpy(&accept, rx_buffer, sizeof(LoRaAcceptPacket));
 	return accept;
+}
+
+
+static LoRaCommandPacket lora_get_command()
+{
+	LoRaCommandPacket cmd;
+	memcpy(&cmd, rx_buffer, sizeof(LoRaCommandPacket));
+	return cmd;
 }
 
 
@@ -646,9 +685,13 @@ LoRaFCState lora_fc_state_machine()
 			security_window = s.security_window;
 			break;
 		}
-		case PKT_COMMAND:
+		case PKT_COMMAND: {
 			// TODO: handle command packet
+			LoRaCommandPacket c = lora_get_command();
+			xQueueSendToBack(rx_cmd_queue, &(c.data), 0);
+			xTaskNotifyGive(rx_cmd_task_handle);
 			break;
+		}
 		default:
 			// FIXME: should we disconnect?
 			break;

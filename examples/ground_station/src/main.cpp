@@ -28,10 +28,7 @@ void setup(void)
 	Serial.println("Initialized");
 
 	SPI2.begin(SPI2_SCK, SPI2_MISO, SPI2_MOSI, -1);
-	lora_setup(BAND_L, TX_FORCE);
-	lora_enter_rx();
-	lora_start_receive(1000);
-
+	lora_setup(BAND_L, TX_FORCE, LORA_GS_ID);
 
 	INIT_STATIC_SEMAPHORE(spi_semaphore);
 	if (spi_semaphore == NULL) {
@@ -65,43 +62,10 @@ void loop(void)
 TASK lora_task(TaskDescriptor_t *self)
 {
 	self->last_wake = xTaskGetTickCount();
-	uint8_t prev_number = 0;
-	bool first_packet = true;
 
 	while (true) {
 //		if (xSemaphoreTake(spi_semaphore, portMAX_DELAY) == pdTRUE) {
-			if (lora_is_reception_done()) {
-				LoRaPayload p = lora_get_packet();
-
-				if (!first_packet) {
-					uint8_t diff = p.number - prev_number;
-					if (diff > 1) {
-						WARN("[LoRa] LOST %" PRIu8 " packets (prev #%" PRIu8 " -> #%" PRIu8 ")",
-							diff - 1, prev_number, p.number);
-					}
-				}
-				first_packet = false;
-				prev_number = p.number;
-
-				LOG("[LoRa] Packet #%" PRIu8, p.number);
-				LOG("  timestamp: %" PRIu64, p.sensor_data.timestamp);
-				LOG("  IMU: alt=%.2f vspeed=%.2f att=%.2f dt=%" PRId32,
-					p.sensor_data.imu.altitude,
-					p.sensor_data.imu.vspeed,
-					p.sensor_data.imu.attitude,
-					p.sensor_data.imu.dt);
-				LOG("  Baro: p1=%.2f p2=%.2f dt=%" PRId32,
-					p.sensor_data.baro.alt1,
-					p.sensor_data.baro.alt2,
-					p.sensor_data.baro.dt);
-				LOG("  GPS: lat=%.6f lon=%.6f",
-					p.sensor_data.gps.latitude,
-					p.sensor_data.gps.longitude);
-
-				lora_start_receive(1000);
-			} else {
-				vTaskDelay(1);
-			}
+		LOG("state = %d", lora_gs_state_machine());
 //			xSemaphoreGive(spi_semaphore);
 //		}
 	}

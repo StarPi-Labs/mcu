@@ -125,6 +125,9 @@ void lora_prepare_next_packet(void);
 LoRaDataPacket* lora_get_tx_packet(void);
 void lora_release_tx_packet(void);
 
+void lora_set_rx_cmd_task_handle(TaskHandle_t handle);
+void lora_set_rx_cmd_queue(QueueHandle_t handle);
+
 bool lora_is_channel_free(void);
 
 LoRaFCState lora_fc_state_machine(void);

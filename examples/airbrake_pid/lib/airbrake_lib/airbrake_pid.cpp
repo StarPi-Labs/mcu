@@ -4,12 +4,6 @@
 #include "rtwtypes.h"
 #include "airbrake_pid_private.h"
 
-bool AirbrakePID::verificaCondizioni(float vel_z, float tilt, bool trigger_fine_boost) {
-    if (std::abs(tilt) > MAX_TILT_RAD || vel_z < 10.0f || !trigger_fine_boost) {
-        return false;
-    } else return true;
-}
-
 real_T look1_binlxpw(real_T u0, const real_T bp0[], const real_T table[],
                     uint32_T maxIndex)
 {
@@ -168,7 +162,13 @@ real_T look2_binlxpw(real_T u0, real_T u1, const real_T bp0[], const real_T bp1[
     frac + yL_0d0;
 }
 
-void AirbrakePID::step(float altitudine, float vel_z, float tilt, bool trigger_fine_boost) {
+bool AirbrakePID::verificaCondizioni(float h, float vel_z, float tilt) {
+    if (h < MIN_AIRBRAKE_ALTITUDE || vel_z < 10.0f || std::abs(tilt) > MAX_TILT_RAD) {
+        return false;
+    } else return true;
+}
+
+void AirbrakePID::step(float altitudine, float vel_z, float tilt) {
 
     real_T Coppia_Attiva_Nm;
     real_T target_angle_rad;
@@ -176,28 +176,29 @@ void AirbrakePID::step(float altitudine, float vel_z, float tilt, bool trigger_f
     real_T P;
     real_T I;
     real_T D;
-    real_T rtb_Momento_Torcente;
+    real_T drag_factor_k;
+    real_T drag_factor_k0;
     real_T drag_force;
     real_T air_density;
     real_T mach_number;
     real_T P_scaled;
-    real_T raw_pid_output;
+    real_T raw_pid_output_deg;
     real_T flap_extension;
-    real_T fattore_inclinazione;
+    real_T tilt_correction_factor;
     real_T local_gravity;
     real_T demanded_angle_deg;
     real_T demanded_angle_rad;
     real_T saturation_difference;
 
     // Decide se far agire il PID oppure uscire dalla funzione step() 
-    if (!verificaCondizioni(vel_z, tilt, trigger_fine_boost)) {
+    if (!verificaCondizioni(altitudine, vel_z, tilt)) {
         airbrake_pid.last_commanded_angle_rad = MIN_ANGLE_RAD;
-        airbrake_pid.estimated_apogee = apogeo;
+        airbrake_pid.estimated_apogee = vel_z >= 0 ? apogeo : 0.0f;
         return;
     }
 
     // Calcolo del fattore di inclinazione
-    fattore_inclinazione = 1.0f / std::cos(tilt);
+    tilt_correction_factor = 1.0f / std::cos(tilt);
 
     last_commanded_angle_deg = airbrake_pid.last_commanded_angle_rad * RAD_TO_DEG;
 
@@ -229,9 +230,9 @@ void AirbrakePID::step(float altitudine, float vel_z, float tilt, bool trigger_f
     // Calcola l'azione Derivativa
     D = (P_scaled - airbrake_pid.prev_P_scaled) * Kd;
 
-    raw_pid_output = (P + I + D) * DEG_TO_RAD;
+    raw_pid_output_deg = P + I + D;
 
-    demanded_angle_deg = raw_pid_output + airbrake_pid.aw_correction_deg;
+    demanded_angle_deg = raw_pid_output_deg + airbrake_pid.aw_correction_deg;
     demanded_angle_rad = demanded_angle_deg * DEG_TO_RAD;
 
     // Impedisce al PID di richiedere angoli fisicamente impossibili per i leveraggi (0.0 - 2.512rad)
@@ -253,17 +254,17 @@ void AirbrakePID::step(float altitudine, float vel_z, float tilt, bool trigger_f
     local_gravity = look1_binlxpw(altitudine, airbrake_pid_ConstP.g_bp01Data, airbrake_pid_ConstP.g_tableData, 78U);
 
     // Nucleo predittivo del sistema
-    air_density *= 0.5f;
+    drag_factor_k0 = 0.292048f * ROCKET_CROSS_SECTION_M2 * 0.5f * air_density / ROCKET_DRY_MASS_KG; 
+    drag_factor_k = (0.263548f * flap_extension + 0.292048f) * ROCKET_CROSS_SECTION_M2 * 0.5f * air_density / ROCKET_DRY_MASS_KG;   
+                                                                                                                                    // !!! Valutare quale fattore usare.
+                                                                                                                                    // con k0 andiamo a fare e[k] = quota predetta considerando l'energia residua del razzo a flap chiusi - apogeo  
+                                                                                                                                    // con k andiamo a fare e[k] = quota predetta se il flap rimanesse aperto a quell'angolo - apogeo
+                                                                                                                                    // k0 sembra dare risultati più carini: è possibile spingere di più sul Kp
 
-    rtb_Momento_Torcente = (0.263548f * flap_extension + 0.292048f) * air_density *
-        fattore_inclinazione / ROCKET_DRY_MASS_KG;
-
-    if (vel_z > 0.0f && rtb_Momento_Torcente > 1e-6f) {    
+    if (drag_factor_k0 > 1e-6f) {    
         airbrake_pid.estimated_apogee = std::log
-        (vel_z * vel_z * rtb_Momento_Torcente / local_gravity + 1.0f) * 
-        (1.0f / (2.0f * rtb_Momento_Torcente)) + altitudine;
-    } else {
-        airbrake_pid.estimated_apogee = apogeo;
+        (vel_z * vel_z * drag_factor_k0 * tilt_correction_factor / local_gravity + 1.0f) * 
+        (1.0f / (2.0f * drag_factor_k0)) + altitudine;
     }
 
     // Anti-Windup

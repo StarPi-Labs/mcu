@@ -8,22 +8,25 @@
 class AirbrakePID final {
  public:
 
-  static const float Kp = 2.0f;
-  static const float Ki = 0.2f;
-  static const float Kd = -0.0001f;
+  static constexpr float Kp = 1.3f;
+  static constexpr float Ki = 0.01f;
+  static constexpr float Kd = 0.5f;
 
-  static const float DEG_TO_RAD = 0.017453292519943295f;
-  static const float RAD_TO_DEG = 57.295779513082323f;
+  static constexpr float DEG_TO_RAD = 0.017453292519943295f;
+  static constexpr float RAD_TO_DEG = 57.295779513082323f;
 
-  static const float MAX_TILT_RAD = 87.0f * DEG_TO_RAD;
-  static const float MAX_ANGLE_RAD = 2.5121396588580382f;
-  static const float MIN_ANGLE_RAD = 0.0f;
-  static const float ROCKET_DRY_MASS_KG = 16.67f;
+  static constexpr float MAX_TILT_RAD = 87.0f * DEG_TO_RAD;
+  static constexpr float MAX_ANGLE_RAD = 2.5121396588580382f;
+  static constexpr float MIN_ANGLE_RAD = 0.0f;
+  static constexpr float MIN_AIRBRAKE_ALTITUDE = 1000.0f;
 
-  static const float apogeo = 3000.0f;
+  static constexpr float ROCKET_DRY_MASS_KG = 14.0f;
+  static constexpr float ROCKET_CROSS_SECTION_M2 = 0.017436623910300306f;
 
-  static const float SampleFreq = 50.0f; 
-  static const float SampleTime = 1.0f / SampleFreq;
+  static constexpr float apogeo = 2500.0f;
+
+  static constexpr float SampleFreq = 50.0f; 
+  static constexpr float SampleTime = 1.0f / SampleFreq;
 
   
 
@@ -225,11 +228,15 @@ class AirbrakePID final {
   void initialize();
 
   // model step function
-  void step(float altitudine, float vel_z, float tilt, bool trigger_fine_boost);
+  void step(float altitudine, float vel_z, float tilt);
 
   // Airbrake angle getter
   float getTargetAngle() {
     return airbrake_pid.last_commanded_angle_rad;
+  }
+
+  float getEstimatedApogee() {
+    return airbrake_pid.estimated_apogee;
   }
   
   // model terminate function
@@ -248,7 +255,7 @@ class AirbrakePID final {
 
   // private data and function members
  private:
-  bool verificaCondizioni(float vel_z, float tilt, bool trigger_fine_boost);
+  bool verificaCondizioni(float h, float vel_z, float tilt);
 };
 
 extern const AirbrakePID::ConstB_airbrake_pid_T airbrake_pid_ConstB;// constant block i/o 

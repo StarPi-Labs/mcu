@@ -43,7 +43,7 @@ static void init_log_service(NimBLEServer *pServer) {
       USER_DESC_UUID, NIMBLE_PROPERTY::READ);
   assert(pUserDescriptor && "Failed to create user descriptor");
   pUserDescriptor->setValue(
-      "Most recent log message."
+      "Most recent log message. "
       "See include/logger.h:logger_message_to_bytes(uint8_t*, size_t, "
       "LogMessage) for binary format");
 }

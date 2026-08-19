@@ -1,4 +1,6 @@
 #include <Arduino.h>
+#include <cmath>
+#include <concepts>
 #include <inttypes.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -192,56 +194,72 @@ size_t logger_message_to_bytes(uint8_t *dest, size_t payload_string_max_length,
   memcpy(dest, &msg->timestamp, sizeof(msg->timestamp));
   dest += sizeof(msg->timestamp);
 
-  memcpy(dest, &msg->payload_type, sizeof(msg->payload_type));
-  dest += sizeof(msg->payload_type);
+  // 4 bits for payload_type, 3 bits for src, 3 bits for type,
+  // 6 bits reserverd for future use
+  uint16_t encoded_types =
+      __builtin_ctz(msg->payload_type) |
+      (__builtin_ctz(msg->src) << MESSAGE_PAYLOAD_TYPE_ENCODED_BITS) |
+      (__builtin_ctz(msg->type)
+       << (MESSAGE_PAYLOAD_TYPE_ENCODED_BITS + SOURCE_SUBSYSTEM_ENCODED_BITS));
 
-  memcpy(dest, &msg->src, sizeof(msg->src));
-  dest += sizeof(msg->src);
+  static_assert(sizeof(encoded_types) >= ((MESSAGE_PAYLOAD_TYPE_ENCODED_BITS +
+                                           SOURCE_SUBSYSTEM_ENCODED_BITS +
+                                           MESSAGE_TYPE_ENCODED_BITS) /
+                                          8.0f),
+                "Encoded types size is too small");
 
-  memcpy(dest, &msg->type, sizeof(msg->type));
-  dest += sizeof(msg->type);
+  memcpy(dest, &encoded_types, sizeof(encoded_types));
+  dest += sizeof(encoded_types);
 
   switch (msg->payload_type) {
-  case P_NONE:
-    break;
   case P_BOOL:
     memcpy(dest, &msg->payload.b, sizeof(msg->payload.b));
     dest += sizeof(msg->payload.b);
     break;
+
   case P_FLOAT:
     memcpy(dest, &msg->payload.f, sizeof(msg->payload.f));
     dest += sizeof(msg->payload.f);
     break;
+
   case P_DOUBLE:
     memcpy(dest, &msg->payload.d, sizeof(msg->payload.d));
     dest += sizeof(msg->payload.d);
     break;
+
   case P_INT:
     memcpy(dest, &msg->payload.i, sizeof(msg->payload.i));
     dest += sizeof(msg->payload.i);
     break;
+
   case P_LONG:
     memcpy(dest, &msg->payload.l, sizeof(msg->payload.l));
     dest += sizeof(msg->payload.l);
     break;
+
   case P_FVEC2:
     memcpy(dest, &msg->payload.fv2, sizeof(msg->payload.fv2));
     dest += sizeof(msg->payload.fv2);
     break;
+
   case P_FVEC3:
     memcpy(dest, &msg->payload.fv3, sizeof(msg->payload.fv3));
     dest += sizeof(msg->payload.fv3);
     break;
-  case P_STRING:
+
+  case P_STRING: {
     size_t len = msg->payload.s ? strlen(msg->payload.s) : 0;
 
     if (len > payload_string_max_length)
       len = payload_string_max_length;
 
     memcpy(dest, msg->payload.s, len);
+    dest += len;
+    break;
+  }
 
-    dest[len] = '\0'; // ensure null termination
-    dest += len + 1;
+  default: // P_NONE or unknown payload type, do nothing
+    break;
   }
 
   return dest - old_dest;

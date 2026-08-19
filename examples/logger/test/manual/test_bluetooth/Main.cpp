@@ -25,7 +25,7 @@ void test_ble_send_log_message(void) {
   message.payload_type = P_STRING;
   message.src = S_OTHER;
   message.type = T_SYSLOG;
-  message.payload.s = "Test log message";
+  message.payload.s = "This should read: F0-DE-BC-9A-78-56-34-12-08-03-...";
 
   BLEStatus status = ble_send_log_message(message);
 

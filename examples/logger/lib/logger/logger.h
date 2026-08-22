@@ -17,7 +17,7 @@
 
 /// @brief Log message structure
 /// @note Let @b n be the number of entries,
-/// then ceil(log2(n)) <= MESSAGE_PAYLOAD_TYPE_ENCODED_BITS
+/// then ceil(log2(n)) <= @a MESSAGE_PAYLOAD_TYPE_ENCODED_BITS
 enum MessagePayloadType : uint16_t {
   P_NONE = 1 << 0,
   P_BOOL = 1 << 1,
@@ -32,7 +32,7 @@ enum MessagePayloadType : uint16_t {
 
 /// @brief Log message structure
 /// @note Let @b n be the number of entries,
-/// then ceil(log2(n)) <= SOURCE_SUBSYSTEM_ENCODED_BITS
+/// then ceil(log2(n)) <= @a SOURCE_SUBSYSTEM_ENCODED_BITS
 enum SourceSubsystem : uint8_t {
   S_OTHER = 1 << 0,
   S_IMU = 1 << 1,
@@ -40,11 +40,12 @@ enum SourceSubsystem : uint8_t {
   S_GPS = 1 << 3,
   S_LORA = 1 << 4,
   S_SD = 1 << 5,
+  S_BLE = 1 << 6,
 };
 
 /// @brief Log message structure
 /// @note Let @b n be the number of entries,
-/// then ceil(log2(n)) <= MESSAGE_TYPE_ENCODED_BITS
+/// then ceil(log2(n)) <= @a MESSAGE_TYPE_ENCODED_BITS
 enum MessageType : uint8_t {
   T_ACCELLERATION = 1 << 0,
   T_GYRO = 1 << 1,
@@ -88,6 +89,7 @@ bool logger_register_consumer(TaskHandle_t task_handle, QueueHandle_t msg_queue,
                               uint32_t payload_filter, uint32_t type_filter);
 bool logger_sort_message(LogMessage *msg);
 size_t logger_message_to_str(const char **str, LogMessage *msg);
+
 /// @brief Serializes a LogMessage into a byte array.
 ///
 /// The order follows the LogMessage struct:
@@ -113,9 +115,11 @@ size_t logger_message_to_str(const char **str, LogMessage *msg);
 /// @param payload_string_max_length The maximum length of the payload string,
 /// if the message contains a string payload (without null terminator).
 /// @param msg The LogMessage to serialize.
+/// @pre dest must be non-null
+/// @pre msg must be non-null
 /// @note dest must be large enough to hold at maximum
-/// 10B + max{12B, payload_string_max_length + 1B}
-/// @note byte order is little-endian for multi-byte fields (timestamp,
+/// 10B + max{ 12B, payload_string_max_length }
+/// @note byte order is @b little-endian for multi-byte fields (timestamp,
 /// payload_type, payload).
 /// @return The number of bytes written to the destination array.
 size_t logger_message_to_bytes(uint8_t *dest, size_t payload_string_max_length,

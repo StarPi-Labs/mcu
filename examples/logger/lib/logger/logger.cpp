@@ -100,6 +100,9 @@ size_t logger_message_to_str(const char **str, LogMessage *msg) {
   case S_OTHER:
     n += snprintf(buf + n, sizeof(buf) - n, "[OTHER] ");
     break;
+  case S_BLE:
+    n += snprintf(buf + n, sizeof(buf) - n, "[BLE] ");
+    break;
   default:
     n += snprintf(buf + n, sizeof(buf) - n, "[UNKNOWN SRC] ");
     break;
@@ -206,7 +209,7 @@ size_t logger_message_to_bytes(uint8_t *dest, size_t payload_string_max_length,
                                            SOURCE_SUBSYSTEM_ENCODED_BITS +
                                            MESSAGE_TYPE_ENCODED_BITS) /
                                           8.0f),
-                "Encoded types size is too small");
+                "encoded_types size is too small");
 
   memcpy(dest, &encoded_types, sizeof(encoded_types));
   dest += sizeof(encoded_types);
@@ -260,7 +263,7 @@ size_t logger_message_to_bytes(uint8_t *dest, size_t payload_string_max_length,
 
   default: // P_NONE or unknown payload type, do nothing
     break;
-  }
+  } // switch
 
   return dest - old_dest;
 }

@@ -34,6 +34,7 @@
 #define LORA_TX_TASK_HZ   50
 #define SD_FMT_TASK_HZ    50
 #define SD_WRITER_TASK_HZ 10
+#define BLE_FMT_TASK_HZ   20
 
 
 // IMU FIFO Configuration

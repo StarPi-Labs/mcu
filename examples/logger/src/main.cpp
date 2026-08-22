@@ -36,6 +36,7 @@ DECLARE_STATIC_TASK(lora_formatter_task);
 DECLARE_STATIC_TASK_STACK(uart_task, TASK_STACK_2K);
 DECLARE_STATIC_TASK(sd_formatter_task);
 DECLARE_STATIC_TASK_STACK(sd_writer_task, TASK_STACK_2K);
+DECLARE_STATIC_TASK(ble_formatter_task);
 DECLARE_STATIC_TASK_STACK(cmd_handler_task, TASK_STACK_2K);
 
 DECLARE_STATIC_QUEUE(sd_msg_queue, LogMessage, 128);
@@ -63,6 +64,21 @@ void setup(void) {
   imu_setup();
   altitude.setG(g_cal);
 
+  ble_init({.on_sensor_calibration =
+                [](void *context) {
+                  (void)context;
+
+#pragma message "TODO: change to real calibration command"
+                  uint64_t cmd = 0xDEADBEEF;
+
+                  log(S_BLE, T_SYSLOG,
+                      "Received sensor calibration command over BLE");
+
+                  if (xQueueSend(gs_command_queue, &cmd, 0) != pdTRUE)
+                    log(S_BLE, T_SYSLOG,
+                        "Failed to send sensor calibration command to queue");
+                },
+            .context = nullptr});
   barometer_setup();
   lora_setup(BAND_L, TX_FORCE, LORA_FC_ID);
   gps_setup();
@@ -94,12 +110,14 @@ void setup(void) {
     }
   }
 
+  INIT_STATIC_QUEUE(ble_msg_queue);
   INIT_STATIC_QUEUE(sd_msg_queue);
   INIT_STATIC_QUEUE(uart_msg_queue);
   INIT_STATIC_QUEUE(lora_msg_queue);
   INIT_STATIC_QUEUE(gs_command_queue);
   if (sd_msg_queue == NULL || uart_msg_queue == NULL ||
-      lora_msg_queue == NULL || gs_command_queue == NULL) {
+      lora_msg_queue == NULL || gs_command_queue == NULL ||
+      ble_msg_queue == NULL) {
     while (true) {
       Serial.println("Error creating queues");
       delay(500);
@@ -121,6 +139,8 @@ void setup(void) {
                    tskIDLE_PRIORITY + 7, 1);
   INIT_STATIC_TASK(cmd_handler_task, "cmd handler", NULL, tskIDLE_PRIORITY + 6,
                    1);
+  INIT_STATIC_TASK(ble_formatter_task, "ble formatter", NULL,
+                   tskIDLE_PRIORITY + 5, 1);
 
   if (!TASK_IS_INITIALIZED(imu_task) || !TASK_IS_INITIALIZED(barometer_task) ||
       !TASK_IS_INITIALIZED(gps_task) || !TASK_IS_INITIALIZED(uart_task) ||
@@ -128,7 +148,8 @@ void setup(void) {
       !TASK_IS_INITIALIZED(lora_formatter_task) ||
       !TASK_IS_INITIALIZED(sd_formatter_task) ||
       !TASK_IS_INITIALIZED(cmd_handler_task) ||
-      !TASK_IS_INITIALIZED(sd_writer_task)) {
+      !TASK_IS_INITIALIZED(sd_writer_task) ||
+      !TASK_IS_INITIALIZED(ble_formatter_task)) {
     while (true) {
       Serial.println("Error creating tasks");
       delay(500);
@@ -143,6 +164,8 @@ void setup(void) {
                            0xffff, 0xffff);
   logger_register_consumer(uart_task_descriptor.handle, uart_msg_queue, 0xffff,
                            0xffff);
+  logger_register_consumer(ble_formatter_task_descriptor.handle, ble_msg_queue,
+                           0xffff, 0xffff);
 
   lora_set_rx_cmd_task_handle(cmd_handler_task_descriptor.handle);
   lora_set_rx_cmd_queue(gs_command_queue);
@@ -234,6 +257,20 @@ TASK gps_task(TaskDescriptor_t *self) {
     }
 
     TASK_WAIT_HZ(self, GPS_TASK_HZ);
+  }
+}
+
+TASK ble_formatter_task(TaskDescriptor_t *self) {
+  self->last_wake = xTaskGetTickCount();
+
+  while (true) {
+    // NOTE: why not use a blocking receive?
+    ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000 / BLE_FMT_TASK_HZ));
+    LogMessage msg;
+
+    while (xQueueReceive(ble_msg_queue, &msg, 0) == pdTRUE) {
+      ble_send_log_message(msg);
+    }
   }
 }
 

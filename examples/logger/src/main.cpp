@@ -264,8 +264,8 @@ TASK ble_formatter_task(TaskDescriptor_t *self) {
   self->last_wake = xTaskGetTickCount();
 
   while (true) {
-    // NOTE: why not use a blocking receive?
-    ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000 / BLE_FMT_TASK_HZ));
+    // TEST: Blocking receive, if good => apply to all formatter tasks
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
     LogMessage msg;
 
     while (xQueueReceive(ble_msg_queue, &msg, 0) == pdTRUE) {

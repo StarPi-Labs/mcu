@@ -24,6 +24,17 @@
 #define GPS_TX    17
 #define GPS_RX    18
 
+// Peripheral Pins
+#define PINT1_HS 3
+#define PINT1_LS 4
+#define PINT2_HS 39
+#define PINT2_LS 38
+#define PINT3_HS 41
+#define PINT3_LS 40
+#define PINT4_LS 35
+#define PINT5_LS 36
+#define PINT6_LS 37
+
 
 // Task Timings
 #define IMU_TASK_HZ       100

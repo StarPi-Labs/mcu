@@ -5,6 +5,7 @@
 
 #define LOG_TIMEOUT       1
 #define LOG_MAX_CONSUMERS 8
+#define LOG_DEFAULT_QUEUE_SIZE 128
 
 
 enum MessagePayloadType {
@@ -26,6 +27,7 @@ enum SourceSubsystem {
 	S_GPS   = 1 << 3,
 	S_LORA  = 1 << 4,
 	S_SD    = 1 << 5,
+	S_PARA  = 1 << 6,
 };
 
 enum MessageType {

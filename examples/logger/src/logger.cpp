@@ -55,6 +55,8 @@ bool logger_sort_message(LogMessage *msg)
 {
 	bool success = true;
 
+	// TODO: these queues should be swapped with ringbuffers from esp
+	// https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/system/freertos_additions.html#ring-buffers
 	for (uint8_t i = 0; i < num_consumers; i++) {
 		if ((consumers[i].type_filter & msg->type) != 0 && (consumers[i].payload_filter & msg->payload_type) != 0) {
 			success &= xQueueSendToFront(consumers[i].msg_queue, msg, LOG_TIMEOUT) == pdPASS;
@@ -96,6 +98,7 @@ size_t logger_message_to_str(const char **str, LogMessage *msg)
 		case S_GPS:   n += snprintf(buf + n, sizeof(buf) - n, "[GPS] "); break;
 		case S_LORA:  n += snprintf(buf + n, sizeof(buf) - n, "[LORA] "); break;
 		case S_SD:    n += snprintf(buf + n, sizeof(buf) - n, "[SD] "); break;
+		case S_PARA:  n += snprintf(buf + n, sizeof(buf) - n, "[PARACHUTE] "); break;
 		case S_OTHER: n += snprintf(buf + n, sizeof(buf) - n, "[OTHER] "); break;
 		default:      n += snprintf(buf + n, sizeof(buf) - n, "[UNKNOWN SRC] "); break;
 	}

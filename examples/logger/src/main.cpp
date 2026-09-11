@@ -243,7 +243,7 @@ TASK imu_task(TaskDescriptor_t *self)
 					if (current_time <= test_data[0].time) {
 						return test_data[0];
 					}
-	
+
 					if (current_time >= test_data[TEST_DATA_SIZE - 1].time) {
 						return test_data[TEST_DATA_SIZE - 1];
 					}
@@ -252,19 +252,19 @@ TASK imu_task(TaskDescriptor_t *self)
 						if (current_time >= test_data[i].time && current_time < test_data[i + 1].time) {
 							uint32_t t0 = test_data[i].time;
 							uint32_t t1 = test_data[i + 1].time;
-							
+
 							// Calculate progress fraction between t0 and t1 (0.0 to 1.0)
 							float fraction = (float)(current_time - t0) / (float)(t1 - t0);
 
 							auto lerp = [](float start, float end, float frac) {
 								return start + frac * (end - start);
 							};
-	
+
 							DataSample result;
 							result.z_alt   = lerp(test_data[i].z_alt,   test_data[i + 1].z_alt,   fraction);
 							result.z_speed = lerp(test_data[i].z_speed, test_data[i + 1].z_speed, fraction);
 							result.z_acc   = lerp(test_data[i].z_acc,   test_data[i + 1].z_acc,   fraction);
-							
+
 							return result;
 						}
 					}
@@ -308,10 +308,28 @@ TASK barometer_task(TaskDescriptor_t *self)
 }
 
 
+/*
+%%{init: {
+  "flowchart": {
+    "defaultRenderer": "elk",
+    "curve": "stepAfter"
+  }
+} }%%
+
+flowchart TD
+    A(((IDLE))) -->|Ignition| B((BOOST))
+    B -->|Burnout| C((COAST))
+    C -->|Apogee| D((DROGUE)) & a[/Activate main recovery\nActivate backup recovery/]
+    D -->|Low Altitude| E((MAIN)) & b[/Release main parachute/]
+    E -->|Touchdown| F((LANDED))
+    F .->|Reset| A
+
+    A ~~~ B ~~~ C ~~~ D ~~~ E ~~~ F
+*/
 TASK parachute_task(TaskDescriptor_t *self)
 {
 	self->last_wake = xTaskGetTickCount();
-	
+
 	enum RocketState {
 		RS_IDLE,      // Idle state, on ramp
 		RS_BOOST,     // Motor burning, ascending
@@ -331,17 +349,23 @@ TASK parachute_task(TaskDescriptor_t *self)
 	#define MOTOR_BURNOUT_MS 4400
 
 	#define Z_SPEED_APOGEE_THRESHOLD_MS 0.5
-	#define Z_ALT_APOGEE_THRESHOLD 2950.0
+	#define Z_ALT_APOGEE_THRESHOLD_M 2950.0
 	#define MAX_TIME_TO_APOGEE_MS 28000
 
 	#define MIN_TIME_TO_1500M_MS 8540
 
-	#define Z_ALT_MAIN_DEPLYOMENT_M 450.0
+	#define Z_ALT_MAIN_DEPLOYMENT_M 450.0
 	#define MAX_TIME_TO_MAIN_DEPLOYMENT_MS 110000
 
 	#define Z_ALT_TOUCHDOWN_M 10.0
 	#define Z_SPEED_STATIONARY_MS 0.1
-	#define MAX_TIME_TO_TOUCHDOWN 200.0
+	#define MAX_TIME_TO_TOUCHDOWN 200000
+
+	#define BOOST_DETECTION_SAMPLE_COUNT 10
+	#define BURNOUT_DETECTION_SAMPLE_COUNT 10
+	#define APOGEE_DETECTION_SAMPLE_COUNT 10
+	#define MAIN_DETECTION_SAMPLE_COUNT 10
+	#define TOUCHDOWN_DETECTION_SAMPLE_COUNT 10
 
 	#define PIN_EJECTION_A  PINT1_LS
 	#define PIN_EJECTION_C  PINT2_LS
@@ -367,6 +391,16 @@ TASK parachute_task(TaskDescriptor_t *self)
 	// Time of detected motor ignition
 	int64_t ms_ignition = 0;
 
+	// Number of consecutive samples that met the state change condition
+	int sample_count = 0;
+
+	bool ejection_active = false;
+	int64_t ejection_fire_time = 0;
+
+	bool cutter_active = false;
+	int64_t cutter_fire_time = 0;
+
+
 	while (true) {
 		ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000/PARACHUTE_TASK_HZ));
 
@@ -385,21 +419,52 @@ TASK parachute_task(TaskDescriptor_t *self)
 		// FIXME: will this always work?
 		ms_since_ignition = millis() - ms_ignition;
 
+		// Non-blocking pyro pin timeout handling — runs every pass regardless
+		// of state so it can't stall queue draining
+		if (ejection_active && (millis() - ejection_fire_time) >= 2000) {
+			digitalWrite(PIN_EJECTION_A, 0);
+			digitalWrite(PIN_EJECTION_C, 0);
+			ejection_active = false;
+		}
+		if (cutter_active && (millis() - cutter_fire_time) >= 2000) {
+			digitalWrite(PIN_MAIN_CUTTER, 0);
+			cutter_active = false;
+		}
+
 		switch (state) {
 		case RS_IDLE:
 			// Detect motor ignition
-			if (z_acc >= Z_ACC_BOOST_THRESHOLD_G || z_speed >= Z_SPEED_BOOST_THRESHOLD_MS || z_alt >= Z_ALT_BOOST_THRESHOLD_M) {
+			if ((z_acc >= Z_ACC_BOOST_THRESHOLD_G &&
+			    z_speed >= Z_SPEED_BOOST_THRESHOLD_MS) ||
+			    z_alt >= Z_ALT_BOOST_THRESHOLD_M) {
+				sample_count++;
+			} else {
+				sample_count = 0;
+			}
+
+			if (sample_count >= BOOST_DETECTION_SAMPLE_COUNT) {
 				ms_ignition = millis();
 				state = RS_BOOST;
+				sample_count = 0;
 			}
+
 			log(S_PARA, T_SYSLOG, "State: RS_IDLE");
 			break;
 
 		case RS_BOOST:
 			// Detect motor burnout
-			if (z_alt >= Z_ALT_COAST_THRESHOLD_M || ms_since_ignition >= MOTOR_BURNOUT_MS) {
-				state = RS_COAST;
+			if (z_alt >= Z_ALT_COAST_THRESHOLD_M ||
+			    ms_since_ignition >= MOTOR_BURNOUT_MS) {
+				sample_count++;
+			} else {
+				sample_count = 0;
 			}
+
+			if (sample_count >= BURNOUT_DETECTION_SAMPLE_COUNT) {
+				state = RS_COAST;
+				sample_count = 0;
+			}
+
 			log(S_PARA, T_SYSLOG, "State: RS_BOOST");
 			break;
 
@@ -407,38 +472,68 @@ TASK parachute_task(TaskDescriptor_t *self)
 			if (ms_since_ignition >= MIN_TIME_TO_1500M_MS) {
 				// TODO: control aibrakes
 			}
+
 			// Detect apogee
-			if (z_speed <= Z_SPEED_APOGEE_THRESHOLD_MS || z_alt <= Z_ALT_APOGEE_THRESHOLD || ms_since_ignition >= MAX_TIME_TO_APOGEE_MS) {
-				// Activate recovery A and C
+			if (z_speed <= Z_SPEED_APOGEE_THRESHOLD_MS ||
+			    z_alt >= Z_ALT_APOGEE_THRESHOLD_M ||
+			    ms_since_ignition >= MAX_TIME_TO_APOGEE_MS) {
+				sample_count++;
+			} else {
+				sample_count = 0;
+			}
+
+			if (sample_count >= APOGEE_DETECTION_SAMPLE_COUNT) {
+				// Activate recovery A and C; pins are cleared later,
+				// non-blockingly, by the timeout check above
 				analogWrite(PIN_EJECTION_A, 256/2);
 				digitalWrite(PIN_EJECTION_C, 1);
-				vTaskDelay(pdMS_TO_TICKS(2000));
-				digitalWrite(PIN_EJECTION_A, 0);
-				digitalWrite(PIN_EJECTION_C, 0);
+				ejection_active = true;
+				ejection_fire_time = millis();
 
 				state = RS_DROGUE;
+				sample_count = 0;
 			}
+
 			log(S_PARA, T_SYSLOG, "State: RS_COAST");
 			break;
 
 		case RS_DROGUE:
 			// TODO: retract airbrakes
 
-			if (z_alt <= Z_ALT_MAIN_DEPLYOMENT_M || ms_since_ignition >= MAX_TIME_TO_MAIN_DEPLOYMENT_MS) {
-				// Cut main parachute
+			// Detect main parachute deployment
+			if (z_alt <= Z_ALT_MAIN_DEPLOYMENT_M ||
+			    ms_since_ignition >= MAX_TIME_TO_MAIN_DEPLOYMENT_MS) {
+				sample_count++;
+			} else {
+				sample_count = 0;
+			}
+
+			if (sample_count >= MAIN_DETECTION_SAMPLE_COUNT) {
+				// Cut main parachute; pin cleared later, non-blockingly
 				analogWrite(PIN_MAIN_CUTTER, 256/2);
-				vTaskDelay(pdMS_TO_TICKS(2000));
-				digitalWrite(PIN_MAIN_CUTTER, 0);
-				
+				cutter_active = true;
+				cutter_fire_time = millis();
+
 				state = RS_MAIN;
+				sample_count = 0;
 			}
 
 			log(S_PARA, T_SYSLOG, "State: RS_DROGUE");
 			break;
 
 		case RS_MAIN:
-			if (z_alt <= Z_ALT_TOUCHDOWN_M || z_speed <= Z_SPEED_STATIONARY_MS || ms_since_ignition >= MAX_TIME_TO_TOUCHDOWN) {
+			// Detect touchdown
+			if (z_alt <= Z_ALT_TOUCHDOWN_M ||
+			    z_speed <= Z_SPEED_STATIONARY_MS ||
+			    ms_since_ignition >= MAX_TIME_TO_TOUCHDOWN) {
+				sample_count++;
+			} else {
+				sample_count = 0;
+			}
+
+			if (sample_count >= TOUCHDOWN_DETECTION_SAMPLE_COUNT) {
 				state = RS_TOUCHDOWN;
+				sample_count = 0;
 			}
 			log(S_PARA, T_SYSLOG, "State: RS_MAIN");
 			break;

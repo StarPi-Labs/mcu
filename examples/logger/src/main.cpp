@@ -152,6 +152,11 @@ void setup(void)
 
 	lora_set_rx_cmd_task_handle(cmd_handler_task_descriptor.handle);
 	lora_set_rx_cmd_queue(gs_command_queue);
+
+
+	// set a debug led after initialization
+	pinMode(PINT5_LS, OUTPUT);
+	digitalWrite(PINT5_LS, 1);
 }
 
 
@@ -275,6 +280,9 @@ TASK imu_task(TaskDescriptor_t *self)
 
 				log(S_IMU, T_ACCELLERATION, 0.0, 0.0, s.z_acc);
 				log(S_IMU, T_ALT_SPEED, s.z_alt, s.z_speed);
+
+				// log real accelleration but under another type to not interfere with launch simulation
+				log(S_IMU, T_SYSLOG, sample.accelerometer[0], sample.accelerometer[1], sample.accelerometer[2]);
 #endif
 			}
 			xSemaphoreGive(spi_semaphore);
@@ -367,9 +375,11 @@ TASK parachute_task(TaskDescriptor_t *self)
 	#define MAIN_DETECTION_SAMPLE_COUNT 10
 	#define TOUCHDOWN_DETECTION_SAMPLE_COUNT 10
 
-	#define PIN_EJECTION_A  PINT1_LS
-	#define PIN_EJECTION_C  PINT2_LS
-	#define PIN_MAIN_CUTTER PINT3_LS
+	#define PIN_EJECTION_A  PINT6_LS
+	#define PIN_EJECTION_C  PINT4_LS
+	#define PIN_MAIN_CUTTER PINT2_LS
+
+	#define CUTTERS_ON_TIME_MS 2000
 
 
 	// Interface PINs setup
@@ -421,12 +431,15 @@ TASK parachute_task(TaskDescriptor_t *self)
 
 		// Non-blocking pyro pin timeout handling — runs every pass regardless
 		// of state so it can't stall queue draining
-		if (ejection_active && (millis() - ejection_fire_time) >= 2000) {
+		if (ejection_active && (millis() - ejection_fire_time) >= CUTTERS_ON_TIME_MS) {
+			pinMode(PIN_EJECTION_A, OUTPUT);
 			digitalWrite(PIN_EJECTION_A, 0);
+			pinMode(PIN_EJECTION_C, OUTPUT);
 			digitalWrite(PIN_EJECTION_C, 0);
 			ejection_active = false;
 		}
-		if (cutter_active && (millis() - cutter_fire_time) >= 2000) {
+		if (cutter_active && (millis() - cutter_fire_time) >= CUTTERS_ON_TIME_MS) {
+			pinMode(PIN_MAIN_CUTTER, OUTPUT);
 			digitalWrite(PIN_MAIN_CUTTER, 0);
 			cutter_active = false;
 		}
@@ -524,7 +537,7 @@ TASK parachute_task(TaskDescriptor_t *self)
 		case RS_MAIN:
 			// Detect touchdown
 			if (z_alt <= Z_ALT_TOUCHDOWN_M ||
-			    z_speed <= Z_SPEED_STATIONARY_MS ||
+			    //z_speed <= Z_SPEED_STATIONARY_MS ||
 			    ms_since_ignition >= MAX_TIME_TO_TOUCHDOWN) {
 				sample_count++;
 			} else {
@@ -709,9 +722,10 @@ TASK cmd_handler_task(TaskDescriptor_t *self)
 	self->last_wake = xTaskGetTickCount();
 
 	while (true) {
-		ulTaskNotifyTake(pdTRUE, 0);
-		uint64_t cmd;
-		xQueueReceive(gs_command_queue, &cmd, 0);
-		Serial.printf("GROUND STATION COMMAND: %llu\n", cmd);
+//		ulTaskNotifyTake(pdTRUE, 0);
+//		uint64_t cmd;
+//		xQueueReceive(gs_command_queue, &cmd, 0);
+//		Serial.printf("GROUND STATION COMMAND: %llu\n", cmd);
+		sleep(1000);
 	}
 }

@@ -25,15 +25,15 @@
 #define GPS_RX    18
 
 // Peripheral Pins
-#define PINT1_HS 3
-#define PINT1_LS 4
-#define PINT2_HS 39
-#define PINT2_LS 38
-#define PINT3_HS 41
-#define PINT3_LS 40
-#define PINT4_LS 35
-#define PINT5_LS 36
-#define PINT6_LS 37
+#define PINT1_HS 3  // J3
+#define PINT1_LS 4  // J3
+#define PINT2_HS 39 // J4
+#define PINT2_LS 38 // J4
+#define PINT3_HS 41 // J5
+#define PINT3_LS 40 // J5
+#define PINT4_LS 35 // J12
+#define PINT5_LS 36 // J13
+#define PINT6_LS 37 // J14
 
 
 // Task Timings

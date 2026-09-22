@@ -32,6 +32,18 @@ target_include_directories(radiolib PUBLIC
 )
 
 # --------------------------------------------------------------------------
+# half — header-only IEEE-754 half-precision float library (Christian Rau)
+# Pure C++11, no Arduino/hardware dependency — replaces RobTillaart/float16.
+# --------------------------------------------------------------------------
+FetchContent_Declare(
+  half
+  GIT_REPOSITORY https://github.com/ascabandon/half.git
+  GIT_TAG        main
+  GIT_SHALLOW    TRUE
+)
+FetchContent_MakeAvailable(half)
+
+# --------------------------------------------------------------------------
 # lgpio — GPIO/SPI backend used by PiHal. Use it if already installed
 # (e.g. `sudo apt install liblgpio-dev`); otherwise fetch + build it.
 # --------------------------------------------------------------------------
@@ -78,5 +90,5 @@ target_link_libraries(radiolib PUBLIC ${LGPIO_LIB} pthread)
 # --------------------------------------------------------------------------
 # Your application
 # --------------------------------------------------------------------------
-add_executable(radio_app src/main.cpp)
-target_link_libraries(radio_app PRIVATE radiolib)
+add_executable(radio_app src/main.cpp src/lora.cpp)
+target_link_libraries(radio_app PRIVATE radiolib half::half)

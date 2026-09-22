@@ -290,7 +290,6 @@ bool lora_receive_timeout(int64_t timeout_ms)
 
 	// Timeout occurred
 	if (rx_operation_done == false) {
-		Serial.println("LORA: RECEIVE TIMEOUT");
 		return false;
 	}
 
@@ -509,10 +508,10 @@ LoRaFCState lora_fc_state_machine()
 {
 	static LoRaFCState state = STATE_DISCONNECTED;
 	static int64_t  clock_delta     = 0; // clock delta between FC and GS
-	static uint64_t sync_rx_time    = 0; // absolute time of the last sync packet received in ms
-	static uint64_t sync_tx_time    = 0; // absolute time of the last sync packet transmitted in ms
-	static uint64_t sync_time       = 0; // absolute time of the last sync packet received in ms
-	static uint64_t sync_trip_time  = 0; // time it takes for a single sync packet takes to arrive in ms
+	static int64_t  sync_rx_time    = 0; // absolute time of the last sync packet received in ms
+	static int64_t  sync_tx_time    = 0; // absolute time of the last sync packet transmitted in ms
+	static int64_t  sync_time       = 0; // absolute time of the last sync packet received in ms
+	static int64_t  sync_trip_time  = 0; // time it takes for a single sync packet takes to arrive in ms
 	static uint32_t sync_window     = 0; // time window between sync packets in ms
 	static uint32_t gs_window       = 0; // time window for GS packets in ms
 	static uint32_t security_window = 0; // silent time window in ms
@@ -555,6 +554,7 @@ LoRaFCState lora_fc_state_machine()
 			sync_window = sync.sync_window;
 			gs_window = sync.gs_window;
 			security_window = sync.security_window;
+			//Serial.printf("LORA: SYNC PACKET, sync_window:%ld, gs_window:%ld, security_window:%ld\n", sync_window, gs_window, security_window);
 
 			// Received first sync packet from GS, start the handshake
 			state = STATE_CONNECTING;
@@ -567,8 +567,8 @@ LoRaFCState lora_fc_state_machine()
 		p.header.type = PKT_CONNECT;
 
 		uint32_t timeout = sync_window/2;
-		uint64_t connect_tx_time = 0;
-		uint64_t connect_rx_time = 0;
+		int64_t connect_tx_time = 0;
+		int64_t connect_rx_time = 0;
 
 		if (lora_transmit_timeout(&p, sizeof(p), timeout, TX_FORCE) == false) {
 			state = STATE_DISCONNECTED;
@@ -589,13 +589,17 @@ LoRaFCState lora_fc_state_machine()
 			// Delta computation
 			// https://en.wikipedia.org/wiki/Cristian%27s_algorithm
 			// https://www.analog.com/en/resources/analog-dialogue/articles/clock-synchro-with-ieee-1588-and-blackfin.html
-			clock_delta = -((sync_rx_time - sync_tx_time) - (connect_tx_time - connect_rx_time)) / 2;
+			int64_t fw_time = sync_rx_time - sync_tx_time;
+			int64_t bw_time = connect_tx_time - connect_rx_time;
+			clock_delta = -(fw_time + bw_time) / 2;
 			// FIXME: the single trip time a sync packet takes could be transmitted by the master and
 			// the error would be less (just the propagation delay), this instead takes in account
 			// the time it takes to transmit the sync packet and the time it takes to receive it back
 			// plus the two propagation delays
-			sync_trip_time = ((connect_rx_time - sync_tx_time) - (connect_tx_time - sync_rx_time)) / 2;
+			sync_trip_time = (fw_time - bw_time) / 2;
 			sync_time = sync_tx_time;
+			//Serial.printf("LORA: CONNECT PACKET, sync_rx_time:%lld, sync_tx_time:%lld, connect_rx_time:%lld, connect_tx_time:%lld\n", sync_rx_time, sync_tx_time, connect_rx_time, connect_tx_time);
+			//Serial.printf("LORA: CONNECTED, clock_delta:%lld, sync_trip_time:%lld\n", clock_delta, sync_trip_time);
 
 			state = STATE_RECEIVE; // first slot is reserved to FC transmission
 		} else {
@@ -607,17 +611,19 @@ LoRaFCState lora_fc_state_machine()
 	case STATE_TRANSMIT: {
 		uint32_t toa = radio.getTimeOnAir(sizeof(LoRaDataPacket))/1000;
 		int64_t slot = slot_relative_time(sync_time, clock_delta);
-		int64_t remaining_time = sync_window - security_window - slot;
+		int64_t remaining_time = (int64_t)sync_window - (int64_t)security_window - slot;
 
 		// In the receive window, switch to receive mode
 		if (slot <= gs_window) {
+//			Serial.printf("LORA: In receive window, switching to receive mode, slot:%lld, gs_window:%ld\n", slot, gs_window);
 			sync_received = false;
 			state = STATE_RECEIVE;
 			break;
 		}
 
 		// If the packet would arrive after the tx window of the fc switch to receive mode
-		if (remaining_time - toa < 0) {
+		if (remaining_time - toa <= 0) {
+//			Serial.printf("LORA: Not enough time, delta:%lld, remaining_time:%lld, toa:%ld\n", clock_delta, remaining_time, toa);
 			sync_received = false;
 			state = STATE_RECEIVE;
 			break;
@@ -635,34 +641,51 @@ LoRaFCState lora_fc_state_machine()
 	}
 
 	case STATE_RECEIVE: {
-		// Receive for the ground station window, including the security window to avoid
-		// switching too early or loosing packets
-		int64_t remaining_time = gs_window - slot_relative_time(sync_time, clock_delta);
+		int64_t remaining_time = 0;
+		// We timed-out early out of transmit, now we have to wait for
+		// the next sync packet from the GS
+		if (slot_relative_time(sync_time, clock_delta) > sync_window-gs_window-security_window) {
+			// set the remaining time to the next sync packet
+			remaining_time = (int64_t)sync_window;
+		} else {
+			remaining_time = (int64_t)gs_window - slot_relative_time(sync_time, clock_delta);
+		}
+		//Serial.printf("LORA: RECEIVE PACKET, remaining_time:%lld, sync_time:%lld, clock_delta:%lld, slot_relative_time:%lld\n", remaining_time, sync_time, clock_delta, slot_relative_time(sync_time, clock_delta));
+
+		if (slot_relative_time(sync_time, clock_delta) > 4000) {
+			state = STATE_DISCONNECTED;
+			break;
+		}
 
 		if (remaining_time < 0) {
-			if (sync_received == false) {
-				sync_misses++;
-			}
-			if (sync_misses > MAX_SYNC_MISSES) {
-				state = STATE_DISCONNECTED;
-			} else {
+//			if (sync_received == false) {
+//				sync_misses++;
+//			}
+//			if (sync_misses > MAX_SYNC_MISSES) {
+//				Serial.printf("LORA: MAX_SYNC_MISSES (1) exceeded, disconnecting, sync_misses:%ld\n", sync_misses);
+//				state = STATE_DISCONNECTED;
+//			} else {
+				//Serial.printf("Switching to transmit mode, sync_misses:%ld\n", sync_misses);
 				state = STATE_TRANSMIT;
-			}
+//			}
 			break;
 		}
 
 		if (lora_receive_timeout(remaining_time) == false) {
-			if (sync_received == false) {
-				sync_misses++;
-			}
-			if (sync_misses > MAX_SYNC_MISSES) {
-				state = STATE_DISCONNECTED;
-			} else {
+//			if (sync_received == false) {
+//				sync_misses++;
+//			}
+//			if (sync_misses > MAX_SYNC_MISSES) {
+//				Serial.printf("LORA: MAX_SYNC_MISSES (2) exceeded, disconnecting, sync_misses:%ld\n", sync_misses);
+//				state = STATE_DISCONNECTED;
+//			} else {
+				//Serial.printf("Switching to transmit mode, sync_misses:%ld\n", sync_misses);
 				state = STATE_TRANSMIT;
-			}
+//			}
 			break;
 		}
 
+		//Serial.printf("LORA: Recieved packet, sync_misses:%ld\n", sync_misses);
 		LoRaPacketHeader p = lora_get_header();
 		if (p.id != LORA_GS_ID) break;
 
@@ -676,12 +699,15 @@ LoRaFCState lora_fc_state_machine()
 			LoRaSyncPacket s = lora_get_sync();
 			if (s.connected == false) {
 				// ground station thinks we are not connected
+				//Serial.printf("LORA: GS thinks we are disconnected, disconnecting\n");
 				state = STATE_DISCONNECTED;
 				break;
 			}
-			int64_t drift = sync_rx_time - clock_delta - sync_tx_time - sync_trip_time;
+			int64_t drift = clock_delta + (sync_rx_time - sync_tx_time - sync_trip_time);
+			//int64_t drift = sync_rx_time - clock_delta - sync_tx_time - sync_trip_time;
+			Serial.printf("LORA: SYNC PACKET, drift:%lld\n", drift);
 			if (llabs(drift) > MAX_DRIFT_MS) {
-				clock_delta += drift;
+				clock_delta -= drift;
 			}
 
 			// update window parameters from sync packet
@@ -699,6 +725,7 @@ LoRaFCState lora_fc_state_machine()
 		}
 		default:
 			// FIXME: should we disconnect?
+			Serial.printf("LORA: Unexpected packet type received, type:%d\n", p.type);
 			break;
 		}
 

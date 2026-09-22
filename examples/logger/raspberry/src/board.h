@@ -1,6 +1,6 @@
 #pragma once
 
-#define LORA_DIO1 18
+#define LORA_DIO1 24
 #define LORA_RST  23
 #define LORA_BUSY 25
 #define LORA_CS   8

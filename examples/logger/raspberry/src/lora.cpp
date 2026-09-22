@@ -297,7 +297,6 @@ bool lora_receive_timeout(int64_t timeout_ms)
 
 	// Timeout occurred
 	if (rx_operation_done == false) {
-		LOG("LORA: RECEIVE TIMEOUT");
 		return false;
 	}
 
@@ -398,6 +397,7 @@ bool lora_transmit_timeout(void *buffer, uint32_t len, int64_t timeout_ms, LoRaT
 		DELAY_MS(WAIT_TIMEOUT_MS);
 		if (MILLIS() - start_time > toa_ms*2) {
 			// Transmission took too long, maybe IRQ was lost
+			LOG("[ERR] transmission timeout (%d ms)\n", toa_ms*2);
 			return false;
 		}
 	}
@@ -752,6 +752,8 @@ LoRaFCState lora_gs_state_machine()
 				connect_rx_time = last_rx_time;
 				state = STATE_CONNECTING;
 				break;
+			} else {
+				LOG("Malformed connect packet\n");
 			}
 		}
 		break;
@@ -775,13 +777,16 @@ LoRaFCState lora_gs_state_machine()
 	case STATE_TRANSMIT: {
 
 		if (silent_frames >= MAX_SILENT_FRAMES) {
+			LOG("Max silent frames reached, disconnecting\n");
 			state = STATE_DISCONNECTED;
 			break;
 		}
 
 		// Sync window expired, need to resend sync packet, this should only happen
 		// once when entering STATE_TRANSMIT after the first window after the handshake
+		//LOG("Slot relative time: %lld, sync window: %d\n", slot_relative_time(sync_sent_time), sync_window);
 		if (slot_relative_time(sync_sent_time) >= sync_window) {
+			//LOG("Sync window expired, resending sync packet\n");
 			LoRaSyncPacket s = {};
 			s.header.type = PKT_SYNC;
 			s.sync_window = sync_window;
@@ -790,6 +795,7 @@ LoRaFCState lora_gs_state_machine()
 			s.connected = true;
 
 			if (lora_transmit_timeout(&s, sizeof(s), sync_window, TX_FORCE) == false) {
+				LOG("Failed to resend sync packet, disconnecting\n");
 				state = STATE_DISCONNECTED;
 				break;
 			}
@@ -798,6 +804,7 @@ LoRaFCState lora_gs_state_machine()
 		}
 
 		int64_t remaining_time = gs_window - security_window - slot_relative_time(sync_sent_time);
+		//LOG("Remaining time: %lld, gs_window: %ld, security_window: %d, slot_relative_time: %ld\n", remaining_time, gs_window, security_window, slot_relative_time(sync_sent_time));
 
 		if (remaining_time <= 0) {
 			packets_received = 0;
@@ -849,6 +856,7 @@ LoRaFCState lora_gs_state_machine()
 			packets_received++;
 			silent_frames = 0;
 			// TODO: do something with the packet
+			LOG("packet recieved from FC, length: %d\n", rx_len);
 		}
 
 		break;

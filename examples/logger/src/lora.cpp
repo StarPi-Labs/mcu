@@ -157,8 +157,12 @@ void lora_setup(FrequencyBands band, LoRaTxMode mode, uint8_t id, bool respect_p
 
 	radio.setSpreadingFactor(LORA_SPREADING_FACTOR);
 	radio.setCodingRate(LORA_CODING_RATE);
-	radio.forceLDRO(false);
+	radio.setSyncWord(0x12);
+	radio.setPreambleLength(8);
+	radio.explicitHeader();
 	radio.setCRC(LORA_CRC_BYTES);
+	radio.invertIQ(false);
+	radio.forceLDRO(false);
 
 	/* DIO1 cannot be set as both the transmission done and receprion done
 	 * interrupt so we need to implement a mode switch behavior which reassigns
@@ -286,6 +290,7 @@ bool lora_receive_timeout(int64_t timeout_ms)
 
 	// Timeout occurred
 	if (rx_operation_done == false) {
+		Serial.println("LORA: RECEIVE TIMEOUT");
 		return false;
 	}
 

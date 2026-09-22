@@ -665,7 +665,7 @@ TASK lora_transmitter_task(TaskDescriptor_t *self)
 			str = "UNKNOWN";
 			break;
 		}
-		Serial.println(str);
+		Serial.printf("LORA: %s\n", str.c_str());
 	}
 }
 

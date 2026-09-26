@@ -63,13 +63,18 @@ int main(void)
 		}
 		printf("GS state: %s\n", str);
 		if (state == STATE_RECEIVE) {
-			printf("Received packet: altitude=%d, vspeed=%d, attitude=%d, dt=%d, p1=%d, p2=%d, dt=%d, latitude=%f, longitude=%f, dt=%d\n",
-				rx_packet.imu.altitude,
-				rx_packet.imu.vspeed,
-				rx_packet.imu.attitude,
+			auto alt = std::bit_cast<half_float::half>(rx_packet.imu.altitude);
+			auto vsp = std::bit_cast<half_float::half>(rx_packet.imu.vspeed);
+			auto att = std::bit_cast<half_float::half>(rx_packet.imu.attitude);
+			auto p1 = std::bit_cast<half_float::half>(rx_packet.baro.p1);
+			auto p2 = std::bit_cast<half_float::half>(rx_packet.baro.p2);
+			printf("Received packet: altitude=%f, vspeed=%f, attitude=%f, dt=%d, p1=%f, p2=%f, dt=%d, latitude=%f, longitude=%f, dt=%d\n",
+				half_float::half_cast<float>(alt),
+				half_float::half_cast<float>(vsp),
+				half_float::half_cast<float>(att),
 				rx_packet.imu.dt,
-				rx_packet.baro.p1,
-				rx_packet.baro.p2,
+				half_float::half_cast<float>(p1),
+				half_float::half_cast<float>(p2),
 				rx_packet.baro.dt,
 				rx_packet.gps.latitude,
 				rx_packet.gps.longitude,

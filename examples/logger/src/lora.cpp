@@ -234,7 +234,7 @@ bool lora_is_channel_free(void)
 // Wait for a packet to be received or timeout, return true if packet received, false otherwise
 bool lora_receive_timeout(int64_t timeout_ms)
 {
-	int64_t start_time = millis();
+	int64_t start_time = hal.millis();
 
 	// If not in transmit mode, wait for the operation done and enter
 	if (is_tx == true) {
@@ -254,10 +254,10 @@ bool lora_receive_timeout(int64_t timeout_ms)
 
 	// Wait for the packet to be received or timeout
 	while (rx_operation_done == false) {
-		if (millis() - start_time > timeout_ms) {
+		if (hal.millis() - start_time > timeout_ms) {
 			break;
 		}
-		vTaskDelay(pdMS_TO_TICKS(WAIT_TIMEOUT_MS));
+		hal.delay(WAIT_TIMEOUT_MS);
 	}
 	if (radio.finishReceive() != RADIOLIB_ERR_NONE) {
 		rx_operation_done = true;
@@ -285,7 +285,7 @@ bool lora_receive_timeout(int64_t timeout_ms)
 // Transmit a packet with a timeout, return true if successful, false otherwise
 bool lora_transmit_timeout(void *buffer, uint32_t len, int64_t timeout_ms, LoRaTxMode tx_mode_override)
 {
-	int64_t start_time = millis();
+	int64_t start_time = hal.millis();
 	int64_t toa_ms = radio.getTimeOnAir(len)/1000;
 
 	// Enter TX mode if not already in TX mode
@@ -315,7 +315,7 @@ bool lora_transmit_timeout(void *buffer, uint32_t len, int64_t timeout_ms, LoRaT
 			if (lora_is_channel_free()) {
 				break;
 			}
-			vTaskDelay(pdMS_TO_TICKS(random(5, 50)));
+			hal.delay(random(5, 50));
 		}
 		// if the channel is still busy after max_cca attempts, we will transmit anyway
 		break;
@@ -333,7 +333,7 @@ bool lora_transmit_timeout(void *buffer, uint32_t len, int64_t timeout_ms, LoRaT
 		uint64_t next_allowed = last_tx_time*1000 + min_interval_us;
 
 		if (now < next_allowed) {
-			vTaskDelay(pdMS_TO_TICKS((next_allowed - now) / 1000) + 1);
+			hal.delay((next_allowed - now) / 1000);
 		}
 		break;
 	}
@@ -344,7 +344,7 @@ bool lora_transmit_timeout(void *buffer, uint32_t len, int64_t timeout_ms, LoRaT
 	}
 
 	// Done waiting, check if the time window has been exceeded
-	if (millis() - start_time > timeout_ms - toa_ms) {
+	if (hal.millis() - start_time > timeout_ms - toa_ms) {
 		// ABORT: time window exceeded
 		return false;
 	}
@@ -360,10 +360,10 @@ bool lora_transmit_timeout(void *buffer, uint32_t len, int64_t timeout_ms, LoRaT
 	}
 
 	// Wait for the transmission to complete, max timeout is 2*expected time on air
-	start_time = millis();
+	start_time = hal.millis();
 	while (tx_operation_done == false) {
-		vTaskDelay(pdMS_TO_TICKS(WAIT_TIMEOUT_MS));
-		if (millis() - start_time > toa_ms*2) {
+		hal.delay(WAIT_TIMEOUT_MS);
+		if (hal.millis() - start_time > toa_ms*2) {
 			// Transmission took too long, maybe IRQ was lost
 			return false;
 		}
@@ -780,7 +780,7 @@ LoRaProtoState lora_gs_state_machine()
 
 		// Switched to early to transmit, wait for remaining listen time to expire
 		if (remaining_time >= gs_window) {
-			vTaskDelay(pdMS_TO_TICKS(remaining_time-gs_window));
+			hal.delay(remaining_time-gs_window);
 			break;
 		}
 

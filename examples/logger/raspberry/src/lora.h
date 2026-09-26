@@ -24,7 +24,7 @@ enum LoRaPacketType : uint8_t
 	PKT_COMMAND, // Command packet GS -> FC
 };
 
-enum LoRaFCState : uint8_t
+enum LoRaProtoState : uint8_t
 {
 	STATE_DISCONNECTED,
 	STATE_CONNECTING,
@@ -122,14 +122,11 @@ struct BandRequirements {
 
 void lora_setup(FrequencyBands band, LoRaTxMode mode, uint8_t id, bool respect_power_limit = true);
 
-void lora_prepare_next_packet(void);
-LoRaDataPacket* lora_get_tx_packet(void);
-void lora_release_tx_packet(void);
+void lora_set_tx_packet_cb(bool (*cb)(uint8_t*)); // Set action that fetches a packet to be sent
+void lora_set_rx_packet_cb(void (*cb)(uint8_t*)); // Set action when a packet arrives
 
-bool lora_is_channel_free(void);
-
-LoRaFCState lora_fc_state_machine(void);
-LoRaFCState lora_gs_state_machine(void);
+LoRaProtoState lora_fc_state_machine(void);
+LoRaProtoState lora_gs_state_machine(void);
 
 uint64_t u48le_to_u64(uint8_t u48[6]);
 void u64_to_u48le(uint64_t u64, uint8_t *u48);

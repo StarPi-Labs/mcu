@@ -16,22 +16,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <RadioLib.h>
-#include "PiHal.h"
+#include <PiHal.h>
 
 #include "lora.h"
 #include "board.h"
 
-#define DELAY_MS(ms) hal->delay(ms)
-#define MILLIS() hal->millis()
-#define LOG(str, ...) printf(str __VA_OPT__(,) __VA_ARGS__)
-#define now_ms() hal->millis()
-#define now_us() hal->micros()
+#define log(src, type, str, ...) printf(str __VA_OPT__(,) __VA_ARGS__)
+#define now_ms() hal.millis()
+#define now_us() hal.micros()
 #define randomSeed(s) srand(s)
 #define random(min, max) (rand() % ((max) - (min) + 1) + (min))
 
-PiHal* hal = new PiHal(0);
+PiHal hal(0);
 SX1262 radio = new Module(
-	hal,
+	&hal,
 	LORA_CS,
 	LORA_DIO1,
 	LORA_RST,
@@ -48,15 +46,15 @@ static int last_tx_toa = 0;
 static uint8_t rx_buffer[LORA_MAX_PAYLOAD];
 static uint32_t rx_len = 0;
 
-static LoRaDataPacket next_packet;
 static LoRaTxMode tx_mode;
 static uint8_t next_order_number = 0;
 static uint8_t machine_id = 0;
-
 static FrequencyBands freq_band;
-static bool is_tx = true;
 
-//DECLARE_STATIC_SEMAPHORE(next_packet_mutex);
+static bool is_tx = true; // current status, transmission or reception
+
+static bool (*tx_packet_cb)(uint8_t*);
+static void (*rx_packet_cb)(uint8_t*);
 
 
 // As per EN 300 220-2 V3.3.1; Annex B table 1
@@ -109,13 +107,13 @@ const struct {
 
 static void tx_operation_done_cb(void)
 {
-	last_tx_time = now_ms();
+	last_tx_time = hal.millis();
 	tx_operation_done = true;
 }
 
 static void rx_operation_done_cb(void)
 {
-	last_rx_time = now_ms();
+	last_rx_time = hal.millis();
 	rx_operation_done = true;
 }
 
@@ -125,7 +123,7 @@ void lora_setup(FrequencyBands band, LoRaTxMode mode, uint8_t id, bool respect_p
 	int state = radio.begin();
 	if (state != RADIOLIB_ERR_NONE) {
 		// FIXME: log state
-		LOG("[ERR] failed to initialize radio");
+		log(S_LORA, T_SYSLOG, "[ERR] failed to initialize radio");
 		while (true);
 	}
 
@@ -134,10 +132,10 @@ void lora_setup(FrequencyBands band, LoRaTxMode mode, uint8_t id, bool respect_p
 
 	if (mode == TX_DUTY && EU_868_BANDS[band].polite_access) {
 		tx_mode = TX_POLITE;
-		LOG("Upgrading from TX_DUTY to TX_POLITE");
+		log(S_LORA, T_SYSLOG, "Upgrading from TX_DUTY to TX_POLITE");
 	} else if (mode == TX_POLITE && !EU_868_BANDS[band].polite_access) {
 		tx_mode = TX_DUTY;
-		LOG("polite access not supported in this band, using TX_DUTY instead");
+		log(S_LORA, T_SYSLOG, "polite access not supported in this band, using TX_DUTY instead");
 	} else {
 		tx_mode = mode;
 	}
@@ -177,17 +175,10 @@ void lora_setup(FrequencyBands band, LoRaTxMode mode, uint8_t id, bool respect_p
 	is_tx = true;
 	radio.setPacketSentAction(tx_operation_done_cb);
 
-//	INIT_STATIC_SEMAPHORE(next_packet_mutex);
-//	if (next_packet_mutex == NULL) {
-//		LOG("[ERR] failed to create next_packet mutex");
-//		while (true);
-//	}
-
 	// Abilita la trasmissione e ricezione del primo pacchetto
 	tx_operation_done = true;
 	rx_operation_done = true;
 	next_order_number = 0;
-	lora_prepare_next_packet();
 }
 
 
@@ -233,26 +224,17 @@ static void adjust_time(void *p)
 }
 
 
-void lora_prepare_next_packet(void)
+// Set action that fetches a packet to be sent
+void lora_set_tx_packet_cb(bool (*cb)(uint8_t*))
 {
-//	xSemaphoreTake(next_packet_mutex, portMAX_DELAY);
-	memset(&next_packet, 0, sizeof(next_packet));
-	next_packet.header.type = PKT_DATA;
-	u64_to_u48le(now_ms(), next_packet.header.tx_time);
-//	xSemaphoreGive(next_packet_mutex);
+	tx_packet_cb = cb;
 }
 
 
-LoRaDataPacket* lora_get_tx_packet(void)
+// Set action when a packet arrives
+void lora_set_rx_packet_cb(void (*cb)(uint8_t*))
 {
-//	xSemaphoreTake(next_packet_mutex, portMAX_DELAY);
-	return &next_packet;
-}
-
-
-void lora_release_tx_packet(void)
-{
-//	xSemaphoreGive(next_packet_mutex);
+	rx_packet_cb = cb;
 }
 
 
@@ -266,7 +248,7 @@ bool lora_is_channel_free(void)
 // Wait for a packet to be received or timeout, return true if packet received, false otherwise
 bool lora_receive_timeout(int64_t timeout_ms)
 {
-	int64_t start_time = MILLIS();
+	int64_t start_time = hal.millis();
 
 	// If not in transmit mode, wait for the operation done and enter
 	if (is_tx == true) {
@@ -286,10 +268,10 @@ bool lora_receive_timeout(int64_t timeout_ms)
 
 	// Wait for the packet to be received or timeout
 	while (rx_operation_done == false) {
-		if (MILLIS() - start_time > timeout_ms) {
+		if (hal.millis() - start_time > timeout_ms) {
 			break;
 		}
-		DELAY_MS(WAIT_TIMEOUT_MS);
+		hal.delay(WAIT_TIMEOUT_MS);
 	}
 	if (radio.finishReceive() != RADIOLIB_ERR_NONE) {
 		rx_operation_done = true;
@@ -317,7 +299,7 @@ bool lora_receive_timeout(int64_t timeout_ms)
 // Transmit a packet with a timeout, return true if successful, false otherwise
 bool lora_transmit_timeout(void *buffer, uint32_t len, int64_t timeout_ms, LoRaTxMode tx_mode_override)
 {
-	int64_t start_time = MILLIS();
+	int64_t start_time = hal.millis();
 	int64_t toa_ms = radio.getTimeOnAir(len)/1000;
 
 	// Enter TX mode if not already in TX mode
@@ -347,7 +329,7 @@ bool lora_transmit_timeout(void *buffer, uint32_t len, int64_t timeout_ms, LoRaT
 			if (lora_is_channel_free()) {
 				break;
 			}
-			DELAY_MS(random(5, 50));
+			hal.delay(random(5, 50));
 		}
 		// if the channel is still busy after max_cca attempts, we will transmit anyway
 		break;
@@ -361,22 +343,22 @@ bool lora_transmit_timeout(void *buffer, uint32_t len, int64_t timeout_ms, LoRaT
 		float duty = EU_868_BANDS[freq_band].max_duty / 100.0f;
 		if (duty <= 0.0f) duty = 1.0f;
 		uint64_t min_interval_us = (uint64_t)((float)last_tx_toa / duty); // FIXME
-		uint64_t now = now_us();
+		uint64_t now = hal.micros();
 		uint64_t next_allowed = last_tx_time*1000 + min_interval_us;
 
 		if (now < next_allowed) {
-			DELAY_MS((next_allowed - now) / 1000 + 1);
+			hal.delay((next_allowed - now) / 1000);
 		}
 		break;
 	}
 	default:
-		LOG("[ERR]: invalid tx mode");
+		log(S_LORA, T_SYSLOG, "[ERR]: invalid tx mode");
 		return false;
 		break;
 	}
 
 	// Done waiting, check if the time window has been exceeded
-	if (MILLIS() - start_time > timeout_ms - toa_ms) {
+	if (hal.millis() - start_time > timeout_ms - toa_ms) {
 		// ABORT: time window exceeded
 		return false;
 	}
@@ -392,12 +374,11 @@ bool lora_transmit_timeout(void *buffer, uint32_t len, int64_t timeout_ms, LoRaT
 	}
 
 	// Wait for the transmission to complete, max timeout is 2*expected time on air
-	start_time = MILLIS();
+	start_time = hal.millis();
 	while (tx_operation_done == false) {
-		DELAY_MS(WAIT_TIMEOUT_MS);
-		if (MILLIS() - start_time > toa_ms*2) {
+		hal.delay(WAIT_TIMEOUT_MS);
+		if (hal.millis() - start_time > toa_ms*2) {
 			// Transmission took too long, maybe IRQ was lost
-			LOG("[ERR] transmission timeout (%d ms)\n", toa_ms*2);
 			return false;
 		}
 	}
@@ -494,25 +475,31 @@ static LoRaCommandPacket lora_get_command()
 }
 
 
-static int64_t slot_relative_time(int64_t last_sync_time, int64_t delta = 0)
+static LoRaDataPacket lora_get_data()
 {
-	return now_ms() + delta - last_sync_time;
+	LoRaDataPacket dat;
+	memcpy(&dat, rx_buffer, sizeof(LoRaDataPacket));
+	return dat;
 }
 
 
-LoRaFCState lora_fc_state_machine()
+static int64_t slot_relative_time(int64_t last_sync_time, int64_t sync_window, int64_t delta = 0)
 {
-	static LoRaFCState state = STATE_DISCONNECTED;
+	return (hal.millis() + delta - last_sync_time) % sync_window;
+}
+
+
+LoRaProtoState lora_fc_state_machine()
+{
+	static LoRaProtoState state = STATE_DISCONNECTED;
 	static int64_t  clock_delta     = 0; // clock delta between FC and GS
-	static uint64_t sync_rx_time    = 0; // absolute time of the last sync packet received in ms
-	static uint64_t sync_tx_time    = 0; // absolute time of the last sync packet transmitted in ms
-	static uint64_t sync_time       = 0; // absolute time of the last sync packet received in ms
-	static uint64_t sync_trip_time  = 0; // time it takes for a single sync packet takes to arrive in ms
+	static int64_t  sync_rx_time    = 0; // absolute time of the last sync packet received in ms
+	static int64_t  sync_tx_time    = 0; // absolute time of the last sync packet transmitted in ms
+	static int64_t  sync_time       = 0; // absolute time of the last sync packet received in ms
+	static int64_t  sync_trip_time  = 0; // time it takes for a single sync packet takes to arrive in ms
 	static uint32_t sync_window     = 0; // time window between sync packets in ms
 	static uint32_t gs_window       = 0; // time window for GS packets in ms
 	static uint32_t security_window = 0; // silent time window in ms
-	static uint32_t sync_misses     = 0; // number of sync packet misses
-	static bool     sync_received   = false; // true if we have received a sync packet
 
 	/*
 	 * Connection Handshake:
@@ -534,8 +521,6 @@ LoRaFCState lora_fc_state_machine()
 		sync_window     = 0;
 		gs_window       = 0;
 		security_window = 0;
-		sync_misses     = 0;
-		sync_received   = false;
 
 		if (lora_receive_timeout(2000) == false) break;
 
@@ -545,11 +530,12 @@ LoRaFCState lora_fc_state_machine()
 			sync_tx_time = u48le_to_u64(header.tx_time);
 
 			LoRaSyncPacket sync = lora_get_sync();
-			LOG("sync packet received");
+			log(S_LORA, T_SYSLOG, "sync packet received");
 
 			sync_window = sync.sync_window;
 			gs_window = sync.gs_window;
 			security_window = sync.security_window;
+			//Serial.printf("LORA: SYNC PACKET, sync_window:%ld, gs_window:%ld, security_window:%ld\n", sync_window, gs_window, security_window);
 
 			// Received first sync packet from GS, start the handshake
 			state = STATE_CONNECTING;
@@ -562,8 +548,8 @@ LoRaFCState lora_fc_state_machine()
 		p.header.type = PKT_CONNECT;
 
 		uint32_t timeout = sync_window/2;
-		uint64_t connect_tx_time = 0;
-		uint64_t connect_rx_time = 0;
+		int64_t connect_tx_time = 0;
+		int64_t connect_rx_time = 0;
 
 		if (lora_transmit_timeout(&p, sizeof(p), timeout, TX_FORCE) == false) {
 			state = STATE_DISCONNECTED;
@@ -584,13 +570,17 @@ LoRaFCState lora_fc_state_machine()
 			// Delta computation
 			// https://en.wikipedia.org/wiki/Cristian%27s_algorithm
 			// https://www.analog.com/en/resources/analog-dialogue/articles/clock-synchro-with-ieee-1588-and-blackfin.html
-			clock_delta = -((sync_rx_time - sync_tx_time) - (connect_tx_time - connect_rx_time)) / 2;
+			int64_t fw_time = sync_rx_time - sync_tx_time;
+			int64_t bw_time = connect_tx_time - connect_rx_time;
+			clock_delta = -(fw_time + bw_time) / 2;
 			// FIXME: the single trip time a sync packet takes could be transmitted by the master and
 			// the error would be less (just the propagation delay), this instead takes in account
 			// the time it takes to transmit the sync packet and the time it takes to receive it back
 			// plus the two propagation delays
-			sync_trip_time = ((connect_rx_time - sync_tx_time) - (connect_tx_time - sync_rx_time)) / 2;
+			sync_trip_time = (fw_time - bw_time) / 2;
 			sync_time = sync_tx_time;
+			//Serial.printf("LORA: CONNECT PACKET, sync_rx_time:%lld, sync_tx_time:%lld, connect_rx_time:%lld, connect_tx_time:%lld\n", sync_rx_time, sync_tx_time, connect_rx_time, connect_tx_time);
+			//Serial.printf("LORA: CONNECTED, clock_delta:%lld, sync_trip_time:%lld\n", clock_delta, sync_trip_time);
 
 			state = STATE_RECEIVE; // first slot is reserved to FC transmission
 		} else {
@@ -601,27 +591,26 @@ LoRaFCState lora_fc_state_machine()
 
 	case STATE_TRANSMIT: {
 		uint32_t toa = radio.getTimeOnAir(sizeof(LoRaDataPacket))/1000;
-		int64_t slot = slot_relative_time(sync_time, clock_delta);
-		int64_t remaining_time = sync_window - security_window - slot;
+		int64_t slot = slot_relative_time(sync_time, sync_window, clock_delta);
+		int64_t remaining_time = (int64_t)sync_window - (int64_t)security_window - slot;
 
 		// In the receive window, switch to receive mode
 		if (slot <= gs_window) {
-			sync_received = false;
+//			Serial.printf("LORA: In receive window, switching to receive mode, slot:%lld, gs_window:%ld\n", slot, gs_window);
 			state = STATE_RECEIVE;
 			break;
 		}
 
 		// If the packet would arrive after the tx window of the fc switch to receive mode
-		if (remaining_time - toa < 0) {
-			sync_received = false;
+		if (remaining_time - toa <= 0) {
+//			Serial.printf("LORA: Not enough time, delta:%lld, remaining_time:%lld, toa:%ld\n", clock_delta, remaining_time, toa);
 			state = STATE_RECEIVE;
 			break;
 		}
 
 		LoRaDataPacket tx_packet;
-		//xSemaphoreTake(next_packet_mutex, portMAX_DELAY);
-		memcpy(&tx_packet, &next_packet, sizeof(tx_packet));
-		//xSemaphoreGive(next_packet_mutex);
+		if (tx_packet_cb((uint8_t*)&tx_packet) == false)
+			break;
 
 		lora_transmit_timeout(&tx_packet, sizeof(tx_packet), remaining_time - toa, TX_NONE);
 		// TODO: check and log errors
@@ -630,53 +619,52 @@ LoRaFCState lora_fc_state_machine()
 	}
 
 	case STATE_RECEIVE: {
-		// Receive for the ground station window, including the security window to avoid
-		// switching too early or loosing packets
-		int64_t remaining_time = gs_window - slot_relative_time(sync_time, clock_delta);
+		int64_t remaining_time = 0;
+		// We timed-out early out of transmit, now we have to wait for
+		// the next sync packet from the GS
+		if (slot_relative_time(sync_time, sync_window, clock_delta) > sync_window-gs_window-security_window) {
+			// set the remaining time to the next sync packet
+			remaining_time = (int64_t)sync_window;
+		} else {
+			remaining_time = (int64_t)gs_window - slot_relative_time(sync_time, sync_window, clock_delta);
+		}
+		//Serial.printf("LORA: RECEIVE PACKET, remaining_time:%lld, sync_time:%lld, clock_delta:%lld, slot_relative_time:%lld\n", remaining_time, sync_time, clock_delta, slot_relative_time(sync_time, sync_window, clock_delta));
+
+		if (hal.millis() + clock_delta - sync_time > MAX_SYNC_MISSES*sync_window) {
+			state = STATE_DISCONNECTED;
+			break;
+		}
 
 		if (remaining_time < 0) {
-			if (sync_received == false) {
-				sync_misses++;
-			}
-			if (sync_misses > MAX_SYNC_MISSES) {
-				state = STATE_DISCONNECTED;
-			} else {
-				state = STATE_TRANSMIT;
-			}
+			state = STATE_TRANSMIT;
 			break;
 		}
 
 		if (lora_receive_timeout(remaining_time) == false) {
-			if (sync_received == false) {
-				sync_misses++;
-			}
-			if (sync_misses > MAX_SYNC_MISSES) {
-				state = STATE_DISCONNECTED;
-			} else {
-				state = STATE_TRANSMIT;
-			}
+			state = STATE_TRANSMIT;
 			break;
 		}
 
+		//Serial.printf("LORA: Recieved packet, sync_misses:%ld\n", sync_misses);
 		LoRaPacketHeader p = lora_get_header();
 		if (p.id != LORA_GS_ID) break;
 
 		switch (p.type) {
 		case PKT_SYNC: {
-			sync_received = true;
-			sync_misses = 0;
 			sync_rx_time = last_rx_time;
 			sync_tx_time = u48le_to_u64(p.tx_time);
 			sync_time = sync_tx_time;
 			LoRaSyncPacket s = lora_get_sync();
 			if (s.connected == false) {
 				// ground station thinks we are not connected
+				//Serial.printf("LORA: GS thinks we are disconnected, disconnecting\n");
 				state = STATE_DISCONNECTED;
 				break;
 			}
-			int64_t drift = sync_rx_time - clock_delta - sync_tx_time - sync_trip_time;
+			int64_t drift = clock_delta + (sync_rx_time - sync_tx_time - sync_trip_time);
+			//Serial.printf("LORA: SYNC PACKET, drift:%lld\n", drift);
 			if (llabs(drift) > MAX_DRIFT_MS) {
-				clock_delta += drift;
+				clock_delta -= drift;
 			}
 
 			// update window parameters from sync packet
@@ -686,14 +674,13 @@ LoRaFCState lora_fc_state_machine()
 			break;
 		}
 		case PKT_COMMAND: {
-			// TODO: handle command packet
 			LoRaCommandPacket c = lora_get_command();
-			//xQueueSendToBack(rx_cmd_queue, &(c.data), 0);
-			//xTaskNotifyGive(rx_cmd_task_handle);
+			rx_packet_cb((uint8_t*)&c);
 			break;
 		}
 		default:
 			// FIXME: should we disconnect?
+			// Serial.printf("LORA: Unexpected packet type received, type:%d\n", p.type);
 			break;
 		}
 
@@ -709,9 +696,9 @@ LoRaFCState lora_fc_state_machine()
 }
 
 
-LoRaFCState lora_gs_state_machine()
+LoRaProtoState lora_gs_state_machine()
 {
-	static LoRaFCState state = STATE_DISCONNECTED;
+	static LoRaProtoState state = STATE_DISCONNECTED;
 	static int64_t  sync_sent_time  = 0; // absolute time of the last sync packet sent in ms
 	static int64_t  connect_rx_time = 0; // absolute time of the last connect packet received in ms
 	static int      packets_received = 0; // number of packets received from FC
@@ -727,7 +714,7 @@ LoRaFCState lora_gs_state_machine()
 		packets_received = 0;
 		silent_frames = 0;
 
-		if ((now_ms() - sync_sent_time) >= sync_window) {
+		if ((hal.millis() - sync_sent_time) >= sync_window) {
 			// Send sync packet to FC
 			LoRaSyncPacket s = {};
 			s.header.type = PKT_SYNC;
@@ -741,7 +728,7 @@ LoRaFCState lora_gs_state_machine()
 			}
 			break;
 		} else {
-			if (lora_receive_timeout(sync_window - (slot_relative_time(sync_sent_time))) == false) {
+			if (lora_receive_timeout(sync_window - (slot_relative_time(sync_sent_time, sync_window))) == false) {
 				// No connect received within the sync window, return to disconnected state
 				break;
 			}
@@ -752,8 +739,6 @@ LoRaFCState lora_gs_state_machine()
 				connect_rx_time = last_rx_time;
 				state = STATE_CONNECTING;
 				break;
-			} else {
-				LOG("Malformed connect packet\n");
 			}
 		}
 		break;
@@ -777,16 +762,13 @@ LoRaFCState lora_gs_state_machine()
 	case STATE_TRANSMIT: {
 
 		if (silent_frames >= MAX_SILENT_FRAMES) {
-			LOG("Max silent frames reached, disconnecting\n");
 			state = STATE_DISCONNECTED;
 			break;
 		}
 
 		// Sync window expired, need to resend sync packet, this should only happen
 		// once when entering STATE_TRANSMIT after the first window after the handshake
-		//LOG("Slot relative time: %lld, sync window: %d\n", slot_relative_time(sync_sent_time), sync_window);
-		if (slot_relative_time(sync_sent_time) >= sync_window) {
-			//LOG("Sync window expired, resending sync packet\n");
+		if (slot_relative_time(sync_sent_time, sync_window) >= sync_window) {
 			LoRaSyncPacket s = {};
 			s.header.type = PKT_SYNC;
 			s.sync_window = sync_window;
@@ -795,7 +777,6 @@ LoRaFCState lora_gs_state_machine()
 			s.connected = true;
 
 			if (lora_transmit_timeout(&s, sizeof(s), sync_window, TX_FORCE) == false) {
-				LOG("Failed to resend sync packet, disconnecting\n");
 				state = STATE_DISCONNECTED;
 				break;
 			}
@@ -803,8 +784,7 @@ LoRaFCState lora_gs_state_machine()
 			break;
 		}
 
-		int64_t remaining_time = gs_window - security_window - slot_relative_time(sync_sent_time);
-		//LOG("Remaining time: %lld, gs_window: %ld, security_window: %d, slot_relative_time: %ld\n", remaining_time, gs_window, security_window, slot_relative_time(sync_sent_time));
+		int64_t remaining_time = gs_window - security_window - slot_relative_time(sync_sent_time, sync_window);
 
 		if (remaining_time <= 0) {
 			packets_received = 0;
@@ -814,17 +794,23 @@ LoRaFCState lora_gs_state_machine()
 
 		// Switched to early to transmit, wait for remaining listen time to expire
 		if (remaining_time >= gs_window) {
-			DELAY_MS(remaining_time-gs_window);
+			hal.delay(remaining_time-gs_window);
 			break;
 		}
 
-		// TODO: transmit commands to FC
+		// transmit commands to FC
+		LoRaCommandPacket tx_packet;
+		if (tx_packet_cb((uint8_t*)&tx_packet) == false)
+			break;
+
+		uint32_t toa = radio.getTimeOnAir(sizeof(LoRaCommandPacket))/1000;
+		lora_transmit_timeout(&tx_packet, sizeof(tx_packet), remaining_time - toa, TX_NONE);
 
 		break;
 	}
 
 	case STATE_RECEIVE: {
-		int64_t remaining_time = sync_window - security_window - slot_relative_time(sync_sent_time);
+		int64_t remaining_time = sync_window - security_window - slot_relative_time(sync_sent_time, sync_window);
 
 		// In the transmit window
 		if (remaining_time <= 0) {
@@ -855,8 +841,9 @@ LoRaFCState lora_gs_state_machine()
 		} else {
 			packets_received++;
 			silent_frames = 0;
-			// TODO: do something with the packet
-			LOG("packet recieved from FC, length: %d\n", rx_len);
+
+			LoRaDataPacket rx_packet = lora_get_data();
+			rx_packet_cb((uint8_t*)&rx_packet);
 		}
 
 		break;

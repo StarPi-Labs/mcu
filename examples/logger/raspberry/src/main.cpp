@@ -14,11 +14,32 @@ void sleep_ms(int milliseconds) {
 	nanosleep(&ts, NULL);
 }
 
+
+LoRaDataPacket rx_packet;
+LoRaCommandPacket tx_packet;
+
+
+bool tx_packet_cb(uint8_t* packet)
+{
+	*((LoRaCommandPacket*)packet) = tx_packet;
+	return true;
+}
+
+
+void rx_packet_cb(uint8_t* packet)
+{
+	rx_packet = *((LoRaDataPacket*)packet);
+}
+
+
 int main(void)
 {
 
 	lora_setup(BAND_L, TX_FORCE, LORA_GS_ID, true);
-	LoRaFCState state;
+	lora_set_tx_packet_cb(tx_packet_cb);
+	lora_set_rx_packet_cb(rx_packet_cb);
+
+	LoRaProtoState state;
 
 	while (true) {
 		state = lora_gs_state_machine();
@@ -41,6 +62,20 @@ int main(void)
 			break;
 		}
 		printf("GS state: %s\n", str);
+		if (state == STATE_RECEIVE) {
+			printf("Received packet: altitude=%d, vspeed=%d, attitude=%d, dt=%d, p1=%d, p2=%d, dt=%d, latitude=%f, longitude=%f, dt=%d\n",
+				rx_packet.imu.altitude,
+				rx_packet.imu.vspeed,
+				rx_packet.imu.attitude,
+				rx_packet.imu.dt,
+				rx_packet.baro.p1,
+				rx_packet.baro.p2,
+				rx_packet.baro.dt,
+				rx_packet.gps.latitude,
+				rx_packet.gps.longitude,
+				rx_packet.gps.dt
+			);
+		}
 		sleep_ms(1);
 	}
 

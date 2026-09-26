@@ -752,9 +752,15 @@ LoRaProtoState lora_gs_state_machine()
 			break;
 		}
 
+		// We switched early to transmit mode, or we didn't receive a packet in time
+		// so we wait until the next sync packet to be sent
+		if (hal.millis() - sync_sent_time > gs_window - security_window) {
+			hal.delay(sync_window - (hal.millis() - sync_sent_time));
+		}
+
 		// Sync window expired, need to resend sync packet, this should only happen
 		// once when entering STATE_TRANSMIT after the first window after the handshake
-		if (slot_relative_time(sync_sent_time, sync_window) >= sync_window) {
+		if (hal.millis() - sync_sent_time >= sync_window) {
 			LoRaSyncPacket s = {};
 			s.header.type = PKT_SYNC;
 			s.sync_window = sync_window;
@@ -809,7 +815,7 @@ LoRaProtoState lora_gs_state_machine()
 		}
 
 		// In the current frame's transmit window, we shouldn't be here yet
-		if (remaining_time >= sync_window - gs_window + security_window) {
+		if (remaining_time > sync_window - gs_window + security_window) {
 			if (packets_received == 0) {
 				silent_frames++;
 			}

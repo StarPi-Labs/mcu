@@ -81,7 +81,7 @@ int main(void)
 				rx_packet.gps.dt
 			);
 		}
-		sleep_ms(1);
+		//sleep_ms(1);
 	}
 
 	return 0;

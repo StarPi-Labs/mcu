@@ -25,6 +25,13 @@ KalmanFilter altitude;
 
 extern float g_cal;
 
+// TX lora packet
+LoRaDataPacket lora_tx_packet;
+DECLARE_STATIC_SEMAPHORE(lora_tx_packet_semaphore);
+// RX lora packet
+LoRaCommandPacket lora_rx_packet;
+DECLARE_STATIC_SEMAPHORE(lora_rx_packet_semaphore);
+
 DECLARE_STATIC_SEMAPHORE(spi_semaphore);
 // TODO: add semaphore for i2c once we connect the pitot
 
@@ -46,6 +53,26 @@ DECLARE_STATIC_QUEUE(lora_msg_queue, LogMessage, LOG_DEFAULT_QUEUE_SIZE);
 DECLARE_STATIC_QUEUE(gs_command_queue, uint64_t, 16);
 
 
+bool lora_tx_cb(uint8_t *packet)
+{
+	xSemaphoreTake(lora_tx_packet_semaphore, portMAX_DELAY);
+	*((LoRaDataPacket*)packet) = lora_tx_packet;
+	u64_to_u48le(now_ms(), lora_tx_packet.header.tx_time);
+	xSemaphoreGive(lora_tx_packet_semaphore);
+	return true;
+}
+
+
+void lora_rx_cb(uint8_t *packet)
+{
+	xSemaphoreTake(lora_rx_packet_semaphore, portMAX_DELAY);
+	lora_rx_packet = *((LoRaCommandPacket*)packet);
+	xSemaphoreGive(lora_rx_packet_semaphore);
+	xTaskNotifyGive(cmd_handler_task_descriptor.handle);
+}
+
+
+
 void setup(void)
 {
 
@@ -61,13 +88,29 @@ void setup(void)
 	SPI2.begin(SPI2_SCK, SPI2_MISO, SPI2_MOSI, -1);
 	// TODO: Set speed
 
+	INIT_STATIC_SEMAPHORE(spi_semaphore);
+	INIT_STATIC_SEMAPHORE(lora_tx_packet_semaphore);
+	INIT_STATIC_SEMAPHORE(lora_rx_packet_semaphore);
+	if (spi_semaphore == NULL ||
+	    lora_tx_packet_semaphore == NULL ||
+	    lora_rx_packet_semaphore == NULL) {
+		while (true) {
+			Serial.println("Error creating semaphore");
+			delay(500);
+		}
+	}
+
 	logger_init();
 
 	imu_setup();
 	altitude.setG(g_cal);
 
 	barometer_setup();
+	
 	lora_setup(BAND_L, TX_FORCE, LORA_FC_ID);
+	lora_set_tx_packet_cb(lora_tx_cb);
+	lora_set_rx_packet_cb(lora_rx_cb);
+
 	gps_setup();
 
 	if (!sdcard_init()) {
@@ -88,14 +131,6 @@ void setup(void)
 	// FIXME: to make sure that data is always saved the log file should be flush, opened and closed sometimes,
 	// maybe add a log rotation
 	sdcard_open_log();
-
-	INIT_STATIC_SEMAPHORE(spi_semaphore);
-	if (spi_semaphore == NULL) {
-		while (true) {
-			Serial.println("Error creating semaphore");
-			delay(500);
-		}
-	}
 
 	INIT_STATIC_QUEUE(parachute_msg_queue);
 	INIT_STATIC_QUEUE(sd_msg_queue);
@@ -149,10 +184,6 @@ void setup(void)
 	logger_register_consumer(lora_formatter_task_descriptor.handle, lora_msg_queue, 0xffff, 0xffff);
 	logger_register_consumer(sd_formatter_task_descriptor.handle, sd_msg_queue, 0xffff, 0xffff);
 	logger_register_consumer(uart_task_descriptor.handle, uart_msg_queue, 0xffff, 0xffff);
-
-	lora_set_rx_cmd_task_handle(cmd_handler_task_descriptor.handle);
-	lora_set_rx_cmd_queue(gs_command_queue);
-
 
 	// set a debug led after initialization
 	pinMode(PINT5_LS, OUTPUT);
@@ -594,14 +625,14 @@ TASK lora_formatter_task(TaskDescriptor_t *self)
 
 		LogMessage msg;
 
-		LoRaDataPacket *dp = lora_get_tx_packet();
+		xSemaphoreTake(lora_tx_packet_semaphore, portMAX_DELAY);
 		while (xQueueReceive(lora_msg_queue, &msg, 0) == pdTRUE) {
 			switch (msg.type) {
 			case T_ALT_SPEED:
 				if (msg.payload_type == P_FVEC2) {
-					dp->imu.altitude = float16(msg.payload.fv2.x).getBinary();
-					dp->imu.vspeed = float16(msg.payload.fv2.y).getBinary();
-					dp->imu.dt = msg.timestamp/1000 - u48le_to_u64(dp->header.tx_time);
+					lora_tx_packet.imu.altitude = float16(msg.payload.fv2.x).getBinary();
+					lora_tx_packet.imu.vspeed = float16(msg.payload.fv2.y).getBinary();
+					lora_tx_packet.imu.dt = msg.timestamp/1000 - u48le_to_u64(lora_tx_packet.header.tx_time);
 				}
 				break;
 			case T_ORIENTATION: {
@@ -611,23 +642,23 @@ TASK lora_formatter_task(TaskDescriptor_t *self)
 					float p = msg.payload.fv3.y * 0.0174533; // pitch in radians
 					float a = acos(cos(p)*cos(r)) * 57.2958; // total pitch from vertical in degrees
 
-					dp->imu.attitude = float16(a).getBinary();
-					dp->imu.dt = msg.timestamp/1000 - u48le_to_u64(dp->header.tx_time);
+					lora_tx_packet.imu.attitude = float16(a).getBinary();
+					lora_tx_packet.imu.dt = msg.timestamp/1000 - u48le_to_u64(lora_tx_packet.header.tx_time);
 				}
 				break;
 			}
 			case T_PRESSURE:
 				if (msg.payload_type == P_FVEC2) {
-					dp->baro.p1 = float16(msg.payload.fv2.x).getBinary();
-					dp->baro.p2 = float16(msg.payload.fv2.y).getBinary();
-					dp->baro.dt = msg.timestamp/1000 - u48le_to_u64(dp->header.tx_time);
+					lora_tx_packet.baro.p1 = float16(msg.payload.fv2.x).getBinary();
+					lora_tx_packet.baro.p2 = float16(msg.payload.fv2.y).getBinary();
+					lora_tx_packet.baro.dt = msg.timestamp/1000 - u48le_to_u64(lora_tx_packet.header.tx_time);
 				}
 				break;
 			case T_GPS:
 				if (msg.payload_type == P_FVEC2) {
-					dp->gps.latitude = msg.payload.fv2.x;
-					dp->gps.longitude = msg.payload.fv2.y;
-					dp->gps.dt = msg.timestamp/1000 - u48le_to_u64(dp->header.tx_time);
+					lora_tx_packet.gps.latitude = msg.payload.fv2.x;
+					lora_tx_packet.gps.longitude = msg.payload.fv2.y;
+					lora_tx_packet.gps.dt = msg.timestamp/1000 - u48le_to_u64(lora_tx_packet.header.tx_time);
 				}
 				break;
 			// TODO: append syslog
@@ -635,7 +666,7 @@ TASK lora_formatter_task(TaskDescriptor_t *self)
 				break;
 			}
 		}
-		lora_release_tx_packet();
+		xSemaphoreGive(lora_tx_packet_semaphore);
 	}
 }
 
@@ -646,7 +677,7 @@ TASK lora_transmitter_task(TaskDescriptor_t *self)
 
 	while (true) {
 		// Run the lora radio state machine
-		LoRaFCState state = lora_fc_state_machine();
+		LoRaProtoState state = lora_fc_state_machine();
 		String str;
 		switch(state) {
 		case STATE_DISCONNECTED:
@@ -722,10 +753,8 @@ TASK cmd_handler_task(TaskDescriptor_t *self)
 	self->last_wake = xTaskGetTickCount();
 
 	while (true) {
-//		ulTaskNotifyTake(pdTRUE, 0);
-//		uint64_t cmd;
-//		xQueueReceive(gs_command_queue, &cmd, 0);
-//		Serial.printf("GROUND STATION COMMAND: %llu\n", cmd);
-		sleep(1000);
+		if (ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000)) != 0) {
+			Serial.printf("LORA: GS command received\n");
+		}
 	}
 }

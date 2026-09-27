@@ -1,5 +1,8 @@
 /*
  * TODO:
+ * 1. Make get_next_packet() independent of the packet type so that both the GS and FC
+ *    can use the same mechanism
+ * 2. Create RX and TX queues so that a packet can be queued and retransmitted
  * 3. Add a method for acknowledging packets, especially command packets
  *
  * FUTURE IMPROVEMENTS:
@@ -9,18 +12,29 @@
  *    master-polled, where the GS asks the FC for data waiting for a response
  * 3. This whole thing can be made into a class
  */
-#include <RadioLib.h>
-#include <Hal.h>
 
-#include "logger.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <RadioLib.h>
+#include <PiHal.h>
+
 #include "lora.h"
 #include "board.h"
 
+#define log(src, type, str, ...) printf(str __VA_OPT__(,) __VA_ARGS__)
+#define now_ms() hal.millis()
+#define now_us() hal.micros()
+#define randomSeed(s) srand(s)
+#define random(min, max) (rand() % ((max) - (min) + 1) + (min))
 
-extern SPIClass SPI2;
-ArduinoHal hal(SPI2);
-Module radio_module(&hal, LORA_CS, LORA_DIO1, LORA_RST, LORA_BUSY); //nello stack anziché heap
-SX1262 radio(&radio_module);
+PiHal hal(0);
+SX1262 radio = new Module(
+	&hal,
+	LORA_CS,
+	LORA_DIO1,
+	LORA_RST,
+	LORA_BUSY
+);
 
 static volatile bool tx_operation_done = false;
 static volatile bool rx_operation_done = false;

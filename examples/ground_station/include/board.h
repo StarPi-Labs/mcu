@@ -24,27 +24,14 @@
 #define GPS_TX    17
 #define GPS_RX    18
 
-// Peripheral Pins
-#define PINT1_HS 3  // J3
-#define PINT1_LS 4  // J3
-#define PINT2_HS 39 // J4
-#define PINT2_LS 38 // J4
-#define PINT3_HS 41 // J5
-#define PINT3_LS 40 // J5
-#define PINT4_LS 35 // J12
-#define PINT5_LS 36 // J13
-#define PINT6_LS 37 // J14
-
 
 // Task Timings
-#define IMU_TASK_HZ       100
-#define BARO_TASK_HZ      20
-#define GPS_TASK_HZ       2
-#define UART_TASK_HZ      50
-#define LORA_FMT_TASK_HZ  20
-#define LORA_TX_TASK_HZ   50
-#define SD_FMT_TASK_HZ    50
-#define SD_WRITER_TASK_HZ 10
+#define IMU_TASK_HZ    100
+#define BARO_TASK_HZ   20
+#define GPS_TASK_HZ    2
+#define LOGGER_TASK_HZ 50
+#define LORA_TASK_HZ   50
+#define SD_TASK_HZ     50
 
 
 // IMU FIFO Configuration

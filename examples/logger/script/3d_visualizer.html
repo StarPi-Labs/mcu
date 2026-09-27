@@ -64,7 +64,7 @@
             Roll: <span id="roll-val">0.00</span>°<br>
             Pitch: <span id="pitch-val">0.00</span>°<br>
             Yaw: <span id="yaw-val">0.00</span>°<br>
-            Alt:  <span id="alt-val" class="highlight">0.00</span> m
+            Alt:  <span id="alt-val" class="highlight">0.0</span> cm
         </div>
         <div id="axis-legend">
             <span style="color: #ff5555;">X Axis (Red)</span><br>
@@ -154,9 +154,9 @@
         scene.add(dirLightFill);
 
         // Pulled camera back slightly to account for the vertical movement
-        camera.position.set(8, 6, 8);
-        camera.lookAt(0, 2, 0);
-        controls.target.set(0, 2, 0); // Focus controls slightly above the grid
+        camera.position.set(8, 10, 8);
+        camera.lookAt(0, 3, 0);
+        controls.target.set(0, 3, 0); // Focus controls slightly above the grid
 
         // Resize handler
         window.addEventListener('resize', () => {
@@ -217,11 +217,11 @@
         // --- 3. PARSING AND UPDATING DATA ---
 
         // Define our Regex patterns
-        const regexIMU = /\[IMU\]: Orientation:\s*\(([-.\d]+),\s*([-.\d]+),\s*([-.\d]+)\)/;
-        const regexBARO = /\[BARO\]:\s*Altitude:\s*([-.\d]+)/;
+        const regexIMU = /\[IMU\]: Orientation:?\s*\(([-.\d]+),\s*([-.\d]+),\s*([-.\d]+)\)/;
+        const regexBARO = /\[BARO\]:\s*Altitude:?\s*([-.\d]+)/;
 
         // Scaling factor to map physical meters to Three.js world units
-        const ALT_SCALE = 0.3;
+        const ALT_SCALE = 3.0;
 
         function parseSerialLine(line) {
             // Check for IMU data
@@ -254,7 +254,7 @@
         }
 
         function updateAltitude(altitude) {
-            document.getElementById('alt-val').innerText = altitude.toFixed(2);
+            document.getElementById('alt-val').innerText = (altitude * 100).toFixed(1);
 
             // Calculate scaled visual height
             const visualHeight = altitude * ALT_SCALE;

@@ -11,6 +11,7 @@
 #include "sdcard.h"
 #include "KalmanFilter.hpp"
 #include "gps.h"
+#include "Bluetooth.hpp"
 
 
 SPIClass SPI2(FSPI);
@@ -44,12 +45,14 @@ DECLARE_STATIC_TASK(lora_formatter_task);
 DECLARE_STATIC_TASK_STACK(uart_task, TASK_STACK_2K);
 DECLARE_STATIC_TASK(sd_formatter_task);
 DECLARE_STATIC_TASK_STACK(sd_writer_task, TASK_STACK_2K);
+DECLARE_STATIC_TASK(ble_formatter_task);
 DECLARE_STATIC_TASK_STACK(cmd_handler_task, TASK_STACK_2K);
 
 DECLARE_STATIC_QUEUE(parachute_msg_queue, LogMessage, LOG_DEFAULT_QUEUE_SIZE);
 DECLARE_STATIC_QUEUE(sd_msg_queue, LogMessage, LOG_DEFAULT_QUEUE_SIZE);
 DECLARE_STATIC_QUEUE(uart_msg_queue, LogMessage, LOG_DEFAULT_QUEUE_SIZE);
 DECLARE_STATIC_QUEUE(lora_msg_queue, LogMessage, LOG_DEFAULT_QUEUE_SIZE);
+DECLARE_STATIC_QUEUE(ble_msg_queue, LogMessage, LOG_DEFAULT_QUEUE_SIZE);
 DECLARE_STATIC_QUEUE(gs_command_queue, uint64_t, 16);
 
 
@@ -92,8 +95,8 @@ void setup(void)
 	INIT_STATIC_SEMAPHORE(lora_tx_packet_semaphore);
 	INIT_STATIC_SEMAPHORE(lora_rx_packet_semaphore);
 	if (spi_semaphore == NULL ||
-	    lora_tx_packet_semaphore == NULL ||
-	    lora_rx_packet_semaphore == NULL) {
+		lora_tx_packet_semaphore == NULL ||
+		lora_rx_packet_semaphore == NULL) {
 		while (true) {
 			Serial.println("Error creating semaphore");
 			delay(500);
@@ -101,6 +104,19 @@ void setup(void)
 	}
 
 	logger_init();
+
+	ble_init({.on_sensor_calibration = [](void *context)
+		{
+			(void)context;
+			#pragma message "TODO: change to real calibration command"
+			uint64_t cmd = 0xDEADBEEF;
+
+			log(S_BLE, T_SYSLOG, "Received sensor calibration command over BLE");
+
+			if (xQueueSend(gs_command_queue, &cmd, 0) != pdTRUE)
+				log(S_BLE, T_SYSLOG, "Failed to send sensor calibration command to queue");
+		},
+		.context = nullptr});
 
 	imu_setup();
 	altitude.setG(g_cal);
@@ -136,11 +152,13 @@ void setup(void)
 	INIT_STATIC_QUEUE(sd_msg_queue);
 	INIT_STATIC_QUEUE(uart_msg_queue);
 	INIT_STATIC_QUEUE(lora_msg_queue);
+	INIT_STATIC_QUEUE(ble_msg_queue);
 	INIT_STATIC_QUEUE(gs_command_queue);
 	if (parachute_msg_queue == NULL   ||
 		sd_msg_queue == NULL          ||
 		uart_msg_queue == NULL        ||
 		lora_msg_queue == NULL        ||
+		ble_msg_queue == NULL    ||
 		gs_command_queue == NULL) {
 		while (true) {
 			Serial.println("Error creating queues");
@@ -154,13 +172,14 @@ void setup(void)
 	INIT_STATIC_TASK(parachute_task, "parachute", NULL, tskIDLE_PRIORITY + 8, 0);
 	INIT_STATIC_TASK(gps_task, "gps", NULL, tskIDLE_PRIORITY + 7, 0);
 	// Core 1 tasks
-	INIT_STATIC_TASK(uart_task, "logger", NULL, tskIDLE_PRIORITY, 1);
 	INIT_STATIC_TASK(sd_formatter_task, "sd formatter", NULL, tskIDLE_PRIORITY + 10, 1);
 	INIT_STATIC_TASK(sd_writer_task, "sd writer", NULL, tskIDLE_PRIORITY + 9, 1);
 	INIT_STATIC_TASK(lora_formatter_task, "lora formatter", NULL, tskIDLE_PRIORITY + 8, 1);
 	INIT_STATIC_TASK(lora_transmitter_task, "lora transmitter", NULL, tskIDLE_PRIORITY + 7, 1);
 	INIT_STATIC_TASK(cmd_handler_task, "cmd handler", NULL, tskIDLE_PRIORITY + 6, 1);
-
+	INIT_STATIC_TASK(ble_formatter_task, "ble formatter", NULL, tskIDLE_PRIORITY + 5, 1);
+	INIT_STATIC_TASK(uart_task, "logger", NULL, tskIDLE_PRIORITY, 1);
+	
  	if (
 		!TASK_IS_INITIALIZED(imu_task)              ||
 		!TASK_IS_INITIALIZED(barometer_task)        ||
@@ -170,6 +189,7 @@ void setup(void)
 		!TASK_IS_INITIALIZED(lora_transmitter_task) ||
 		!TASK_IS_INITIALIZED(lora_formatter_task)   ||
 		!TASK_IS_INITIALIZED(sd_formatter_task)     ||
+		!TASK_IS_INITIALIZED(ble_formatter_task)    ||
 		!TASK_IS_INITIALIZED(cmd_handler_task)      ||
 		!TASK_IS_INITIALIZED(sd_writer_task)) {
 		while (true) {
@@ -184,6 +204,7 @@ void setup(void)
 	logger_register_consumer(lora_formatter_task_descriptor.handle, lora_msg_queue, 0xffff, 0xffff);
 	logger_register_consumer(sd_formatter_task_descriptor.handle, sd_msg_queue, 0xffff, 0xffff);
 	logger_register_consumer(uart_task_descriptor.handle, uart_msg_queue, 0xffff, 0xffff);
+	logger_register_consumer(ble_formatter_task_descriptor.handle, ble_msg_queue, 0xffff, 0xffff);
 
 	// set a debug led after initialization
 	pinMode(PINT5_LS, OUTPUT);
@@ -350,20 +371,20 @@ TASK barometer_task(TaskDescriptor_t *self)
 /*
 %%{init: {
   "flowchart": {
-    "defaultRenderer": "elk",
-    "curve": "stepAfter"
+	"defaultRenderer": "elk",
+	"curve": "stepAfter"
   }
 } }%%
 
 flowchart TD
-    A(((IDLE))) -->|Ignition| B((BOOST))
-    B -->|Burnout| C((COAST))
-    C -->|Apogee| D((DROGUE)) & a[/Activate main recovery\nActivate backup recovery/]
-    D -->|Low Altitude| E((MAIN)) & b[/Release main parachute/]
-    E -->|Touchdown| F((LANDED))
-    F .->|Reset| A
+	A(((IDLE))) -->|Ignition| B((BOOST))
+	B -->|Burnout| C((COAST))
+	C -->|Apogee| D((DROGUE)) & a[/Activate main recovery\nActivate backup recovery/]
+	D -->|Low Altitude| E((MAIN)) & b[/Release main parachute/]
+	E -->|Touchdown| F((LANDED))
+	F .->|Reset| A
 
-    A ~~~ B ~~~ C ~~~ D ~~~ E ~~~ F
+	A ~~~ B ~~~ C ~~~ D ~~~ E ~~~ F
 */
 TASK parachute_task(TaskDescriptor_t *self)
 {
@@ -479,8 +500,8 @@ TASK parachute_task(TaskDescriptor_t *self)
 		case RS_IDLE:
 			// Detect motor ignition
 			if ((z_acc >= Z_ACC_BOOST_THRESHOLD_G &&
-			    z_speed >= Z_SPEED_BOOST_THRESHOLD_MS) ||
-			    z_alt >= Z_ALT_BOOST_THRESHOLD_M) {
+				z_speed >= Z_SPEED_BOOST_THRESHOLD_MS) ||
+				z_alt >= Z_ALT_BOOST_THRESHOLD_M) {
 				sample_count++;
 			} else {
 				sample_count = 0;
@@ -498,7 +519,7 @@ TASK parachute_task(TaskDescriptor_t *self)
 		case RS_BOOST:
 			// Detect motor burnout
 			if (z_alt >= Z_ALT_COAST_THRESHOLD_M ||
-			    ms_since_ignition >= MOTOR_BURNOUT_MS) {
+				ms_since_ignition >= MOTOR_BURNOUT_MS) {
 				sample_count++;
 			} else {
 				sample_count = 0;
@@ -519,8 +540,8 @@ TASK parachute_task(TaskDescriptor_t *self)
 
 			// Detect apogee
 			if (z_speed <= Z_SPEED_APOGEE_THRESHOLD_MS ||
-			    z_alt >= Z_ALT_APOGEE_THRESHOLD_M ||
-			    ms_since_ignition >= MAX_TIME_TO_APOGEE_MS) {
+				z_alt >= Z_ALT_APOGEE_THRESHOLD_M ||
+				ms_since_ignition >= MAX_TIME_TO_APOGEE_MS) {
 				sample_count++;
 			} else {
 				sample_count = 0;
@@ -546,7 +567,7 @@ TASK parachute_task(TaskDescriptor_t *self)
 
 			// Detect main parachute deployment
 			if (z_alt <= Z_ALT_MAIN_DEPLOYMENT_M ||
-			    ms_since_ignition >= MAX_TIME_TO_MAIN_DEPLOYMENT_MS) {
+				ms_since_ignition >= MAX_TIME_TO_MAIN_DEPLOYMENT_MS) {
 				sample_count++;
 			} else {
 				sample_count = 0;
@@ -568,8 +589,8 @@ TASK parachute_task(TaskDescriptor_t *self)
 		case RS_MAIN:
 			// Detect touchdown
 			if (z_alt <= Z_ALT_TOUCHDOWN_M ||
-			    //z_speed <= Z_SPEED_STATIONARY_MS ||
-			    ms_since_ignition >= MAX_TIME_TO_TOUCHDOWN) {
+				//z_speed <= Z_SPEED_STATIONARY_MS ||
+				ms_since_ignition >= MAX_TIME_TO_TOUCHDOWN) {
 				sample_count++;
 			} else {
 				sample_count = 0;
@@ -612,6 +633,21 @@ TASK gps_task(TaskDescriptor_t *self)
 		}
 
 		TASK_WAIT_HZ(self, GPS_TASK_HZ);
+	}
+}
+
+
+TASK ble_formatter_task(TaskDescriptor_t *self) {
+	self->last_wake = xTaskGetTickCount();
+
+	while (true) {
+		// TEST: Blocking receive, if good => apply to all formatter tasks
+		ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+		LogMessage msg;
+
+		while (xQueueReceive(ble_msg_queue, &msg, 0) == pdTRUE) {
+			ble_send_log_message(msg);
+		}
 	}
 }
 

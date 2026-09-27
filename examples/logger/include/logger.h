@@ -7,8 +7,15 @@
 #define LOG_MAX_CONSUMERS 8
 #define LOG_DEFAULT_QUEUE_SIZE 128
 
+#define MESSAGE_PAYLOAD_TYPE_ENCODED_BITS 4
+#define SOURCE_SUBSYSTEM_ENCODED_BITS 3
+#define MESSAGE_TYPE_ENCODED_BITS 3
 
-enum MessagePayloadType {
+
+/// @brief Log message structure
+/// @note Let @b n be the number of entries,
+/// then ceil(log2(n)) <= @a MESSAGE_PAYLOAD_TYPE_ENCODED_BITS
+enum MessagePayloadType : uint16_t {
 	P_NONE   = 1 << 0,
 	P_BOOL   = 1 << 1,
 	P_FLOAT  = 1 << 2,
@@ -20,7 +27,10 @@ enum MessagePayloadType {
 	P_STRING = 1 << 8,
 };
 
-enum SourceSubsystem {
+/// @brief Log message structure
+/// @note Let @b n be the number of entries,
+/// then ceil(log2(n)) <= @a SOURCE_SUBSYSTEM_ENCODED_BITS
+enum SourceSubsystem : uint8_t {
 	S_OTHER = 1 << 0,
 	S_IMU   = 1 << 1,
 	S_BARO  = 1 << 2,
@@ -28,9 +38,13 @@ enum SourceSubsystem {
 	S_LORA  = 1 << 4,
 	S_SD    = 1 << 5,
 	S_PARA  = 1 << 6,
+	S_BLE   = 1 << 7,
 };
 
-enum MessageType {
+/// @brief Log message structure
+/// @note Let @b n be the number of entries,
+/// then ceil(log2(n)) <= @a MESSAGE_TYPE_ENCODED_BITS
+enum MessageType : uint8_t {
 	T_ACCELLERATION = 1 << 0,
 	T_GYRO          = 1 << 1,
 	T_ALT_SPEED     = 1 << 2,
@@ -69,6 +83,41 @@ typedef struct {
 bool logger_register_consumer(TaskHandle_t task_handle, QueueHandle_t msg_queue, uint32_t payload_filter, uint32_t type_filter);
 bool logger_sort_message(LogMessage *msg);
 size_t logger_message_to_str(const char **str, LogMessage *msg);
+/// @brief Serializes a LogMessage into a byte array.
+///
+/// The order follows the LogMessage struct:
+///  - timestamp: 8B
+///  - payload_type + src + type: 2B, starting from least significant:
+//      - 4 bits for payload_type
+//      - 3 bits for src
+//      - 3 bits for type
+///  - payload: variable
+///
+/// The payload is serialized based on the payload_type:
+///  - P_NONE: 0B
+///  - P_BOOL: 1B
+///  - P_FLOAT: 4B
+///  - P_DOUBLE: 8B
+///  - P_INT: 4B
+///  - P_LONG: 8B
+///  - P_FVEC2: 8B
+///  - P_FVEC3: 12B
+///  - P_STRING: variable, up to payload_string_max_length
+///
+/// @param dest The destination byte array to write the serialized message to.
+/// @param payload_string_max_length The maximum length of the payload string,
+/// if the message contains a string payload (without null terminator).
+/// @param msg The LogMessage to serialize.
+/// @pre dest must be non-null
+/// @pre msg must be non-null
+/// @note dest must be large enough to hold at maximum
+/// 10B + max{ 12B, payload_string_max_length }
+/// @note byte order is @b little-endian for multi-byte fields (timestamp,
+/// payload_type, payload).
+/// @return The number of bytes written to the destination array.
+size_t logger_message_to_bytes(uint8_t *dest, size_t payload_string_max_length,
+                               LogMessage *msg);
+
 void log(SourceSubsystem src, MessageType type, bool b);
 void log(SourceSubsystem src, MessageType type, float f);
 void log(SourceSubsystem src, MessageType type, double d);

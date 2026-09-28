@@ -10,7 +10,8 @@
 
 // Stack size of each task in words, with zero extra stack this results in 1k
 // words of usable stack
-#define TASK_STACK_SIZE (configMINIMAL_STACK_SIZE + configIDLE_TASK_STACK_SIZE + 2048)
+#define TASK_STACK_SIZE (configMINIMAL_STACK_SIZE + 4096)
+#define TASK_STACK_2K (configMINIMAL_STACK_SIZE + 2048)
 
 
 // TaskDescriptor_t is a struct that contains all the information about a task,
@@ -25,7 +26,8 @@ typedef struct _TaskDescriptor_t {
 	TaskHandle_t handle; // task handle
 	TickType_t last_wake; // last wake time in ticks
 	BaseType_t was_delayed; // set to true if the task was delayed last run
-	StackType_t stack[TASK_STACK_SIZE]; // task stack memory
+	size_t stack_size;
+	StackType_t *stack; // task stack memory
 } TaskDescriptor_t;
 
 
@@ -41,12 +43,16 @@ typedef struct _TaskDescriptor_t {
 // Declare a static task, this creates a TaskDescriptor_t struct with the appropriate
 // function pointer and stack memory.
 // This does not create the task, you must call INIT_STATIC_TASK to do that
-#define DECLARE_STATIC_TASK(symbol) \
+#define DECLARE_STATIC_TASK_STACK(symbol, stack_sz) \
 	void symbol (TaskDescriptor_t *data); \
+	StackType_t symbol##_stack[stack_sz] = {}; \
 	TaskDescriptor_t symbol##_descriptor = { \
 		.func = symbol, \
+		.stack_size = stack_sz, \
+		.stack = symbol##_stack, \
 	}
 
+#define DECLARE_STATIC_TASK(symbol) DECLARE_STATIC_TASK_STACK(symbol, TASK_STACK_SIZE)
 
 // Initialize a static task, this creates the task using xTaskCreateStatic and
 // stores the handle in the TaskDescriptor_t struct. The task will be pinned
@@ -55,7 +61,7 @@ typedef struct _TaskDescriptor_t {
 	symbol##_descriptor.handle = xTaskCreateStaticPinnedToCore( \
 			(TaskFunction_t)symbol##_descriptor.func, \
 			name, \
-			TASK_STACK_SIZE, \
+			symbol##_descriptor.stack_size, \
 			(void*)(&symbol##_descriptor), \
 			priority, \
 			symbol##_descriptor.stack, \
@@ -66,6 +72,10 @@ typedef struct _TaskDescriptor_t {
 
 
 #define TASK_IS_INITIALIZED(symbol) (symbol##_descriptor.handle != NULL)
+
+
+// Get the handle of a task given it's symbol
+#define TASK_HANDLE(symbol) symbol##_descriptor.handle
 
 
 // Since tasks should never return, we can use the noreturn attribute to catch
@@ -84,7 +94,7 @@ typedef struct _TaskDescriptor_t {
 		desc->was_delayed = xTaskDelayUntil(&(desc->last_wake), pdMS_TO_TICKS(1000/freq)); \
 		if (desc->was_delayed == false) { \
 			desc->last_wake = xTaskGetTickCount(); \
-			WARN(DEST_UART, "[" TO_XSTR(__FILE__) ":" TO_XSTR(__LINE__) "]: task failed to meet deadline, took [ms]", pdTICKS_TO_MS(desc->last_wake - wake)); \
+			/*WARN("[" TO_XSTR(__FILE__) ":" TO_XSTR(__LINE__) "]: task failed to meet deadline, took %ldms", pdTICKS_TO_MS(desc->last_wake - wake));*/ \
 		} \
 	} while (0)
 
@@ -94,7 +104,7 @@ typedef struct _TaskDescriptor_t {
 		desc->was_delayed = xTaskDelayUntil(&(desc->last_wake), pdMS_TO_TICKS(sec*1000)); \
 		if (desc->was_delayed == false) { \
 			desc->last_wake = xTaskGetTickCount(); \
-			WARN(DEST_UART, "[" TO_XSTR(__FILE__) ":" TO_XSTR(__LINE__) "]: task failed to meet deadline, took [ms]", pdTICKS_TO_MS(desc->last_wake - wake)); \
+			/*WARN("[" TO_XSTR(__FILE__) ":" TO_XSTR(__LINE__) "]: task failed to meet deadline, took %ldms", pdTICKS_TO_MS(desc->last_wake - wake));*/ \
 		} \
 	} while (0)
 
@@ -131,4 +141,16 @@ typedef struct _TaskDescriptor_t {
 		if (symbol != NULL) { \
 			xSemaphoreGive(symbol); \
 		} \
+	} while (0)
+
+
+#define DECLARE_STATIC_QUEUE(symbol, elem_type, size) \
+	QueueHandle_t symbol; \
+	StaticQueue_t symbol##_buffer; \
+	const size_t  symbol##_size = size; \
+	elem_type symbol##_storage[size]
+
+
+#define INIT_STATIC_QUEUE(symbol) do { \
+		symbol = xQueueCreateStatic((symbol##_size), sizeof((symbol##_storage)[0]), (uint8_t*)(symbol##_storage), &(symbol##_buffer)); \
 	} while (0)

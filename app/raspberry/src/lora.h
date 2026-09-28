@@ -1,7 +1,8 @@
 #pragma once
 
-#include <Arduino.h>
-#include <float16.h>
+#include <half/half.hpp>
+
+using half_float::half;
 
 
 #define WAIT_TIMEOUT_MS    2

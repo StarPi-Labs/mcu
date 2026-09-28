@@ -8,9 +8,9 @@ BasedOnStyle: LLVM
 ColumnLimit: 80
 
 # Indentation
-IndentWidth: 2
-UseTab: Never
-TabWidth: 2
+IndentWidth: 4
+UseTab: ForIndentation
+TabWidth: 4
 
 # Spaces
 SpaceAfterCStyleCast: false

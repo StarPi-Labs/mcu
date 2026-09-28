@@ -29,7 +29,6 @@ jobs:
           path: |
             ~/.cache/pip
             ~/.platformio/.cache
-            ${{ github.workspace }}/app/qemu
           key: ${{ runner.os }}-pio-v2
       - uses: actions/setup-python@v6
         with:
@@ -67,7 +66,6 @@ jobs:
           path: |
             ~/.cache/pip
             ~/.platformio/.cache
-            ${{ github.workspace }}/app/qemu
           key: ${{ runner.os }}-pio-v2
       - uses: actions/setup-python@v6
         with:

@@ -5,331 +5,229 @@
 #include <time.h>
 
 #include "logger.h"
-#include "task.h"
 
 
-static LogConsumer consumers[LOG_MAX_CONSUMERS] = {0};
-static uint8_t num_consumers = 0;
+// Logger implementation, this is a simple wrapper around a FreeRTOS queue.
+// This is a simple wrapper around a FreeRTOS queue. The messages are stored in
+// a statically allocated buffer, so there is no dynamic memory allocation.
+// The logger is designed to be used in a producer-consumer pattern.
 
 
-uint64_t now_us(void)
-{
-	struct timeval tv_now;
-	gettimeofday(&tv_now, NULL);
-	return (uint64_t)tv_now.tv_sec * 1000000ULL + tv_now.tv_usec;
-}
-
-
-uint64_t now_ms(void)
-{
-	struct timeval tv_now;
-	gettimeofday(&tv_now, NULL);
-	return (uint64_t)tv_now.tv_sec * 1000ULL + tv_now.tv_usec / 1000;
-}
+// Buffers for the message queues
+// NOTE: these could be in PSRAM if we had it
+// UART queue
+static uint8_t uart_queue_buffer[MESSAGE_QUEUE_SIZE * sizeof(message_t)];
+static StaticQueue_t uart_queue_desc;
+static QueueHandle_t uart_queue;
+// SD card queue
+static uint8_t sd_queue_buffer[MESSAGE_QUEUE_SIZE * sizeof(message_t)];
+static StaticQueue_t sd_queue_desc;
+static QueueHandle_t sd_queue;
+// LoRa queue
+static uint8_t lora_queue_buffer[MESSAGE_QUEUE_SIZE * sizeof(message_t)];
+static StaticQueue_t lora_queue_desc;
+static QueueHandle_t lora_queue;
 
 
 // initialize the default message queue, this should be called before using any
 // of the other message queue functions
-bool logger_init(void)
+bool message_queue_init()
 {
+	uart_queue = xQueueCreateStatic(MESSAGE_QUEUE_SIZE, sizeof(message_t), uart_queue_buffer, &uart_queue_desc);
+	if (uart_queue == NULL) return false;
+	sd_queue = xQueueCreateStatic(MESSAGE_QUEUE_SIZE, sizeof(message_t), sd_queue_buffer, &sd_queue_desc);
+	if (sd_queue == NULL) return false;
+	lora_queue = xQueueCreateStatic(MESSAGE_QUEUE_SIZE, sizeof(message_t), lora_queue_buffer, &lora_queue_desc);
+	if (lora_queue == NULL) return false;
+	
+	return true;
+}
+
+bool message_queue_full(message_dest_t dest)
+{
+	switch(dest) {
+	case DEST_UART:
+		return uxQueueSpacesAvailable(uart_queue) <= 0;
+		break;
+	case DEST_SD:
+		return uxQueueSpacesAvailable(sd_queue) <= 0;
+		break;
+	case DEST_LORA:
+		return uxQueueSpacesAvailable(lora_queue) <= 0;
+		break;
+	default:
+		return false;
+	}
+}
+
+// reset the message queue, this should be called with caution as it will discard
+// all messages in the queue
+bool message_queue_reset(message_dest_t dest)
+{
+	switch(dest) {
+	case DEST_UART:
+		xQueueReset(uart_queue);
+		break;
+	case DEST_SD:
+		xQueueReset(sd_queue);
+		break;
+	case DEST_LORA:
+		xQueueReset(lora_queue);
+		break;
+	case DEST_ALL:
+		xQueueReset(uart_queue);
+		xQueueReset(sd_queue);
+		xQueueReset(lora_queue);
+		break;
+	default:
+		break;
+	}
+
 	return true;
 }
 
 
-bool logger_register_consumer(TaskHandle_t task_handle, QueueHandle_t msg_queue, uint32_t payload_filter, uint32_t type_filter)
+// push the message to the back of the queue, this should not be called from an
+// ISR context
+bool message_queue_enqueue(message_t *message, TickType_t timeout)
 {
-	if (num_consumers >= LOG_MAX_CONSUMERS) return false;
+	if (message == NULL) return false;
+	bool err = false;
 
-	consumers[num_consumers].task_handle = task_handle;
-	consumers[num_consumers].msg_queue = msg_queue;
-	consumers[num_consumers].payload_filter = payload_filter;
-	consumers[num_consumers].type_filter = type_filter;
-	num_consumers++;
+	if (message->dest & DEST_UART) {
+		err |= xQueueSend(uart_queue, message, timeout) != pdPASS;
+	}
+
+	if (message->dest & DEST_SD) {
+		err |= xQueueSend(sd_queue, message, timeout) != pdPASS;
+	}
+
+	if (message->dest & DEST_LORA) {
+		err |= xQueueSend(lora_queue, message, timeout) != pdPASS;
+	}
+
+	return !err;
+}
+
+
+// pop the message from the front of the queue, this should not be called from
+// an ISR context
+bool message_queue_dequeue(message_t *message, TickType_t timeout, message_dest_t dest)
+{
+	if (dest == DEST_ALL || message == NULL) return false;
+	
+	QueueHandle_t handle = NULL;
+	switch (dest) {
+	case DEST_UART:
+		handle = uart_queue;	
+		break;
+	case DEST_SD:
+		handle = sd_queue;
+		break;
+	case DEST_LORA:
+		handle = lora_queue;
+		break;
+	case DEST_NONE:
+	default:
+		return true;
+		break;
+	}
+	if (xQueueReceive(handle, message, timeout) != pdPASS) return false;
 	return true;
 }
 
 
-// Sends a message to the correct consumer queues, returns false if any of the
-// queues was busy and the message was not written to it
-bool logger_sort_message(LogMessage *msg)
+// peek at the message at the front of the queue without removing it, this should
+// not be called from an ISR context
+bool message_queue_peek(message_t *message, TickType_t timeout, message_dest_t dest)
 {
-	bool success = true;
-
-	// TODO: these queues should be swapped with ringbuffers from esp
-	// https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/system/freertos_additions.html#ring-buffers
-	for (uint8_t i = 0; i < num_consumers; i++) {
-		if ((consumers[i].type_filter & msg->type) != 0 && (consumers[i].payload_filter & msg->payload_type) != 0) {
-			success &= xQueueSendToFront(consumers[i].msg_queue, msg, LOG_TIMEOUT) == pdPASS;
-			xTaskNotifyGive(consumers[i].task_handle);
-		}
+	if (dest == DEST_ALL || message == NULL) return false;
+	
+	QueueHandle_t handle = NULL;
+	switch (dest) {
+	case DEST_UART:
+		handle = uart_queue;	
+		break;
+	case DEST_SD:
+		handle = sd_queue;
+		break;
+	case DEST_LORA:
+		handle = lora_queue;
+		break;
+	case DEST_NONE:
+	default:
+		return true;
+		break;
 	}
-
-	return success;
+	if (xQueuePeek(handle, message, timeout) != pdPASS) return false;
+	return true;
 }
 
 
-size_t logger_message_to_str(const char **str, LogMessage *msg)
-{
-	static char buf[256];
-	int n = 0;
+/**
+ * @brief Formats a message_t into a provided string buffer.
+ * * @param msg  Pointer to the message_t structure.
+ * @param buf  Pointer to the destination character buffer.
+ * @param size Size of the destination buffer.
+ * @return The number of characters written (excluding null byte).
+ */
+int format_message_to_string(const message_t *msg, char *buf, size_t size) {
+	if (!msg || !buf || size == 0) return 0;
 
-	if (!msg) {
-		snprintf(buf, sizeof(buf), "(null)");
-		return n;
-	}
+	int written = 0;
+	const char *desc = msg->description ? msg->description : "no_desc";
 
 #ifdef CONFIG_USE_HUMAN_READABLE_TIMESTAMPS
-	{
-		time_t sec = msg->timestamp / 1000000ULL;
-		uint32_t usec = msg->timestamp % 1000000ULL;
-		struct tm tm_now;
-		char time_str[24];
-		localtime_r(&sec, &tm_now);
-		strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", &tm_now);
-		n = snprintf(buf, sizeof(buf), "%s.%06" PRIu32 " ", time_str, usec);
-	}
+	// Split microseconds into seconds and fractional microseconds
+	time_t seconds = (time_t)(msg->timestamp / 1000000ULL);
+	uint32_t microseconds = (uint32_t)(msg->timestamp % 1000000ULL);
+
+	// localtime_r is thread-safe, which is critical in ESP-IDF (FreeRTOS)
+	struct tm timeinfo;
+	localtime_r(&seconds, &timeinfo);
+
+	char time_str[24];
+	strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", &timeinfo);
+
+	// Format: [YYYY-MM-DD HH:MM:SS.uuuuuu] description:
+	written = snprintf(buf, size, "[%s.%06" PRIu32 "] %s", time_str, microseconds, desc);
 #else
-	n = snprintf(buf, sizeof(buf), "%" PRIu64 " ", msg->timestamp);
+	// Format: [00000000000000000000] description:
+	// Uses PRIu64 to safely format uint64_t across 32-bit and 64-bit platforms
+	written = snprintf(buf, size, "[%020" PRIu64 "] %s", msg->timestamp, desc);
 #endif
 
-	switch (msg->src) {
-		case S_IMU:   n += snprintf(buf + n, sizeof(buf) - n, "[IMU] "); break;
-		case S_BARO:  n += snprintf(buf + n, sizeof(buf) - n, "[BARO] "); break;
-		case S_GPS:   n += snprintf(buf + n, sizeof(buf) - n, "[GPS] "); break;
-		case S_LORA:  n += snprintf(buf + n, sizeof(buf) - n, "[LORA] "); break;
-		case S_SD:    n += snprintf(buf + n, sizeof(buf) - n, "[SD] "); break;
-		case S_PARA:  n += snprintf(buf + n, sizeof(buf) - n, "[PARACHUTE] "); break;
-		case S_BLE:   n += snprintf(buf + n, sizeof(buf) - n, "[BLUETOOTH] "); break;
-		case S_OTHER: n += snprintf(buf + n, sizeof(buf) - n, "[OTHER] "); break;
-		default:      n += snprintf(buf + n, sizeof(buf) - n, "[UNKNOWN SRC] "); break;
+	// Prevent buffer overflows on the remaining payload
+	if (written < 0 || (size_t)written >= size) {
+		return written;
 	}
 
+	char *ptr = buf + written;
+	size_t rem = size - written;
+
+	// Append the union data based on the type
 	switch (msg->type) {
-		case T_ACCELLERATION: n += snprintf(buf + n, sizeof(buf) - n, "ACCEL: "); break;
-		case T_GYRO:          n += snprintf(buf + n, sizeof(buf) - n, "GYRO: "); break;
-		case T_ALT_SPEED:     n += snprintf(buf + n, sizeof(buf) - n, "ALT_SPEED: "); break;
-		case T_ORIENTATION:   n += snprintf(buf + n, sizeof(buf) - n, "ORIENTATION: "); break;
-		case T_PRESSURE:      n += snprintf(buf + n, sizeof(buf) - n, "PRESSURE: "); break;
-		case T_TEMPERATURE:   n += snprintf(buf + n, sizeof(buf) - n, "TEMP: "); break;
-		case T_GPS:           n += snprintf(buf + n, sizeof(buf) - n, "GPS: "); break;
-		case T_SYSLOG:        n += snprintf(buf + n, sizeof(buf) - n, "SYSLOG: "); break;
-		default:              n += snprintf(buf + n, sizeof(buf) - n, "UNKNOWN TYPE: "); break;
+	case MSG_NONE:
+		return written;
+	case MSG_INT32:
+		return written + snprintf(ptr, rem, ": %" PRId32, msg->data.i32);
+	case MSG_UINT32:
+		return written + snprintf(ptr, rem, ": %" PRIu32, msg->data.u32);
+	case MSG_INT64:
+		return written + snprintf(ptr, rem, ": %" PRId64, msg->data.i64);
+	case MSG_UINT64:
+		return written + snprintf(ptr, rem, ": %" PRIu64, msg->data.u64);
+	case MSG_FLOAT:
+		return written + snprintf(ptr, rem, ": %.4g", msg->data.f);
+	case MSG_DOUBLE:
+		return written + snprintf(ptr, rem, ": %.6g", msg->data.d);
+	case MSG_STRING:
+		return written + snprintf(ptr, rem, ": %s", msg->data.str ? msg->data.str : "NULL");
+	case MSG_VEC3:
+		return written + snprintf(ptr, rem, ": (%.3g, %.3g, %.3g)", msg->data.v3.x, msg->data.v3.y, msg->data.v3.z);
+	case MSG_IVEC3:
+		return written + snprintf(ptr, rem, ": (%" PRId32 ", %" PRId32 ", %" PRId32 ")", msg->data.iv3.x, msg->data.iv3.y, msg->data.iv3.z);
+	default:
+		return written + snprintf(ptr, rem, ": UNKNOWN_TYPE");
 	}
-
-	switch (msg->payload_type) {
-		case P_NONE:
-			break;
-		case P_BOOL:
-			n += snprintf(buf + n, sizeof(buf) - n, "%s", msg->payload.b ? "true" : "false");
-			break;
-		case P_FLOAT:
-			n += snprintf(buf + n, sizeof(buf) - n, "%.3f", (double)msg->payload.f);
-			break;
-		case P_DOUBLE:
-			n += snprintf(buf + n, sizeof(buf) - n, "%.3lf", msg->payload.d);
-			break;
-		case P_INT:
-			n += snprintf(buf + n, sizeof(buf) - n, "%d", msg->payload.i);
-			break;
-		case P_LONG:
-			n += snprintf(buf + n, sizeof(buf) - n, "%ld", msg->payload.l);
-			break;
-		case P_FVEC2:
-			n += snprintf(buf + n, sizeof(buf) - n, "(%.3f, %.3f)", (double)msg->payload.fv2.x, (double)msg->payload.fv2.y);
-			break;
-		case P_FVEC3:
-			n += snprintf(buf + n, sizeof(buf) - n, "(%.3f, %.3f, %.3f)", (double)msg->payload.fv3.x, (double)msg->payload.fv3.y, (double)msg->payload.fv3.z);
-			break;
-		case P_STRING:
-			n += snprintf(buf + n, sizeof(buf) - n, "%s", msg->payload.s ? msg->payload.s : "(null)");
-			break;
-		default:
-			n += snprintf(buf + n, sizeof(buf) - n, "?");
-			break;
-	}
-
-	n += snprintf(buf+n, sizeof(buf)-n, "\n");
-
-	if (n < 0) {
-		buf[0] = '\0';
-	} else if (n >= (int)sizeof(buf)) {
-		buf[sizeof(buf) - 1] = '\0';
-	}
-
-	*str = buf;
-	return n;
-}
-
-
-size_t logger_message_to_bytes(uint8_t *dest, size_t payload_string_max_length,
-                               LogMessage *msg) {
-  assert(dest && "Destination pointer is null");
-  assert(msg && "LogMessage pointer is null");
-
-  uint8_t *old_dest = dest;
-
-  memcpy(dest, &msg->timestamp, sizeof(msg->timestamp));
-  dest += sizeof(msg->timestamp);
-
-  // 4 bits for payload_type, 3 bits for src, 3 bits for type,
-  // 6 bits reserverd for future use
-  uint16_t encoded_types =
-      __builtin_ctz(msg->payload_type) |
-      (__builtin_ctz(msg->src) << MESSAGE_PAYLOAD_TYPE_ENCODED_BITS) |
-      (__builtin_ctz(msg->type)
-       << (MESSAGE_PAYLOAD_TYPE_ENCODED_BITS + SOURCE_SUBSYSTEM_ENCODED_BITS));
-
-  static_assert(sizeof(encoded_types) >= ((MESSAGE_PAYLOAD_TYPE_ENCODED_BITS +
-                                           SOURCE_SUBSYSTEM_ENCODED_BITS +
-                                           MESSAGE_TYPE_ENCODED_BITS) /
-                                          8.0f),
-                "encoded_types size is too small");
-
-  memcpy(dest, &encoded_types, sizeof(encoded_types));
-  dest += sizeof(encoded_types);
-
-  switch (msg->payload_type) {
-  case P_BOOL:
-    memcpy(dest, &msg->payload.b, sizeof(msg->payload.b));
-    dest += sizeof(msg->payload.b);
-    break;
-
-  case P_FLOAT:
-    memcpy(dest, &msg->payload.f, sizeof(msg->payload.f));
-    dest += sizeof(msg->payload.f);
-    break;
-
-  case P_DOUBLE:
-    memcpy(dest, &msg->payload.d, sizeof(msg->payload.d));
-    dest += sizeof(msg->payload.d);
-    break;
-
-  case P_INT:
-    memcpy(dest, &msg->payload.i, sizeof(msg->payload.i));
-    dest += sizeof(msg->payload.i);
-    break;
-
-  case P_LONG:
-    memcpy(dest, &msg->payload.l, sizeof(msg->payload.l));
-    dest += sizeof(msg->payload.l);
-    break;
-
-  case P_FVEC2:
-    memcpy(dest, &msg->payload.fv2, sizeof(msg->payload.fv2));
-    dest += sizeof(msg->payload.fv2);
-    break;
-
-  case P_FVEC3:
-    memcpy(dest, &msg->payload.fv3, sizeof(msg->payload.fv3));
-    dest += sizeof(msg->payload.fv3);
-    break;
-
-  case P_STRING: {
-    size_t len = msg->payload.s ? strlen(msg->payload.s) : 0;
-
-    if (len > payload_string_max_length)
-      len = payload_string_max_length;
-
-    memcpy(dest, msg->payload.s, len);
-    dest += len;
-    break;
-  }
-
-  default: // P_NONE or unknown payload type, do nothing
-    break;
-  } // switch
-
-  return dest - old_dest;
-}
-
-
-void log(SourceSubsystem src, MessageType type, bool b)
-{
-	LogMessage msg;
-	msg.timestamp = now_us();
-	msg.payload_type = P_BOOL;
-	msg.src = src;
-	msg.type = type;
-	msg.payload.b = b;
-	logger_sort_message(&msg);
-}
-
-void log(SourceSubsystem src, MessageType type, float f)
-{
-	LogMessage msg;
-	msg.timestamp = now_us();
-	msg.payload_type = P_FLOAT;
-	msg.src = src;
-	msg.type = type;
-	msg.payload.f = f;
-	logger_sort_message(&msg);
-}
-
-void log(SourceSubsystem src, MessageType type, double d)
-{
-	LogMessage msg;
-	msg.timestamp = now_us();
-	msg.payload_type = P_DOUBLE;
-	msg.src = src;
-	msg.type = type;
-	msg.payload.d = d;
-	logger_sort_message(&msg);
-}
-
-void log(SourceSubsystem src, MessageType type, int i)
-{
-	LogMessage msg;
-	msg.timestamp = now_us();
-	msg.payload_type = P_INT;
-	msg.src = src;
-	msg.type = type;
-	msg.payload.i = i;
-	logger_sort_message(&msg);
-}
-
-void log(SourceSubsystem src, MessageType type, long l)
-{
-	LogMessage msg;
-	msg.timestamp = now_us();
-	msg.payload_type = P_LONG;
-	msg.src = src;
-	msg.type = type;
-	msg.payload.l = l;
-	logger_sort_message(&msg);
-}
-
-void log(SourceSubsystem src, MessageType type, float x, float y)
-{
-	LogMessage msg;
-	msg.timestamp = now_us();
-	msg.payload_type = P_FVEC2;
-	msg.src = src;
-	msg.type = type;
-	msg.payload.fv2.x = x;
-	msg.payload.fv2.y = y;
-	logger_sort_message(&msg);
-}
-
-void log(SourceSubsystem src, MessageType type, float x, float y, float z)
-{
-	LogMessage msg;
-	msg.timestamp = now_us();
-	msg.payload_type = P_FVEC3;
-	msg.src = src;
-	msg.type = type;
-	msg.payload.fv3.x = x;
-	msg.payload.fv3.y = y;
-	msg.payload.fv3.z = z;
-	logger_sort_message(&msg);
-}
-
-void log(SourceSubsystem src, MessageType type, const char *s)
-{
-	LogMessage msg;
-	msg.timestamp = now_us();
-	msg.payload_type = P_STRING;
-	msg.src = src;
-	msg.type = type;
-	msg.payload.s = s;
-	logger_sort_message(&msg);
 }

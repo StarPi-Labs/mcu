@@ -29,7 +29,6 @@ MS5611 baro2(BARO2_ADDRESS, &I2C1);
 
 float ground_pressure_mbar_1 = 0.0; // memorizzo pressione misurata sulla rampa di lancio
 float ground_pressure_mbar_2 = 0.0; // memorizzo pressione misurata sulla rampa di lancio
-float ground_temperature_k = 0.0;
 
 
 /*scaletta: 1. reset del barometro;
@@ -51,18 +50,18 @@ parametri di variazione: 1. Frequenza(ora a 20 hz);
 bool barometer_setup(void)
 {
 	if (baro1.begin() == false) {
-		log(S_BARO, T_SYSLOG, "[ERR] Barometer 1 " TO_XSTR(BARO1_ADDRESS) " not found");
+		ERR(DEST_UART, "Barometer 1 " TO_XSTR(BARO1_ADDRESS) " not found");
 		return false; //se non funziona segnala l'errore e lascia svolgere le altre tasks
 	}
 	if (baro2.begin() == false) {
-		log(S_BARO, T_SYSLOG, "[ERR] Barometer 2 " TO_XSTR(BARO2_ADDRESS) " not found");
+		ERR(DEST_UART, "Barometer 2 " TO_XSTR(BARO2_ADDRESS) " not found");
 		return false; //se non funziona segnala l'errore e lascia svolgere le altre tasks
 	}
 
 	baro1.reset();
-	log(S_BARO, T_SYSLOG, "Barometer 1 initialized");
+	LOG(DEST_UART, "Barometer 1 initialized");
 	baro2.reset();
-	log(S_BARO, T_SYSLOG, "Barometer 2 initialized");
+	LOG(DEST_UART, "Barometer 2 initialized");
 
 	// legge un po' di volte per far stabilizzare il sensore
 	// calibrate with the highest OSR to get the most accurate ground pressure
@@ -75,44 +74,23 @@ bool barometer_setup(void)
 	int status1 = baro1.read(OSR_ULTRA_HIGH);
 	if (status1 == 0) {
 		ground_pressure_mbar_1 = baro1.getPressure(); // autozero
+		LOG(DEST_UART, "Barometer 1: Setting ground pressure to [mbar]", ground_pressure_mbar_1);
 	} else {
-		// FIXME: log the error code
-		log(S_BARO, T_SYSLOG, "[ERR] Barometer 1: Calibration failed");
+		ERR(DEST_UART, "Barometer 1: Calibration failed with error code", status1);
 	}
 
 	int status2 = baro2.read(OSR_ULTRA_HIGH);
 	if (status2 == 0) {
 		ground_pressure_mbar_2 = baro2.getPressure(); // autozero
+		LOG(DEST_UART, "Barometer 2: Setting ground pressure to [mbar]", ground_pressure_mbar_2);
 	} else {
-		// FIXME: log the error code
-		log(S_BARO, T_SYSLOG, "[ERR] Barometer 2: Calibration failed");
+		ERR(DEST_UART, "Barometer 2: Calibration failed with error code", status2);
 	}
-
-	log(S_BARO, T_PRESSURE, ground_pressure_mbar_1, ground_pressure_mbar_2);
-	log(S_BARO, T_TEMPERATURE, baro1.getTemperature(), baro2.getTemperature());
-	ground_temperature_k = (baro1.getTemperature()+baro2.getTemperature())/2.0 + 273.15;
 
 	if (status1 != 0 || status2 != 0) {
 		return false;
 	}
 	return true;
-}
-
-
-// https://www.mide.com/air-pressure-at-altitude-calculator
-float compute_altitude(float air_pressure, float ground_pressure)
-{
-	// FIXME: Lb and M change with weather conditions
-	const float Lb = -0.0065; // standard temperature lapse rate [K/m]
-	const float M = 0.0289644; // Molar mass of air [kg/mol]
-	const float R = 8.31432;  // Universal gas constant [N*m/mol*K]
-	const float g0 = 9.80665; // Gravitational constant [m/s^2]
-
-	float x = ground_temperature_k / Lb;
-	float p = air_pressure / ground_pressure;
-	float e = -(R*Lb)/(g0*M);
-
-	return x*(pow(p, e) - 1);
 }
 
 
@@ -130,11 +108,11 @@ void barometer_read(BaroData *sample1, BaroData *sample2)
 	if (sample1->error_status == 0) {
 		sample1->temperature = baro1.getTemperature(); // temperatura in °C
 		sample1->pressure = baro1.getPressure(); // pressione in mbar
-		sample1->altitude = compute_altitude(sample1->pressure, ground_pressure_mbar_1); // altitudine in metri
+		sample1->altitude = baro1.getAltitude(ground_pressure_mbar_1); // altitudine in metri
 	}
 	if (sample2->error_status == 0) {
 		sample2->temperature = baro2.getTemperature(); // temperatura in °C
 		sample2->pressure = baro2.getPressure(); // pressione in mbar
-		sample2->altitude = compute_altitude(sample2->pressure, ground_pressure_mbar_2); // altitudine in metri
+		sample2->altitude = baro2.getAltitude(ground_pressure_mbar_2); // altitudine in metri
 	}
 }

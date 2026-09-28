@@ -1,136 +1,158 @@
 #pragma once
 
 #include <FreeRTOS.h>
-#include <time.h>
-
-#define LOG_TIMEOUT       1
-#define LOG_MAX_CONSUMERS 8
-#define LOG_DEFAULT_QUEUE_SIZE 128
-
-#define MESSAGE_PAYLOAD_TYPE_ENCODED_BITS 4
-#define SOURCE_SUBSYSTEM_ENCODED_BITS 3
-#define MESSAGE_TYPE_ENCODED_BITS 3
 
 
-/// @brief Log message structure
-/// @note Let @b n be the number of entries,
-/// then ceil(log2(n)) <= @a MESSAGE_PAYLOAD_TYPE_ENCODED_BITS
-enum MessagePayloadType : uint16_t {
-	P_NONE   = 1 << 0,
-	P_BOOL   = 1 << 1,
-	P_FLOAT  = 1 << 2,
-	P_DOUBLE = 1 << 3,
-	P_INT    = 1 << 4,
-	P_LONG   = 1 << 5,
-	P_FVEC2  = 1 << 6,
-	P_FVEC3  = 1 << 7,
-	P_STRING = 1 << 8,
+typedef enum {
+	MSG_NONE = 0, // No data, just a timestamp and eventual message
+	MSG_INT32,
+	MSG_UINT32,
+	MSG_INT64,
+	MSG_UINT64,
+	MSG_FLOAT,
+	MSG_DOUBLE,
+	MSG_STRING,
+	MSG_VEC3,
+	MSG_IVEC3,
+} message_type_t;
+
+struct vec3 {
+	float x, y, z;
 };
 
-/// @brief Log message structure
-/// @note Let @b n be the number of entries,
-/// then ceil(log2(n)) <= @a SOURCE_SUBSYSTEM_ENCODED_BITS
-enum SourceSubsystem : uint8_t {
-	S_OTHER = 1 << 0,
-	S_IMU   = 1 << 1,
-	S_BARO  = 1 << 2,
-	S_GPS   = 1 << 3,
-	S_LORA  = 1 << 4,
-	S_SD    = 1 << 5,
-	S_PARA  = 1 << 6,
-	S_BLE   = 1 << 7,
+struct ivec3 {
+	int32_t x, y, z;
 };
 
-/// @brief Log message structure
-/// @note Let @b n be the number of entries,
-/// then ceil(log2(n)) <= @a MESSAGE_TYPE_ENCODED_BITS
-enum MessageType : uint8_t {
-	T_ACCELLERATION = 1 << 0,
-	T_GYRO          = 1 << 1,
-	T_ALT_SPEED     = 1 << 2,
-	T_PRESSURE      = 1 << 3,
-	T_TEMPERATURE   = 1 << 4,
-	T_GPS           = 1 << 5,
-	T_SYSLOG        = 1 << 6,
-	T_ORIENTATION   = 1 << 7,
+enum message_dest_t : uint8_t {
+	DEST_NONE = 0,
+	DEST_UART = 1 << 0,
+	DEST_SD   = 1 << 1,
+	DEST_LORA = 1 << 2,
+	DEST_ALL  = 0xFF,
 };
 
+// TODO: align or pack this struct
 typedef struct {
-	uint64_t timestamp;
-	MessagePayloadType payload_type;
-	SourceSubsystem src;
-	MessageType type;
+	uint64_t timestamp; // unix timestamp in microseconds
+	message_type_t type;
+	uint8_t dest;
+	const char *description;
 	union {
-		bool b;
+		int32_t i32;
+		uint32_t u32;
+		int64_t i64;
+		uint64_t u64;
 		float f;
 		double d;
-		int i;
-		long l;
-		struct { float x, y; } fv2;
-		struct { float x, y, z; } fv3;
-		const char *s;
-	} payload;
-} LogMessage;
+		const char *str;
+		struct vec3 v3;
+		struct ivec3 iv3;
+	} data;
+} message_t;
 
-typedef struct {
-	uint32_t payload_filter;
-	uint32_t type_filter;
-	TaskHandle_t task_handle;
-	QueueHandle_t msg_queue;
-} LogConsumer;
+// get the current timestamp in microseconds since the epoch, this is used for
+// the message timestamp
+static inline uint64_t get_timestamp(void)
+{
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	return (uint64_t)tv.tv_sec * 1000000ULL + (uint64_t)tv.tv_usec;
+}
 
 
-bool logger_register_consumer(TaskHandle_t task_handle, QueueHandle_t msg_queue, uint32_t payload_filter, uint32_t type_filter);
-bool logger_sort_message(LogMessage *msg);
-size_t logger_message_to_str(const char **str, LogMessage *msg);
-/// @brief Serializes a LogMessage into a byte array.
-///
-/// The order follows the LogMessage struct:
-///  - timestamp: 8B
-///  - payload_type + src + type: 2B, starting from least significant:
-//      - 4 bits for payload_type
-//      - 3 bits for src
-//      - 3 bits for type
-///  - payload: variable
-///
-/// The payload is serialized based on the payload_type:
-///  - P_NONE: 0B
-///  - P_BOOL: 1B
-///  - P_FLOAT: 4B
-///  - P_DOUBLE: 8B
-///  - P_INT: 4B
-///  - P_LONG: 8B
-///  - P_FVEC2: 8B
-///  - P_FVEC3: 12B
-///  - P_STRING: variable, up to payload_string_max_length
-///
-/// @param dest The destination byte array to write the serialized message to.
-/// @param payload_string_max_length The maximum length of the payload string,
-/// if the message contains a string payload (without null terminator).
-/// @param msg The LogMessage to serialize.
-/// @pre dest must be non-null
-/// @pre msg must be non-null
-/// @note dest must be large enough to hold at maximum
-/// 10B + max{ 12B, payload_string_max_length }
-/// @note byte order is @b little-endian for multi-byte fields (timestamp,
-/// payload_type, payload).
-/// @return The number of bytes written to the destination array.
-size_t logger_message_to_bytes(uint8_t *dest, size_t payload_string_max_length,
-                               LogMessage *msg);
+inline message_t message_create(const char* str, uint8_t dest) {
+	message_t msg = {};
+	msg.timestamp = get_timestamp();
+	msg.type = MSG_NONE;
+	msg.dest = dest;
+	msg.description = str;
+	return msg;
+}
 
-void log(SourceSubsystem src, MessageType type, bool b);
-void log(SourceSubsystem src, MessageType type, float f);
-void log(SourceSubsystem src, MessageType type, double d);
-void log(SourceSubsystem src, MessageType type, int i);
-void log(SourceSubsystem src, MessageType type, long l);
-void log(SourceSubsystem src, MessageType type, float x, float y);
-void log(SourceSubsystem src, MessageType type, float x, float y, float z);
-void log(SourceSubsystem src, MessageType type, const char *s);
+inline message_t message_create(const char* str, uint8_t dest, int32_t data) {
+	message_t msg = message_create(str, dest);
+	msg.type = MSG_INT32;
+	msg.data.i32 = data;
+	return msg;
+}
 
-bool logger_init(void);
+inline message_t message_create(const char* str, uint8_t dest, uint32_t data) {
+	message_t msg = message_create(str, dest);
+	msg.type = MSG_UINT32;
+	msg.data.u32 = data;
+	return msg;
+}
 
-uint64_t now_us(void);
-uint64_t now_ms(void);
+inline message_t message_create(const char* str, uint8_t dest, float data) {
+	message_t msg = message_create(str, dest);
+	msg.type = MSG_FLOAT;
+	msg.data.f = data;
+	return msg;
+}
+
+inline message_t message_create(const char* str, uint8_t dest, double data) {
+	message_t msg = message_create(str, dest);
+	msg.type = MSG_DOUBLE;
+	msg.data.d = data;
+	return msg;
+}
+
+inline message_t message_create(const char* str, uint8_t dest, const char* data) {
+	message_t msg = message_create(str, dest);
+	msg.type = MSG_STRING;
+	msg.data.str = data;
+	return msg;
+}
+
+inline message_t message_create(const char* str, uint8_t dest, struct vec3 data) {
+	message_t msg = message_create(str, dest);
+	msg.type = MSG_VEC3;
+	msg.data.v3 = data;
+	return msg;
+}
+
+inline message_t message_create(const char* str, uint8_t dest, struct ivec3 data) {
+	message_t msg = message_create(str, dest);
+	msg.type = MSG_IVEC3;
+	msg.data.iv3 = data;
+	return msg;
+}
+
+// Number of elements in a queue
+#define MESSAGE_QUEUE_SIZE 128
+
+
+// Function declarations
+bool message_queue_init();
+bool message_queue_reset(message_dest_t dest);
+bool message_queue_enqueue(message_t *message, TickType_t timeout);
+bool message_queue_dequeue(message_t *message, TickType_t timeout, message_dest_t dest);
+bool message_queue_peek(message_t *message, TickType_t timeout, message_dest_t dest);
+bool message_queue_full(message_dest_t dest);
+int format_message_to_string(const message_t *msg, char *buf, size_t size);
+
+
+// ugly macros
+#define WARN_STR(s) "[WARNING]: " s
+#define ERR_STR(s)  "[ERROR]: " s
+#define LOG_STR(s)  s
+
 
 #define TO_XSTR(s) TO_STR(s)
 #define TO_STR(s) #s
+#define ERR_TIMEOUT 0
+#define ERR(dest, str, ...) do { \
+	message_t msg = message_create(ERR_STR(str), (dest) __VA_OPT__(,) __VA_ARGS__); \
+	message_queue_enqueue(&msg, ERR_TIMEOUT); \
+} while(0)
+
+#define WARN(dest, str, ...) do { \
+	message_t msg = message_create(WARN_STR(str), (dest) __VA_OPT__(,) __VA_ARGS__); \
+	message_queue_enqueue(&msg, ERR_TIMEOUT); \
+} while(0)
+
+#define LOG(dest, str, ...) do { \
+	message_t msg = message_create(LOG_STR(str), (dest) __VA_OPT__(,) __VA_ARGS__); \
+	message_queue_enqueue(&msg, ERR_TIMEOUT); \
+} while(0)

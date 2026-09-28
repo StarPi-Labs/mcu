@@ -34,24 +34,15 @@ void update_sensitivity(const FIFO_Sample &sample){
 	
 	int32_t accTot = sample.accelerometer[0]*sample.accelerometer[0] + sample.accelerometer[1]*sample.accelerometer[1] + sample.accelerometer[2]*sample.accelerometer[2];
 
-void imu_setup()
-{
-	if (IMU.begin() != 0) {
-		while(1) {
-			log(S_IMU, T_SYSLOG, "[ERR] Failed to initialize IMU");
-			delay(1000);
-		}
+	
+	if (accTot < 4 * 1000) {
+		IMU.Set_X_FS(LSM6DSO32_4g);
+		return;
 	}
 
-	// Should be 0x6C
-	uint8_t id;
-	IMU.ReadID(&id);
-	if (id != 0x6C) {
-		while(1) {
-			//ERR("IMU ID mismatch: expected 0x6C, got %lu", (uint32_t)id);
-			log(S_IMU, T_SYSLOG, "[ERR] ID mismatch");
-			delay(1000);
-		}
+	if (accTot < 8 * 1000) {
+		IMU.Set_X_FS(LSM6DSO32_8g);		
+		return;	
 	}
 
 	if (accTot < 16 * 1000) { 

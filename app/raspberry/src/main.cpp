@@ -3,9 +3,11 @@
 #include "PiHal.h"
 
 #include "lora.h"
+#include "command_input.h"
 
 #include <unistd.h>
 #include <time.h>
+#include <signal.h>
 
 void sleep_ms(int milliseconds) {
 	struct timespec ts;
@@ -16,13 +18,16 @@ void sleep_ms(int milliseconds) {
 
 
 LoRaDataPacket rx_packet;
-LoRaCommandPacket tx_packet;
 
-
+// Callback to fetch next command packet from circular buffer
 bool tx_packet_cb(uint8_t* packet)
 {
-	*((LoRaCommandPacket*)packet) = tx_packet;
-	return true;
+	LoRaCommandPacket cmd;
+	if (g_command_buffer.pop(cmd)) {
+		*((LoRaCommandPacket*)packet) = cmd;
+		return true;
+	}
+	return false; // No packet available
 }
 
 
@@ -32,8 +37,24 @@ void rx_packet_cb(uint8_t* packet)
 }
 
 
+// Signal handler for clean shutdown
+static void signal_handler(int sig) {
+	printf("\n[Main] Received signal %d, shutting down...\n", sig);
+	command_input_cleanup();
+	exit(0);
+}
+
 int main(void)
 {
+	// Setup signal handlers
+	signal(SIGINT, signal_handler);
+	signal(SIGTERM, signal_handler);
+
+	// Initialize command input (Unix domain socket)
+	if (!command_input_init("/tmp/starpi_cmd.sock")) {
+		fprintf(stderr, "[Main] Failed to initialize command input\n");
+		return 1;
+	}
 
 	lora_setup(BAND_L, TX_FORCE, LORA_GS_ID, true);
 	lora_set_tx_packet_cb(tx_packet_cb);
@@ -68,7 +89,8 @@ int main(void)
 			auto att = std::bit_cast<half_float::half>(rx_packet.imu.attitude);
 			auto p1 = std::bit_cast<half_float::half>(rx_packet.baro.p1);
 			auto p2 = std::bit_cast<half_float::half>(rx_packet.baro.p2);
-			printf("Received packet: altitude=%f, vspeed=%f, attitude=%f, dt=%d, p1=%f, p2=%f, dt=%d, latitude=%f, longitude=%f, dt=%d\n",
+			printf("Received packet: state=%d, altitude=%f, vspeed=%f, attitude=%f, dt=%d, p1=%f, p2=%f, dt=%d, latitude=%f, longitude=%f, dt=%d\n",
+				rx_packet.state,
 				half_float::half_cast<float>(alt),
 				half_float::half_cast<float>(vsp),
 				half_float::half_cast<float>(att),

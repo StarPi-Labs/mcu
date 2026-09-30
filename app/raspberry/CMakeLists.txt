@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.20)
 project(radio_app LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -42,6 +42,12 @@ FetchContent_Declare(
   GIT_SHALLOW    TRUE
 )
 FetchContent_MakeAvailable(half)
+
+# --------------------------------------------------------------------------
+# nlohmann/json — header-only JSON library for C++
+# Use system package (extra/nlohmann-json)
+# --------------------------------------------------------------------------
+find_package(nlohmann_json 3.11 REQUIRED)
 
 # --------------------------------------------------------------------------
 # lgpio — GPIO/SPI backend used by PiHal. Use it if already installed
@@ -90,5 +96,5 @@ target_link_libraries(radiolib PUBLIC ${LGPIO_LIB} pthread)
 # --------------------------------------------------------------------------
 # Your application
 # --------------------------------------------------------------------------
-add_executable(radio_app src/main.cpp src/lora.cpp)
-target_link_libraries(radio_app PRIVATE radiolib half::half)
+add_executable(radio_app src/main.cpp src/lora.cpp src/command_input.cpp src/circular_buffer.cpp)
+target_link_libraries(radio_app PRIVATE radiolib half::half nlohmann_json::nlohmann_json pthread)

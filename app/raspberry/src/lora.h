@@ -101,12 +101,21 @@ struct [[gnu::packed]] LoRaDataPacket
 		float longitude;
 		int16_t dt;
 	} gps;
+	uint8_t state;
+};
+
+enum LoRaCommand : uint8_t
+{
+	CMD_NONE,
+	CMD_EJECT_A,
+	CMD_EJECT_C,
+	CMD_CUT_MAIN,
 };
 
 struct [[gnu::packed]] LoRaCommandPacket
 {
 	LoRaPacketHeader header;
-	uint8_t command;
+	LoRaCommand command;
 	uint64_t data;
 };
 

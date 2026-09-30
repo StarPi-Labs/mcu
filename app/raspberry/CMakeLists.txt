@@ -45,9 +45,15 @@ FetchContent_MakeAvailable(half)
 
 # --------------------------------------------------------------------------
 # nlohmann/json — header-only JSON library for C++
-# Use system package (extra/nlohmann-json)
+# Fetched directly from GitHub
 # --------------------------------------------------------------------------
-find_package(nlohmann_json 3.11 REQUIRED)
+FetchContent_Declare(
+  nlohmann_json
+  GIT_REPOSITORY https://github.com/nlohmann/json.git
+  GIT_TAG        v3.11.3 # Pinned to the latest stable release of 3.11.x
+  GIT_SHALLOW    TRUE
+)
+FetchContent_MakeAvailable(nlohmann_json)
 
 # --------------------------------------------------------------------------
 # lgpio — GPIO/SPI backend used by PiHal. Use it if already installed

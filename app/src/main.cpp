@@ -122,7 +122,7 @@ void setup(void)
 	altitude.setG(g_cal);
 
 	barometer_setup();
-	
+
 	lora_setup(BAND_L, TX_FORCE, LORA_FC_ID);
 	lora_set_tx_packet_cb(lora_tx_cb);
 	lora_set_rx_packet_cb(lora_rx_cb);
@@ -179,8 +179,8 @@ void setup(void)
 	INIT_STATIC_TASK(cmd_handler_task, "cmd handler", NULL, tskIDLE_PRIORITY + 6, 1);
 	INIT_STATIC_TASK(ble_formatter_task, "ble formatter", NULL, tskIDLE_PRIORITY + 5, 1);
 	INIT_STATIC_TASK(uart_task, "logger", NULL, tskIDLE_PRIORITY, 1);
-	
- 	if (
+
+	if (
 		!TASK_IS_INITIALIZED(imu_task)              ||
 		!TASK_IS_INITIALIZED(barometer_task)        ||
 		!TASK_IS_INITIALIZED(parachute_task)        ||
@@ -399,6 +399,15 @@ TASK parachute_task(TaskDescriptor_t *self)
 		RS_TOUCHDOWN, // On ground
 	} state = RS_IDLE;
 
+	/* TODO:
+	 * - Change unit names m/s to MPS
+	 * - Change timers from all being referenced to ignition to being referenced to the last state change
+	 * - Remove touchdown timer
+	 * - Increase accelleration threshold to 3.0g min
+	 * - Decrease altitude threshold for main deployment to 400m
+	 * - Make this a configuration file or header
+	 */
+
 	#define PARACHUTE_TASK_HZ 10
 
 	#define Z_ACC_BOOST_THRESHOLD_G 2.5
@@ -513,7 +522,7 @@ TASK parachute_task(TaskDescriptor_t *self)
 				sample_count = 0;
 			}
 
-			log(S_PARA, T_SYSLOG, "State: RS_IDLE");
+			//log(S_PARA, T_SYSLOG, "State: RS_IDLE");
 			break;
 
 		case RS_BOOST:
@@ -530,7 +539,7 @@ TASK parachute_task(TaskDescriptor_t *self)
 				sample_count = 0;
 			}
 
-			log(S_PARA, T_SYSLOG, "State: RS_BOOST");
+			//log(S_PARA, T_SYSLOG, "State: RS_BOOST");
 			break;
 
 		case RS_COAST:
@@ -559,7 +568,7 @@ TASK parachute_task(TaskDescriptor_t *self)
 				sample_count = 0;
 			}
 
-			log(S_PARA, T_SYSLOG, "State: RS_COAST");
+			//log(S_PARA, T_SYSLOG, "State: RS_COAST");
 			break;
 
 		case RS_DROGUE:
@@ -583,7 +592,7 @@ TASK parachute_task(TaskDescriptor_t *self)
 				sample_count = 0;
 			}
 
-			log(S_PARA, T_SYSLOG, "State: RS_DROGUE");
+			//log(S_PARA, T_SYSLOG, "State: RS_DROGUE");
 			break;
 
 		case RS_MAIN:
@@ -600,17 +609,20 @@ TASK parachute_task(TaskDescriptor_t *self)
 				state = RS_TOUCHDOWN;
 				sample_count = 0;
 			}
-			log(S_PARA, T_SYSLOG, "State: RS_MAIN");
+			//log(S_PARA, T_SYSLOG, "State: RS_MAIN");
 			break;
 
 		case RS_TOUCHDOWN:
-			log(S_PARA, T_SYSLOG, "State: RS_TOUCHDOWN");
+			//log(S_PARA, T_SYSLOG, "State: RS_TOUCHDOWN");
 			break;
 
 		default:
-			log(S_PARA, T_SYSLOG, "[ERR]: Unknown rocket state");
+			//log(S_PARA, T_SYSLOG, "[ERR]: Unknown rocket state");
 			break;
 		}
+
+		// log rocket state for telemetry and debugging
+		log(S_PARA, T_SYSLOG, (int)state);
 	}
 }
 
@@ -697,7 +709,13 @@ TASK lora_formatter_task(TaskDescriptor_t *self)
 					lora_tx_packet.gps.dt = msg.timestamp/1000 - u48le_to_u64(lora_tx_packet.header.tx_time);
 				}
 				break;
-			// TODO: append syslog
+			case T_SYSLOG:
+				// FIXME: for now the rocket state is encoded like this, but it should be a separate message type
+				//        it requires some work on the ble side
+				if (msg.src == S_PARA && msg.payload_type == P_INT) {
+					lora_tx_packet.state = (uint8_t)msg.payload.i;
+				}
+				break;
 			default:
 				break;
 			}
@@ -789,8 +807,28 @@ TASK cmd_handler_task(TaskDescriptor_t *self)
 	self->last_wake = xTaskGetTickCount();
 
 	while (true) {
-		if (ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000)) != 0) {
-			Serial.printf("LORA: GS command received\n");
+		if (ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000)) == 0) {
+			continue;
+		}
+
+		LoRaCommandPacket packet;
+		xSemaphoreTake(lora_rx_packet_semaphore, portMAX_DELAY);
+		packet = lora_rx_packet;
+		xSemaphoreGive(lora_rx_packet_semaphore);
+
+		switch(packet.command) {
+		case CMD_EJECT_A:
+			log(S_OTHER, T_SYSLOG, "Received command: EJECT_A");
+			break;
+		case CMD_EJECT_C:
+			log(S_OTHER, T_SYSLOG, "Received command: EJECT_C");
+			break;
+		case CMD_CUT_MAIN:
+			log(S_OTHER, T_SYSLOG, "Received command: CUT_MAIN");
+			break;
+		default:
+			log(S_OTHER, T_SYSLOG, "Received unknown command");
+			break;
 		}
 	}
 }

@@ -3,28 +3,28 @@
 #include <FreeRTOS.h>
 #include <time.h>
 
-#define LOG_TIMEOUT       1
+#define LOG_TIMEOUT 1
 #define LOG_MAX_CONSUMERS 8
 #define LOG_DEFAULT_QUEUE_SIZE 128
 
 #define MESSAGE_PAYLOAD_TYPE_ENCODED_BITS 4
 #define SOURCE_SUBSYSTEM_ENCODED_BITS 3
-#define MESSAGE_TYPE_ENCODED_BITS 3
-
+#define MESSAGE_TYPE_ENCODED_BITS 4
 
 /// @brief Log message structure
 /// @note Let @b n be the number of entries,
 /// then ceil(log2(n)) <= @a MESSAGE_PAYLOAD_TYPE_ENCODED_BITS
 enum MessagePayloadType : uint16_t {
-	P_NONE   = 1 << 0,
-	P_BOOL   = 1 << 1,
-	P_FLOAT  = 1 << 2,
+	P_NONE = 1 << 0,
+	P_BOOL = 1 << 1,
+	P_FLOAT = 1 << 2,
 	P_DOUBLE = 1 << 3,
-	P_INT    = 1 << 4,
-	P_LONG   = 1 << 5,
-	P_FVEC2  = 1 << 6,
-	P_FVEC3  = 1 << 7,
+	P_INT = 1 << 4,
+	P_LONG = 1 << 5,
+	P_FVEC2 = 1 << 6,
+	P_FVEC3 = 1 << 7,
 	P_STRING = 1 << 8,
+	P_ROCKET_STATE = 1 << 9,
 };
 
 /// @brief Log message structure
@@ -32,27 +32,37 @@ enum MessagePayloadType : uint16_t {
 /// then ceil(log2(n)) <= @a SOURCE_SUBSYSTEM_ENCODED_BITS
 enum SourceSubsystem : uint8_t {
 	S_OTHER = 1 << 0,
-	S_IMU   = 1 << 1,
-	S_BARO  = 1 << 2,
-	S_GPS   = 1 << 3,
-	S_LORA  = 1 << 4,
-	S_SD    = 1 << 5,
-	S_PARA  = 1 << 6,
-	S_BLE   = 1 << 7,
+	S_IMU = 1 << 1,
+	S_BARO = 1 << 2,
+	S_GPS = 1 << 3,
+	S_LORA = 1 << 4,
+	S_SD = 1 << 5,
+	S_PARA = 1 << 6,
+	S_BLE = 1 << 7,
 };
 
 /// @brief Log message structure
 /// @note Let @b n be the number of entries,
 /// then ceil(log2(n)) <= @a MESSAGE_TYPE_ENCODED_BITS
-enum MessageType : uint8_t {
+enum MessageType : uint16_t {
 	T_ACCELLERATION = 1 << 0,
-	T_GYRO          = 1 << 1,
-	T_ALT_SPEED     = 1 << 2,
-	T_PRESSURE      = 1 << 3,
-	T_TEMPERATURE   = 1 << 4,
-	T_GPS           = 1 << 5,
-	T_SYSLOG        = 1 << 6,
-	T_ORIENTATION   = 1 << 7,
+	T_GYRO = 1 << 1,
+	T_ALT_SPEED = 1 << 2,
+	T_PRESSURE = 1 << 3,
+	T_TEMPERATURE = 1 << 4,
+	T_GPS = 1 << 5,
+	T_SYSLOG = 1 << 6,
+	T_ORIENTATION = 1 << 7,
+	T_ROCKET_STATE = 1 << 8,
+};
+
+enum RocketState : uint8_t {
+	RS_IDLE,      // Idle state, on ramp
+	RS_BOOST,     // Motor burning, ascending
+	RS_COAST,     // Motor burnt out, still ascending
+	RS_DROGUE,    // Drogue deployed, falling
+	RS_MAIN,      // Main parachute deployed, falling
+	RS_TOUCHDOWN, // On ground
 };
 
 typedef struct {
@@ -65,10 +75,15 @@ typedef struct {
 		float f;
 		double d;
 		int i;
+		RocketState state;
 		long l;
-		struct { float x, y; } fv2;
-		struct { float x, y, z; } fv3;
-		const char *s;
+		struct {
+			float x, y;
+		} fv2;
+		struct {
+			float x, y, z;
+		} fv3;
+		const char* s;
 	} payload;
 } LogMessage;
 
@@ -79,18 +94,20 @@ typedef struct {
 	QueueHandle_t msg_queue;
 } LogConsumer;
 
-
-bool logger_register_consumer(TaskHandle_t task_handle, QueueHandle_t msg_queue, uint32_t payload_filter, uint32_t type_filter);
-bool logger_sort_message(LogMessage *msg);
-size_t logger_message_to_str(const char **str, LogMessage *msg);
+bool logger_register_consumer(TaskHandle_t task_handle, QueueHandle_t msg_queue,
+                              uint32_t payload_filter, uint32_t type_filter);
+bool logger_sort_message(LogMessage* msg);
+size_t logger_message_to_str(const char** str, LogMessage* msg);
 /// @brief Serializes a LogMessage into a byte array.
 ///
 /// The order follows the LogMessage struct:
 ///  - timestamp: 8B
-///  - payload_type + src + type: 2B, starting from least significant:
-//      - 4 bits for payload_type
-//      - 3 bits for src
-//      - 3 bits for type
+///  - payload_type + src + type: ceil((MESSAGE_PAYLOAD_TYPE_ENCODED_BITS +
+///      SOURCE_SUBSYSTEM_ENCODED_BITS + MESSAGE_TYPE_ENCODED_BITS) / 8.0)
+///    Starting from least significant:
+//       - MESSAGE_PAYLOAD_TYPE_ENCODED_BITS bits for payload_type
+//       - SOURCE_SUBSYSTEM_ENCODED_BITS bits for src
+//       - MESSAGE_TYPE_ENCODED_BITS bits for type
 ///  - payload: variable
 ///
 /// The payload is serialized based on the payload_type:
@@ -103,6 +120,7 @@ size_t logger_message_to_str(const char **str, LogMessage *msg);
 ///  - P_FVEC2: 8B
 ///  - P_FVEC3: 12B
 ///  - P_STRING: variable, up to payload_string_max_length
+///  - P_ROCKET_STATE: 1B
 ///
 /// @param dest The destination byte array to write the serialized message to.
 /// @param payload_string_max_length The maximum length of the payload string,
@@ -111,12 +129,13 @@ size_t logger_message_to_str(const char **str, LogMessage *msg);
 /// @pre dest must be non-null
 /// @pre msg must be non-null
 /// @note dest must be large enough to hold at maximum
-/// 10B + max{ 12B, payload_string_max_length }
+/// 8B + ceil((MESSAGE_PAYLOAD_TYPE_ENCODED_BITS + SOURCE_SUBSYSTEM_ENCODED_BITS
+/// + MESSAGE_TYPE_ENCODED_BITS) / 8.0) + max{ 12B, payload_string_max_length }
 /// @note byte order is @b little-endian for multi-byte fields (timestamp,
 /// payload_type, payload).
 /// @return The number of bytes written to the destination array.
-size_t logger_message_to_bytes(uint8_t *dest, size_t payload_string_max_length,
-                               LogMessage *msg);
+size_t logger_message_to_bytes(uint8_t* dest, size_t payload_string_max_length,
+                               LogMessage* msg);
 
 void log(SourceSubsystem src, MessageType type, bool b);
 void log(SourceSubsystem src, MessageType type, float f);
@@ -125,7 +144,8 @@ void log(SourceSubsystem src, MessageType type, int i);
 void log(SourceSubsystem src, MessageType type, long l);
 void log(SourceSubsystem src, MessageType type, float x, float y);
 void log(SourceSubsystem src, MessageType type, float x, float y, float z);
-void log(SourceSubsystem src, MessageType type, const char *s);
+void log(SourceSubsystem src, MessageType type, const char* s);
+void log(SourceSubsystem src, MessageType type, RocketState state);
 
 bool logger_init(void);
 

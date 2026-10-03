@@ -1,16 +1,14 @@
 #include <Arduino.h>
-#include <stdio.h>
-#include <stdint.h>
 #include <inttypes.h>
+#include <stdint.h>
+#include <stdio.h>
 #include <time.h>
 
 #include "logger.h"
 #include "task.h"
 
-
 static LogConsumer consumers[LOG_MAX_CONSUMERS] = {0};
 static uint8_t num_consumers = 0;
-
 
 uint64_t now_us(void)
 {
@@ -19,14 +17,12 @@ uint64_t now_us(void)
 	return (uint64_t)tv_now.tv_sec * 1000000ULL + tv_now.tv_usec;
 }
 
-
 uint64_t now_ms(void)
 {
 	struct timeval tv_now;
 	gettimeofday(&tv_now, NULL);
 	return (uint64_t)tv_now.tv_sec * 1000ULL + tv_now.tv_usec / 1000;
 }
-
 
 // initialize the default message queue, this should be called before using any
 // of the other message queue functions
@@ -35,10 +31,11 @@ bool logger_init(void)
 	return true;
 }
 
-
-bool logger_register_consumer(TaskHandle_t task_handle, QueueHandle_t msg_queue, uint32_t payload_filter, uint32_t type_filter)
+bool logger_register_consumer(TaskHandle_t task_handle, QueueHandle_t msg_queue, uint32_t payload_filter,
+                              uint32_t type_filter)
 {
-	if (num_consumers >= LOG_MAX_CONSUMERS) return false;
+	if (num_consumers >= LOG_MAX_CONSUMERS)
+		return false;
 
 	consumers[num_consumers].task_handle = task_handle;
 	consumers[num_consumers].msg_queue = msg_queue;
@@ -48,10 +45,9 @@ bool logger_register_consumer(TaskHandle_t task_handle, QueueHandle_t msg_queue,
 	return true;
 }
 
-
 // Sends a message to the correct consumer queues, returns false if any of the
 // queues was busy and the message was not written to it
-bool logger_sort_message(LogMessage *msg)
+bool logger_sort_message(LogMessage* msg)
 {
 	bool success = true;
 
@@ -67,8 +63,33 @@ bool logger_sort_message(LogMessage *msg)
 	return success;
 }
 
-
-size_t logger_message_to_str(const char **str, LogMessage *msg)
+void get_string_state(RocketState state, const char** out)
+{
+	switch (state) {
+	case RS_IDLE:
+		*out = "IDLE";
+		break;
+	case RS_BOOST:
+		*out = "BOOST";
+		break;
+	case RS_COAST:
+		*out = "COAST";
+		break;
+	case RS_DROGUE:
+		*out = "DROGUE";
+		break;
+	case RS_MAIN:
+		*out = "MAIN";
+		break;
+	case RS_TOUCHDOWN:
+		*out = "TOUCHDOWN";
+		break;
+	default:
+		*out = "Unknown state";
+		break;
+	}
+}
+size_t logger_message_to_str(const char** str, LogMessage* msg)
 {
 	static char buf[256];
 	int n = 0;
@@ -93,62 +114,107 @@ size_t logger_message_to_str(const char **str, LogMessage *msg)
 #endif
 
 	switch (msg->src) {
-		case S_IMU:   n += snprintf(buf + n, sizeof(buf) - n, "[IMU] "); break;
-		case S_BARO:  n += snprintf(buf + n, sizeof(buf) - n, "[BARO] "); break;
-		case S_GPS:   n += snprintf(buf + n, sizeof(buf) - n, "[GPS] "); break;
-		case S_LORA:  n += snprintf(buf + n, sizeof(buf) - n, "[LORA] "); break;
-		case S_SD:    n += snprintf(buf + n, sizeof(buf) - n, "[SD] "); break;
-		case S_PARA:  n += snprintf(buf + n, sizeof(buf) - n, "[PARACHUTE] "); break;
-		case S_BLE:   n += snprintf(buf + n, sizeof(buf) - n, "[BLUETOOTH] "); break;
-		case S_OTHER: n += snprintf(buf + n, sizeof(buf) - n, "[OTHER] "); break;
-		default:      n += snprintf(buf + n, sizeof(buf) - n, "[UNKNOWN SRC] "); break;
+	case S_IMU:
+		n += snprintf(buf + n, sizeof(buf) - n, "[IMU] ");
+		break;
+	case S_BARO:
+		n += snprintf(buf + n, sizeof(buf) - n, "[BARO] ");
+		break;
+	case S_GPS:
+		n += snprintf(buf + n, sizeof(buf) - n, "[GPS] ");
+		break;
+	case S_LORA:
+		n += snprintf(buf + n, sizeof(buf) - n, "[LORA] ");
+		break;
+	case S_SD:
+		n += snprintf(buf + n, sizeof(buf) - n, "[SD] ");
+		break;
+	case S_PARA:
+		n += snprintf(buf + n, sizeof(buf) - n, "[PARACHUTE] ");
+		break;
+	case S_BLE:
+		n += snprintf(buf + n, sizeof(buf) - n, "[BLUETOOTH] ");
+		break;
+	case S_OTHER:
+		n += snprintf(buf + n, sizeof(buf) - n, "[OTHER] ");
+		break;
+	default:
+		n += snprintf(buf + n, sizeof(buf) - n, "[UNKNOWN SRC] ");
+		break;
 	}
 
 	switch (msg->type) {
-		case T_ACCELLERATION: n += snprintf(buf + n, sizeof(buf) - n, "ACCEL: "); break;
-		case T_GYRO:          n += snprintf(buf + n, sizeof(buf) - n, "GYRO: "); break;
-		case T_ALT_SPEED:     n += snprintf(buf + n, sizeof(buf) - n, "ALT_SPEED: "); break;
-		case T_ORIENTATION:   n += snprintf(buf + n, sizeof(buf) - n, "ORIENTATION: "); break;
-		case T_PRESSURE:      n += snprintf(buf + n, sizeof(buf) - n, "PRESSURE: "); break;
-		case T_TEMPERATURE:   n += snprintf(buf + n, sizeof(buf) - n, "TEMP: "); break;
-		case T_GPS:           n += snprintf(buf + n, sizeof(buf) - n, "GPS: "); break;
-		case T_SYSLOG:        n += snprintf(buf + n, sizeof(buf) - n, "SYSLOG: "); break;
-		default:              n += snprintf(buf + n, sizeof(buf) - n, "UNKNOWN TYPE: "); break;
+	case T_ACCELLERATION:
+		n += snprintf(buf + n, sizeof(buf) - n, "ACCEL: ");
+		break;
+	case T_GYRO:
+		n += snprintf(buf + n, sizeof(buf) - n, "GYRO: ");
+		break;
+	case T_ALT_SPEED:
+		n += snprintf(buf + n, sizeof(buf) - n, "ALT_SPEED: ");
+		break;
+	case T_ORIENTATION:
+		n += snprintf(buf + n, sizeof(buf) - n, "ORIENTATION: ");
+		break;
+	case T_PRESSURE:
+		n += snprintf(buf + n, sizeof(buf) - n, "PRESSURE: ");
+		break;
+	case T_TEMPERATURE:
+		n += snprintf(buf + n, sizeof(buf) - n, "TEMP: ");
+		break;
+	case T_GPS:
+		n += snprintf(buf + n, sizeof(buf) - n, "GPS: ");
+		break;
+	case T_SYSLOG:
+		n += snprintf(buf + n, sizeof(buf) - n, "SYSLOG: ");
+		break;
+	case T_ROCKET_STATE:
+		n += snprintf(buf + n, sizeof(buf) - n, "ROCKET_STATE: ");
+		break;
+	default:
+		n += snprintf(buf + n, sizeof(buf) - n, "UNKNOWN TYPE: ");
+		break;
 	}
 
 	switch (msg->payload_type) {
-		case P_NONE:
-			break;
-		case P_BOOL:
-			n += snprintf(buf + n, sizeof(buf) - n, "%s", msg->payload.b ? "true" : "false");
-			break;
-		case P_FLOAT:
-			n += snprintf(buf + n, sizeof(buf) - n, "%.3f", (double)msg->payload.f);
-			break;
-		case P_DOUBLE:
-			n += snprintf(buf + n, sizeof(buf) - n, "%.3lf", msg->payload.d);
-			break;
-		case P_INT:
-			n += snprintf(buf + n, sizeof(buf) - n, "%d", msg->payload.i);
-			break;
-		case P_LONG:
-			n += snprintf(buf + n, sizeof(buf) - n, "%ld", msg->payload.l);
-			break;
-		case P_FVEC2:
-			n += snprintf(buf + n, sizeof(buf) - n, "(%.3f, %.3f)", (double)msg->payload.fv2.x, (double)msg->payload.fv2.y);
-			break;
-		case P_FVEC3:
-			n += snprintf(buf + n, sizeof(buf) - n, "(%.3f, %.3f, %.3f)", (double)msg->payload.fv3.x, (double)msg->payload.fv3.y, (double)msg->payload.fv3.z);
-			break;
-		case P_STRING:
-			n += snprintf(buf + n, sizeof(buf) - n, "%s", msg->payload.s ? msg->payload.s : "(null)");
-			break;
-		default:
-			n += snprintf(buf + n, sizeof(buf) - n, "?");
-			break;
+	case P_NONE:
+		break;
+	case P_BOOL:
+		n += snprintf(buf + n, sizeof(buf) - n, "%s", msg->payload.b ? "true" : "false");
+		break;
+	case P_FLOAT:
+		n += snprintf(buf + n, sizeof(buf) - n, "%.3f", (double)msg->payload.f);
+		break;
+	case P_DOUBLE:
+		n += snprintf(buf + n, sizeof(buf) - n, "%.3lf", msg->payload.d);
+		break;
+	case P_INT:
+		n += snprintf(buf + n, sizeof(buf) - n, "%d", msg->payload.i);
+		break;
+	case P_LONG:
+		n += snprintf(buf + n, sizeof(buf) - n, "%ld", msg->payload.l);
+		break;
+	case P_FVEC2:
+		n += snprintf(buf + n, sizeof(buf) - n, "(%.3f, %.3f)", (double)msg->payload.fv2.x, (double)msg->payload.fv2.y);
+		break;
+	case P_FVEC3:
+		n += snprintf(buf + n, sizeof(buf) - n, "(%.3f, %.3f, %.3f)", (double)msg->payload.fv3.x,
+		              (double)msg->payload.fv3.y, (double)msg->payload.fv3.z);
+		break;
+	case P_STRING:
+		n += snprintf(buf + n, sizeof(buf) - n, "%s", msg->payload.s ? msg->payload.s : "(null)");
+		break;
+	case P_ROCKET_STATE:
+		const char* out;
+		get_string_state(msg->payload.state, &out);
+		n += snprintf(buf + n, sizeof(buf) - n, "%s", out);
+		break;
+	default:
+		n += snprintf(buf + n, sizeof(buf) - n, "?");
+		break;
 	}
 
-	n += snprintf(buf+n, sizeof(buf)-n, "\n");
+	n += snprintf(buf + n, sizeof(buf) - n, "\n");
 
 	if (n < 0) {
 		buf[0] = '\0';
@@ -160,88 +226,87 @@ size_t logger_message_to_str(const char **str, LogMessage *msg)
 	return n;
 }
 
+size_t logger_message_to_bytes(uint8_t* dest, size_t payload_string_max_length, LogMessage* msg)
+{
+	assert(dest && "Destination pointer is null");
+	assert(msg && "LogMessage pointer is null");
 
-size_t logger_message_to_bytes(uint8_t *dest, size_t payload_string_max_length,
-                               LogMessage *msg) {
-  assert(dest && "Destination pointer is null");
-  assert(msg && "LogMessage pointer is null");
+	uint8_t* old_dest = dest;
 
-  uint8_t *old_dest = dest;
+	memcpy(dest, &msg->timestamp, sizeof(msg->timestamp));
+	dest += sizeof(msg->timestamp);
 
-  memcpy(dest, &msg->timestamp, sizeof(msg->timestamp));
-  dest += sizeof(msg->timestamp);
+	// 4 bits for payload_type, 3 bits for src, 3 bits for type,
+	// 6 bits reserverd for future use
+	uint16_t encoded_types =
+	    __builtin_ctz(msg->payload_type) | (__builtin_ctz(msg->src) << MESSAGE_PAYLOAD_TYPE_ENCODED_BITS) |
+	    (__builtin_ctz(msg->type) << (MESSAGE_PAYLOAD_TYPE_ENCODED_BITS + SOURCE_SUBSYSTEM_ENCODED_BITS));
 
-  // 4 bits for payload_type, 3 bits for src, 3 bits for type,
-  // 6 bits reserverd for future use
-  uint16_t encoded_types =
-      __builtin_ctz(msg->payload_type) |
-      (__builtin_ctz(msg->src) << MESSAGE_PAYLOAD_TYPE_ENCODED_BITS) |
-      (__builtin_ctz(msg->type)
-       << (MESSAGE_PAYLOAD_TYPE_ENCODED_BITS + SOURCE_SUBSYSTEM_ENCODED_BITS));
+	static_assert(
+	    sizeof(encoded_types) >=
+	        ((MESSAGE_PAYLOAD_TYPE_ENCODED_BITS + SOURCE_SUBSYSTEM_ENCODED_BITS + MESSAGE_TYPE_ENCODED_BITS) / 8.0f),
+	    "encoded_types size is too small");
 
-  static_assert(sizeof(encoded_types) >= ((MESSAGE_PAYLOAD_TYPE_ENCODED_BITS +
-                                           SOURCE_SUBSYSTEM_ENCODED_BITS +
-                                           MESSAGE_TYPE_ENCODED_BITS) /
-                                          8.0f),
-                "encoded_types size is too small");
+	memcpy(dest, &encoded_types, sizeof(encoded_types));
+	dest += sizeof(encoded_types);
 
-  memcpy(dest, &encoded_types, sizeof(encoded_types));
-  dest += sizeof(encoded_types);
+	switch (msg->payload_type) {
+	case P_BOOL:
+		memcpy(dest, &msg->payload.b, sizeof(msg->payload.b));
+		dest += sizeof(msg->payload.b);
+		break;
 
-  switch (msg->payload_type) {
-  case P_BOOL:
-    memcpy(dest, &msg->payload.b, sizeof(msg->payload.b));
-    dest += sizeof(msg->payload.b);
-    break;
+	case P_FLOAT:
+		memcpy(dest, &msg->payload.f, sizeof(msg->payload.f));
+		dest += sizeof(msg->payload.f);
+		break;
 
-  case P_FLOAT:
-    memcpy(dest, &msg->payload.f, sizeof(msg->payload.f));
-    dest += sizeof(msg->payload.f);
-    break;
+	case P_DOUBLE:
+		memcpy(dest, &msg->payload.d, sizeof(msg->payload.d));
+		dest += sizeof(msg->payload.d);
+		break;
 
-  case P_DOUBLE:
-    memcpy(dest, &msg->payload.d, sizeof(msg->payload.d));
-    dest += sizeof(msg->payload.d);
-    break;
+	case P_INT:
+		memcpy(dest, &msg->payload.i, sizeof(msg->payload.i));
+		dest += sizeof(msg->payload.i);
+		break;
 
-  case P_INT:
-    memcpy(dest, &msg->payload.i, sizeof(msg->payload.i));
-    dest += sizeof(msg->payload.i);
-    break;
+	case P_LONG:
+		memcpy(dest, &msg->payload.l, sizeof(msg->payload.l));
+		dest += sizeof(msg->payload.l);
+		break;
 
-  case P_LONG:
-    memcpy(dest, &msg->payload.l, sizeof(msg->payload.l));
-    dest += sizeof(msg->payload.l);
-    break;
+	case P_FVEC2:
+		memcpy(dest, &msg->payload.fv2, sizeof(msg->payload.fv2));
+		dest += sizeof(msg->payload.fv2);
+		break;
 
-  case P_FVEC2:
-    memcpy(dest, &msg->payload.fv2, sizeof(msg->payload.fv2));
-    dest += sizeof(msg->payload.fv2);
-    break;
+	case P_FVEC3:
+		memcpy(dest, &msg->payload.fv3, sizeof(msg->payload.fv3));
+		dest += sizeof(msg->payload.fv3);
+		break;
 
-  case P_FVEC3:
-    memcpy(dest, &msg->payload.fv3, sizeof(msg->payload.fv3));
-    dest += sizeof(msg->payload.fv3);
-    break;
+	case P_STRING: {
+		size_t len = msg->payload.s ? strlen(msg->payload.s) : 0;
 
-  case P_STRING: {
-    size_t len = msg->payload.s ? strlen(msg->payload.s) : 0;
+		if (len > payload_string_max_length)
+			len = payload_string_max_length;
 
-    if (len > payload_string_max_length)
-      len = payload_string_max_length;
+		memcpy(dest, msg->payload.s, len);
+		dest += len;
+		break;
+	}
 
-    memcpy(dest, msg->payload.s, len);
-    dest += len;
-    break;
-  }
+	case P_ROCKET_STATE:
+		memcpy(dest, &msg->payload.state, sizeof(msg->payload.state));
+		dest += sizeof(msg->payload.state);
+		break;
+	default: // P_NONE or unknown payload type, do nothing
+		break;
+	} // switch
 
-  default: // P_NONE or unknown payload type, do nothing
-    break;
-  } // switch
-
-  return dest - old_dest;
+	return dest - old_dest;
 }
-
 
 void log(SourceSubsystem src, MessageType type, bool b)
 {
@@ -323,7 +388,7 @@ void log(SourceSubsystem src, MessageType type, float x, float y, float z)
 	logger_sort_message(&msg);
 }
 
-void log(SourceSubsystem src, MessageType type, const char *s)
+void log(SourceSubsystem src, MessageType type, const char* s)
 {
 	LogMessage msg;
 	msg.timestamp = now_us();
@@ -331,5 +396,16 @@ void log(SourceSubsystem src, MessageType type, const char *s)
 	msg.src = src;
 	msg.type = type;
 	msg.payload.s = s;
+	logger_sort_message(&msg);
+}
+
+void log(SourceSubsystem src, MessageType type, RocketState state)
+{
+	LogMessage msg;
+	msg.timestamp = now_us();
+	msg.payload_type = P_ROCKET_STATE;
+	msg.src = src;
+	msg.type = type;
+	msg.payload.state = state;
 	logger_sort_message(&msg);
 }

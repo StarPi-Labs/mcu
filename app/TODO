@@ -1,0 +1,14 @@
+[ ] Aggiorna la bool airbrake_trigger del filtro di kalman quando accendiamo e
+    spengiamo l'airbrake
+[ ] Aggiornare valore di soglia per cui il filtro di kalman pensa di essere in boost
+[ ] Aggiornare valori dei sigma nel filtro di kalman
+
+[ ] Controllare che ho dati IMU e in caso non ci fossero disabilitare filtro di kalman
+    (con solo barometro si hanno risultati migliori)
+[ ] Se uno o tutti i barometri non vanno cosa fare (kalman in freefall sfancula tanto)
+[ ] Inserire GPS come ridondanza? (solo se arrivano dati, non usare dati vecchi)
+
+[ ] Rivedi conto accellerazione, va proiettata lungo la verticale considerando
+    tutti e tre le componenti (vedi simulatore)
+
+[ ] Dorgue e main si ativano troppo presto (da vedere)

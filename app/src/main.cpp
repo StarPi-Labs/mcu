@@ -1,18 +1,17 @@
+#include <Adafruit_AHRS.h>
 #include <Arduino.h>
 #include <FreeRTOS.h>
-#include <Adafruit_AHRS.h>
 
-#include "board.h"
-#include "logger.h"
-#include "task.h"
-#include "imu.h"
+#include "Bluetooth.hpp"
+#include "KalmanFilter.hpp"
 #include "barometer.h"
+#include "board.h"
+#include "gps.h"
+#include "imu.h"
+#include "logger.h"
 #include "lora.h"
 #include "sdcard.h"
-#include "KalmanFilter.hpp"
-#include "gps.h"
-#include "Bluetooth.hpp"
-
+#include "task.h"
 
 SPIClass SPI2(FSPI);
 TwoWire I2C1(0);
@@ -55,8 +54,7 @@ DECLARE_STATIC_QUEUE(lora_msg_queue, LogMessage, LOG_DEFAULT_QUEUE_SIZE);
 DECLARE_STATIC_QUEUE(ble_msg_queue, LogMessage, LOG_DEFAULT_QUEUE_SIZE);
 DECLARE_STATIC_QUEUE(gs_command_queue, uint64_t, 16);
 
-
-bool lora_tx_cb(uint8_t *packet)
+bool lora_tx_cb(uint8_t* packet)
 {
 	xSemaphoreTake(lora_tx_packet_semaphore, portMAX_DELAY);
 	*((LoRaDataPacket*)packet) = lora_tx_packet;
@@ -65,8 +63,7 @@ bool lora_tx_cb(uint8_t *packet)
 	return true;
 }
 
-
-void lora_rx_cb(uint8_t *packet)
+void lora_rx_cb(uint8_t* packet)
 {
 	xSemaphoreTake(lora_rx_packet_semaphore, portMAX_DELAY);
 	lora_rx_packet = *((LoRaCommandPacket*)packet);
@@ -74,15 +71,13 @@ void lora_rx_cb(uint8_t *packet)
 	xTaskNotifyGive(cmd_handler_task_descriptor.handle);
 }
 
-
-
 void setup(void)
 {
 
 	Serial.begin(115200);
-//	while (!Serial) {
-//		delay(100);
-//	}
+	//	while (!Serial) {
+	//		delay(100);
+	//	}
 	Serial.println("Initialized");
 
 	I2C1.setPins(I2C1_SDA, I2C1_SCL);
@@ -94,9 +89,7 @@ void setup(void)
 	INIT_STATIC_SEMAPHORE(spi_semaphore);
 	INIT_STATIC_SEMAPHORE(lora_tx_packet_semaphore);
 	INIT_STATIC_SEMAPHORE(lora_rx_packet_semaphore);
-	if (spi_semaphore == NULL ||
-		lora_tx_packet_semaphore == NULL ||
-		lora_rx_packet_semaphore == NULL) {
+	if (spi_semaphore == NULL || lora_tx_packet_semaphore == NULL || lora_rx_packet_semaphore == NULL) {
 		while (true) {
 			Serial.println("Error creating semaphore");
 			delay(500);
@@ -105,18 +98,18 @@ void setup(void)
 
 	logger_init();
 
-	ble_init({.on_sensor_calibration = [](void *context)
-		{
-			(void)context;
-			#pragma message "TODO: change to real calibration command"
-			uint64_t cmd = 0xDEADBEEF;
+	ble_init({.on_sensor_calibration =
+	              [](void* context) {
+		              (void)context;
+#pragma message "TODO: change to real calibration command"
+		              uint64_t cmd = 0xDEADBEEF;
 
-			log(S_BLE, T_SYSLOG, "Received sensor calibration command over BLE");
+		              log(S_BLE, T_SYSLOG, "Received sensor calibration command over BLE");
 
-			if (xQueueSend(gs_command_queue, &cmd, 0) != pdTRUE)
-				log(S_BLE, T_SYSLOG, "Failed to send sensor calibration command to queue");
-		},
-		.context = nullptr});
+		              if (xQueueSend(gs_command_queue, &cmd, 0) != pdTRUE)
+			              log(S_BLE, T_SYSLOG, "Failed to send sensor calibration command to queue");
+	              },
+	          .context = nullptr});
 
 	imu_setup();
 	altitude.setG(g_cal);
@@ -154,12 +147,8 @@ void setup(void)
 	INIT_STATIC_QUEUE(lora_msg_queue);
 	INIT_STATIC_QUEUE(ble_msg_queue);
 	INIT_STATIC_QUEUE(gs_command_queue);
-	if (parachute_msg_queue == NULL   ||
-		sd_msg_queue == NULL          ||
-		uart_msg_queue == NULL        ||
-		lora_msg_queue == NULL        ||
-		ble_msg_queue == NULL    ||
-		gs_command_queue == NULL) {
+	if (parachute_msg_queue == NULL || sd_msg_queue == NULL || uart_msg_queue == NULL || lora_msg_queue == NULL ||
+	    ble_msg_queue == NULL || gs_command_queue == NULL) {
 		while (true) {
 			Serial.println("Error creating queues");
 			delay(500);
@@ -180,18 +169,11 @@ void setup(void)
 	INIT_STATIC_TASK(ble_formatter_task, "ble formatter", NULL, tskIDLE_PRIORITY + 5, 1);
 	INIT_STATIC_TASK(uart_task, "logger", NULL, tskIDLE_PRIORITY, 1);
 
-	if (
-		!TASK_IS_INITIALIZED(imu_task)              ||
-		!TASK_IS_INITIALIZED(barometer_task)        ||
-		!TASK_IS_INITIALIZED(parachute_task)        ||
-		!TASK_IS_INITIALIZED(gps_task)              ||
-		!TASK_IS_INITIALIZED(uart_task)             ||
-		!TASK_IS_INITIALIZED(lora_transmitter_task) ||
-		!TASK_IS_INITIALIZED(lora_formatter_task)   ||
-		!TASK_IS_INITIALIZED(sd_formatter_task)     ||
-		!TASK_IS_INITIALIZED(ble_formatter_task)    ||
-		!TASK_IS_INITIALIZED(cmd_handler_task)      ||
-		!TASK_IS_INITIALIZED(sd_writer_task)) {
+	if (!TASK_IS_INITIALIZED(imu_task) || !TASK_IS_INITIALIZED(barometer_task) ||
+	    !TASK_IS_INITIALIZED(parachute_task) || !TASK_IS_INITIALIZED(gps_task) || !TASK_IS_INITIALIZED(uart_task) ||
+	    !TASK_IS_INITIALIZED(lora_transmitter_task) || !TASK_IS_INITIALIZED(lora_formatter_task) ||
+	    !TASK_IS_INITIALIZED(sd_formatter_task) || !TASK_IS_INITIALIZED(ble_formatter_task) ||
+	    !TASK_IS_INITIALIZED(cmd_handler_task) || !TASK_IS_INITIALIZED(sd_writer_task)) {
 		while (true) {
 			Serial.println("Error creating tasks");
 			delay(500);
@@ -200,7 +182,8 @@ void setup(void)
 
 	// Register consumer tasks to the logger, these tasks will get notified when
 	// new data is ready to be read
-	logger_register_consumer(parachute_task_descriptor.handle, parachute_msg_queue, 0xffff, T_ALT_SPEED | T_ACCELLERATION);
+	logger_register_consumer(parachute_task_descriptor.handle, parachute_msg_queue, 0xffff,
+	                         T_ALT_SPEED | T_ACCELLERATION);
 	logger_register_consumer(lora_formatter_task_descriptor.handle, lora_msg_queue, 0xffff, 0xffff);
 	logger_register_consumer(sd_formatter_task_descriptor.handle, sd_msg_queue, 0xffff, 0xffff);
 	logger_register_consumer(uart_task_descriptor.handle, uart_msg_queue, 0xffff, 0xffff);
@@ -211,16 +194,14 @@ void setup(void)
 	digitalWrite(PINT5_LS, 1);
 }
 
-
 void loop(void)
 {
-//	if (Serial)
-//		Serial.println("LOOP");
+	//	if (Serial)
+	//		Serial.println("LOOP");
 	delay(1000);
 }
 
-
-TASK imu_task(TaskDescriptor_t *self)
+TASK imu_task(TaskDescriptor_t* self)
 {
 	self->last_wake = xTaskGetTickCount();
 	FIFO_Sample sample;
@@ -232,70 +213,52 @@ TASK imu_task(TaskDescriptor_t *self)
 
 	while (true) {
 		if (xSemaphoreTake(spi_semaphore, portMAX_DELAY) == pdTRUE) {
-			if(imu_get_sample(&sample) == 0) {
+			if (imu_get_sample(&sample) == 0) {
 				// Update the relative orientation of the board using
 				// the Madgwick filter, readings are in mg and mdps, so
 				// conversion is needed
-				orientation.updateIMU(
-					(float)sample.gyroscope[0]/1000.0f,
-					(float)sample.gyroscope[1]/1000.0f,
-					(float)sample.gyroscope[2]/1000.0f,
-					(float)sample.accelerometer[0]/1000.0f,
-					(float)sample.accelerometer[1]/1000.0f,
-					(float)sample.accelerometer[2]/1000.0f
-				);
+				orientation.updateIMU((float)sample.gyroscope[0] / 1000.0f, (float)sample.gyroscope[1] / 1000.0f,
+				                      (float)sample.gyroscope[2] / 1000.0f, (float)sample.accelerometer[0] / 1000.0f,
+				                      (float)sample.accelerometer[1] / 1000.0f,
+				                      (float)sample.accelerometer[2] / 1000.0f);
 
 				// Update the altitude and vertical velocity estimation
 				// with the inertial data
-				float attitude_rad = acos(cos(orientation.getPitchRadians())*cos(orientation.getRollRadians()));
-				altitude.predict(
-					(float)sample.accelerometer[2]/1000.0f,
-					attitude_rad,
-					false // TODO: airbrake trigger
+				float attitude_rad = acos(cos(orientation.getPitchRadians()) * cos(orientation.getRollRadians()));
+				altitude.predict((float)sample.accelerometer[2] / 1000.0f, attitude_rad,
+				                 false // TODO: airbrake trigger
 				);
 
 #if TEST_FAKE_DATA != 1
-				log(S_IMU, T_ORIENTATION,
-					orientation.getRoll(),
-					orientation.getPitch(),
-					orientation.getYaw()
-				);
-				log(S_IMU, T_ACCELLERATION,
-					sample.accelerometer[0],
-					sample.accelerometer[1],
-					sample.accelerometer[2]
-				);
-				log(S_IMU, T_GYRO,
-					sample.gyroscope[0],
-					sample.gyroscope[1],
-					sample.gyroscope[2]
-				);
+				log(S_IMU, T_ORIENTATION, orientation.getRoll(), orientation.getPitch(), orientation.getYaw());
+				log(S_IMU, T_ACCELLERATION, sample.accelerometer[0], sample.accelerometer[1], sample.accelerometer[2]);
+				log(S_IMU, T_GYRO, sample.gyroscope[0], sample.gyroscope[1], sample.gyroscope[2]);
 				log(S_IMU, T_ALT_SPEED, altitude.getState()[0], altitude.getState()[1]);
 #else
-				#define IDLE_TIME 5000
+#define IDLE_TIME 5000
 				static struct DataSample {
 					uint32_t time;
 					float z_alt;
 					float z_speed;
 					float z_acc;
 				} test_data[] = {
-					{ 0         +      0,     0.0,    0.0,   0.0 },
-					{ IDLE_TIME +      0,     0.0,    0.0,   0.0 }, // Idle time
-					{ IDLE_TIME +    660,     2.0,  35.24,  6.05 }, // Rail exit
-					{ IDLE_TIME +   2100,   132.0,  132.0,   7.1 }, // Max g
-					{ IDLE_TIME +   4300,   712.7, 251.02, -1.66 }, // Motor burnout
-					{ IDLE_TIME +  25700, 3175.22,    0.0, -0.99 }, // Apogee
-					{ IDLE_TIME +  28190, 3145.11,  -24.6, -0.83 }, // Drogue deployment
-					{ IDLE_TIME +  30000, 2946.39,  -28.2, -0.05 }, // End drogue deployment
-					{ IDLE_TIME + 108790,  465.11, -31.71,   0.0 }, // Just before main
-					{ IDLE_TIME + 109000,  464.00, -31.71, 13.62 }, // Main deployment
-					{ IDLE_TIME + 109150,  462.00,   -5.5,  0.05 }, // End main deployment
-					{ IDLE_TIME + 170000,     0.0,    0.0,  0.05 }, // Just before impact
-					{ IDLE_TIME + 170100,     0.0,    0.0,   0.0 }, // Touchdown
+				    {0 + 0, 0.0, 0.0, 0.0},
+				    {IDLE_TIME + 0, 0.0, 0.0, 0.0},              // Idle time
+				    {IDLE_TIME + 660, 2.0, 35.24, 6.05},         // Rail exit
+				    {IDLE_TIME + 2100, 132.0, 132.0, 7.1},       // Max g
+				    {IDLE_TIME + 4300, 712.7, 251.02, -1.66},    // Motor burnout
+				    {IDLE_TIME + 25700, 3175.22, 0.0, -0.99},    // Apogee
+				    {IDLE_TIME + 28190, 3145.11, -24.6, -0.83},  // Drogue deployment
+				    {IDLE_TIME + 30000, 2946.39, -28.2, -0.05},  // End drogue deployment
+				    {IDLE_TIME + 108790, 465.11, -31.71, 0.0},   // Just before main
+				    {IDLE_TIME + 109000, 464.00, -31.71, 13.62}, // Main deployment
+				    {IDLE_TIME + 109150, 462.00, -5.5, 0.05},    // End main deployment
+				    {IDLE_TIME + 170000, 0.0, 0.0, 0.05},        // Just before impact
+				    {IDLE_TIME + 170100, 0.0, 0.0, 0.0},         // Touchdown
 				};
-				#define TEST_DATA_SIZE sizeof(test_data) / sizeof(test_data[0])
+#define TEST_DATA_SIZE sizeof(test_data) / sizeof(test_data[0])
 
-				auto get_sample = [&]{
+				auto get_sample = [&] {
 					uint32_t current_time = millis() - start_time;
 					if (current_time <= test_data[0].time) {
 						return test_data[0];
@@ -313,14 +276,12 @@ TASK imu_task(TaskDescriptor_t *self)
 							// Calculate progress fraction between t0 and t1 (0.0 to 1.0)
 							float fraction = (float)(current_time - t0) / (float)(t1 - t0);
 
-							auto lerp = [](float start, float end, float frac) {
-								return start + frac * (end - start);
-							};
+							auto lerp = [](float start, float end, float frac) { return start + frac * (end - start); };
 
 							DataSample result;
-							result.z_alt   = lerp(test_data[i].z_alt,   test_data[i + 1].z_alt,   fraction);
+							result.z_alt = lerp(test_data[i].z_alt, test_data[i + 1].z_alt, fraction);
 							result.z_speed = lerp(test_data[i].z_speed, test_data[i + 1].z_speed, fraction);
-							result.z_acc   = lerp(test_data[i].z_acc,   test_data[i + 1].z_acc,   fraction);
+							result.z_acc = lerp(test_data[i].z_acc, test_data[i + 1].z_acc, fraction);
 
 							return result;
 						}
@@ -343,8 +304,7 @@ TASK imu_task(TaskDescriptor_t *self)
 	}
 }
 
-
-TASK barometer_task(TaskDescriptor_t *self)
+TASK barometer_task(TaskDescriptor_t* self)
 {
 	self->last_wake = xTaskGetTickCount();
 	BaroData sample1, sample2;
@@ -367,37 +327,28 @@ TASK barometer_task(TaskDescriptor_t *self)
 	}
 }
 
-
 /*
 %%{init: {
   "flowchart": {
-	"defaultRenderer": "elk",
-	"curve": "stepAfter"
+    "defaultRenderer": "elk",
+    "curve": "stepAfter"
   }
 } }%%
 
 flowchart TD
-	A(((IDLE))) -->|Ignition| B((BOOST))
-	B -->|Burnout| C((COAST))
-	C -->|Apogee| D((DROGUE)) & a[/Activate main recovery\nActivate backup recovery/]
-	D -->|Low Altitude| E((MAIN)) & b[/Release main parachute/]
-	E -->|Touchdown| F((LANDED))
-	F .->|Reset| A
+    A(((IDLE))) -->|Ignition| B((BOOST))
+    B -->|Burnout| C((COAST))
+    C -->|Apogee| D((DROGUE)) & a[/Activate main recovery\nActivate backup recovery/]
+    D -->|Low Altitude| E((MAIN)) & b[/Release main parachute/]
+    E -->|Touchdown| F((LANDED))
+    F .->|Reset| A
 
-	A ~~~ B ~~~ C ~~~ D ~~~ E ~~~ F
+    A ~~~ B ~~~ C ~~~ D ~~~ E ~~~ F
 */
-TASK parachute_task(TaskDescriptor_t *self)
+TASK parachute_task(TaskDescriptor_t* self)
 {
 	self->last_wake = xTaskGetTickCount();
-
-	enum RocketState {
-		RS_IDLE,      // Idle state, on ramp
-		RS_BOOST,     // Motor burning, ascending
-		RS_COAST,     // Motor burnt out, still ascending
-		RS_DROGUE,    // Drogue deployed, falling
-		RS_MAIN,      // Main parachute deployed, falling
-		RS_TOUCHDOWN, // On ground
-	} state = RS_IDLE;
+	RocketState state = RS_IDLE;
 
 	/* TODO:
 	 * - Change unit names m/s to MPS
@@ -408,40 +359,39 @@ TASK parachute_task(TaskDescriptor_t *self)
 	 * - Make this a configuration file or header
 	 */
 
-	#define PARACHUTE_TASK_HZ 10
+#define PARACHUTE_TASK_HZ 10
 
-	#define Z_ACC_BOOST_THRESHOLD_G 2.5
-	#define Z_SPEED_BOOST_THRESHOLD_MS 25.0
-	#define Z_ALT_BOOST_THRESHOLD_M 100.0
+#define Z_ACC_BOOST_THRESHOLD_G 2.5
+#define Z_SPEED_BOOST_THRESHOLD_MS 25.0
+#define Z_ALT_BOOST_THRESHOLD_M 100.0
 
-	#define Z_ALT_COAST_THRESHOLD_M 750.0
-	#define MOTOR_BURNOUT_MS 4400
+#define Z_ALT_COAST_THRESHOLD_M 750.0
+#define MOTOR_BURNOUT_MS 4400
 
-	#define Z_SPEED_APOGEE_THRESHOLD_MS 0.5
-	#define Z_ALT_APOGEE_THRESHOLD_M 2950.0
-	#define MAX_TIME_TO_APOGEE_MS 28000
+#define Z_SPEED_APOGEE_THRESHOLD_MS 0.5
+#define Z_ALT_APOGEE_THRESHOLD_M 2950.0
+#define MAX_TIME_TO_APOGEE_MS 28000
 
-	#define MIN_TIME_TO_1500M_MS 8540
+#define MIN_TIME_TO_1500M_MS 8540
 
-	#define Z_ALT_MAIN_DEPLOYMENT_M 450.0
-	#define MAX_TIME_TO_MAIN_DEPLOYMENT_MS 110000
+#define Z_ALT_MAIN_DEPLOYMENT_M 450.0
+#define MAX_TIME_TO_MAIN_DEPLOYMENT_MS 110000
 
-	#define Z_ALT_TOUCHDOWN_M 10.0
-	#define Z_SPEED_STATIONARY_MS 0.1
-	#define MAX_TIME_TO_TOUCHDOWN 200000
+#define Z_ALT_TOUCHDOWN_M 10.0
+#define Z_SPEED_STATIONARY_MS 0.1
+#define MAX_TIME_TO_TOUCHDOWN 200000
 
-	#define BOOST_DETECTION_SAMPLE_COUNT 10
-	#define BURNOUT_DETECTION_SAMPLE_COUNT 10
-	#define APOGEE_DETECTION_SAMPLE_COUNT 10
-	#define MAIN_DETECTION_SAMPLE_COUNT 10
-	#define TOUCHDOWN_DETECTION_SAMPLE_COUNT 10
+#define BOOST_DETECTION_SAMPLE_COUNT 10
+#define BURNOUT_DETECTION_SAMPLE_COUNT 10
+#define APOGEE_DETECTION_SAMPLE_COUNT 10
+#define MAIN_DETECTION_SAMPLE_COUNT 10
+#define TOUCHDOWN_DETECTION_SAMPLE_COUNT 10
 
-	#define PIN_EJECTION_A  PINT6_LS
-	#define PIN_EJECTION_C  PINT4_LS
-	#define PIN_MAIN_CUTTER PINT2_LS
+#define PIN_EJECTION_A PINT6_LS
+#define PIN_EJECTION_C PINT4_LS
+#define PIN_MAIN_CUTTER PINT2_LS
 
-	#define CUTTERS_ON_TIME_MS 2000
-
+#define CUTTERS_ON_TIME_MS 2000
 
 	// Interface PINs setup
 	pinMode(PIN_EJECTION_A, OUTPUT);
@@ -450,7 +400,6 @@ TASK parachute_task(TaskDescriptor_t *self)
 	digitalWrite(PIN_EJECTION_C, 0);
 	pinMode(PIN_MAIN_CUTTER, OUTPUT);
 	digitalWrite(PIN_MAIN_CUTTER, 0);
-
 
 	// Sensor data each loop
 	float z_speed = 0;
@@ -471,9 +420,8 @@ TASK parachute_task(TaskDescriptor_t *self)
 	bool cutter_active = false;
 	int64_t cutter_fire_time = 0;
 
-
 	while (true) {
-		ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000/PARACHUTE_TASK_HZ));
+		ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000 / PARACHUTE_TASK_HZ));
 
 		// Get the sensor data, if there is no new sensor data the old sample is
 		// used
@@ -508,9 +456,8 @@ TASK parachute_task(TaskDescriptor_t *self)
 		switch (state) {
 		case RS_IDLE:
 			// Detect motor ignition
-			if ((z_acc >= Z_ACC_BOOST_THRESHOLD_G &&
-				z_speed >= Z_SPEED_BOOST_THRESHOLD_MS) ||
-				z_alt >= Z_ALT_BOOST_THRESHOLD_M) {
+			if ((z_acc >= Z_ACC_BOOST_THRESHOLD_G && z_speed >= Z_SPEED_BOOST_THRESHOLD_MS) ||
+			    z_alt >= Z_ALT_BOOST_THRESHOLD_M) {
 				sample_count++;
 			} else {
 				sample_count = 0;
@@ -522,13 +469,12 @@ TASK parachute_task(TaskDescriptor_t *self)
 				sample_count = 0;
 			}
 
-			//log(S_PARA, T_SYSLOG, "State: RS_IDLE");
+			// log(S_PARA, T_SYSLOG, "State: RS_IDLE");
 			break;
 
 		case RS_BOOST:
 			// Detect motor burnout
-			if (z_alt >= Z_ALT_COAST_THRESHOLD_M ||
-				ms_since_ignition >= MOTOR_BURNOUT_MS) {
+			if (z_alt >= Z_ALT_COAST_THRESHOLD_M || ms_since_ignition >= MOTOR_BURNOUT_MS) {
 				sample_count++;
 			} else {
 				sample_count = 0;
@@ -539,7 +485,7 @@ TASK parachute_task(TaskDescriptor_t *self)
 				sample_count = 0;
 			}
 
-			//log(S_PARA, T_SYSLOG, "State: RS_BOOST");
+			// log(S_PARA, T_SYSLOG, "State: RS_BOOST");
 			break;
 
 		case RS_COAST:
@@ -548,9 +494,8 @@ TASK parachute_task(TaskDescriptor_t *self)
 			}
 
 			// Detect apogee
-			if (z_speed <= Z_SPEED_APOGEE_THRESHOLD_MS ||
-				z_alt >= Z_ALT_APOGEE_THRESHOLD_M ||
-				ms_since_ignition >= MAX_TIME_TO_APOGEE_MS) {
+			if (z_speed <= Z_SPEED_APOGEE_THRESHOLD_MS || z_alt >= Z_ALT_APOGEE_THRESHOLD_M ||
+			    ms_since_ignition >= MAX_TIME_TO_APOGEE_MS) {
 				sample_count++;
 			} else {
 				sample_count = 0;
@@ -559,7 +504,7 @@ TASK parachute_task(TaskDescriptor_t *self)
 			if (sample_count >= APOGEE_DETECTION_SAMPLE_COUNT) {
 				// Activate recovery A and C; pins are cleared later,
 				// non-blockingly, by the timeout check above
-				analogWrite(PIN_EJECTION_A, 256/2);
+				analogWrite(PIN_EJECTION_A, 256 / 2);
 				digitalWrite(PIN_EJECTION_C, 1);
 				ejection_active = true;
 				ejection_fire_time = millis();
@@ -568,15 +513,14 @@ TASK parachute_task(TaskDescriptor_t *self)
 				sample_count = 0;
 			}
 
-			//log(S_PARA, T_SYSLOG, "State: RS_COAST");
+			// log(S_PARA, T_SYSLOG, "State: RS_COAST");
 			break;
 
 		case RS_DROGUE:
 			// TODO: retract airbrakes
 
 			// Detect main parachute deployment
-			if (z_alt <= Z_ALT_MAIN_DEPLOYMENT_M ||
-				ms_since_ignition >= MAX_TIME_TO_MAIN_DEPLOYMENT_MS) {
+			if (z_alt <= Z_ALT_MAIN_DEPLOYMENT_M || ms_since_ignition >= MAX_TIME_TO_MAIN_DEPLOYMENT_MS) {
 				sample_count++;
 			} else {
 				sample_count = 0;
@@ -584,7 +528,7 @@ TASK parachute_task(TaskDescriptor_t *self)
 
 			if (sample_count >= MAIN_DETECTION_SAMPLE_COUNT) {
 				// Cut main parachute; pin cleared later, non-blockingly
-				analogWrite(PIN_MAIN_CUTTER, 256/2);
+				analogWrite(PIN_MAIN_CUTTER, 256 / 2);
 				cutter_active = true;
 				cutter_fire_time = millis();
 
@@ -592,14 +536,14 @@ TASK parachute_task(TaskDescriptor_t *self)
 				sample_count = 0;
 			}
 
-			//log(S_PARA, T_SYSLOG, "State: RS_DROGUE");
+			// log(S_PARA, T_SYSLOG, "State: RS_DROGUE");
 			break;
 
 		case RS_MAIN:
 			// Detect touchdown
 			if (z_alt <= Z_ALT_TOUCHDOWN_M ||
-				//z_speed <= Z_SPEED_STATIONARY_MS ||
-				ms_since_ignition >= MAX_TIME_TO_TOUCHDOWN) {
+			    // z_speed <= Z_SPEED_STATIONARY_MS ||
+			    ms_since_ignition >= MAX_TIME_TO_TOUCHDOWN) {
 				sample_count++;
 			} else {
 				sample_count = 0;
@@ -609,37 +553,36 @@ TASK parachute_task(TaskDescriptor_t *self)
 				state = RS_TOUCHDOWN;
 				sample_count = 0;
 			}
-			//log(S_PARA, T_SYSLOG, "State: RS_MAIN");
+			// log(S_PARA, T_SYSLOG, "State: RS_MAIN");
 			break;
 
 		case RS_TOUCHDOWN:
-			//log(S_PARA, T_SYSLOG, "State: RS_TOUCHDOWN");
+			// log(S_PARA, T_SYSLOG, "State: RS_TOUCHDOWN");
 			break;
 
 		default:
-			//log(S_PARA, T_SYSLOG, "[ERR]: Unknown rocket state");
+			// log(S_PARA, T_SYSLOG, "[ERR]: Unknown rocket state");
 			break;
 		}
 
 		// log rocket state for telemetry and debugging
-		log(S_PARA, T_SYSLOG, (int)state);
+		log(S_PARA, T_ROCKET_STATE, state);
 	}
 }
 
-
-TASK gps_task(TaskDescriptor_t *self)
+TASK gps_task(TaskDescriptor_t* self)
 {
 	self->last_wake = xTaskGetTickCount();
 	static GPSData data;
 
-	while(true) {
+	while (true) {
 		gps_update(&data);
 
 		if (data.num_sat < GPS_MIN_SATELLITES) {
 			// TODO: print satellites
 			log(S_GPS, T_SYSLOG, "Not enough satellites");
 		} else {
-			//LOG("[GPS]: (%d) pos: (%f, %f), alt: %fm, speed: %fkmh, time:%llu",
+			// LOG("[GPS]: (%d) pos: (%f, %f), alt: %fm, speed: %fkmh, time:%llu",
 			//	data.num_sat, data.lat, data.lon, data.alt, data.kmh, data.unix_time);
 			log(S_GPS, T_GPS, data.lat, data.lon);
 		}
@@ -648,8 +591,8 @@ TASK gps_task(TaskDescriptor_t *self)
 	}
 }
 
-
-TASK ble_formatter_task(TaskDescriptor_t *self) {
+TASK ble_formatter_task(TaskDescriptor_t* self)
+{
 	self->last_wake = xTaskGetTickCount();
 
 	while (true) {
@@ -663,13 +606,12 @@ TASK ble_formatter_task(TaskDescriptor_t *self) {
 	}
 }
 
-
-TASK lora_formatter_task(TaskDescriptor_t *self)
+TASK lora_formatter_task(TaskDescriptor_t* self)
 {
 	self->last_wake = xTaskGetTickCount();
 
 	while (true) {
-		ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000/LORA_FMT_TASK_HZ));
+		ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000 / LORA_FMT_TASK_HZ));
 
 		LogMessage msg;
 
@@ -680,18 +622,18 @@ TASK lora_formatter_task(TaskDescriptor_t *self)
 				if (msg.payload_type == P_FVEC2) {
 					lora_tx_packet.imu.altitude = float16(msg.payload.fv2.x).getBinary();
 					lora_tx_packet.imu.vspeed = float16(msg.payload.fv2.y).getBinary();
-					lora_tx_packet.imu.dt = msg.timestamp/1000 - u48le_to_u64(lora_tx_packet.header.tx_time);
+					lora_tx_packet.imu.dt = msg.timestamp / 1000 - u48le_to_u64(lora_tx_packet.header.tx_time);
 				}
 				break;
 			case T_ORIENTATION: {
 				if (msg.payload_type == P_FVEC3) {
 					// FIXME: don't repeat this computation here
-					float r = msg.payload.fv3.x * 0.0174533; // roll in radians
-					float p = msg.payload.fv3.y * 0.0174533; // pitch in radians
-					float a = acos(cos(p)*cos(r)) * 57.2958; // total pitch from vertical in degrees
+					float r = msg.payload.fv3.x * 0.0174533;   // roll in radians
+					float p = msg.payload.fv3.y * 0.0174533;   // pitch in radians
+					float a = acos(cos(p) * cos(r)) * 57.2958; // total pitch from vertical in degrees
 
 					lora_tx_packet.imu.attitude = float16(a).getBinary();
-					lora_tx_packet.imu.dt = msg.timestamp/1000 - u48le_to_u64(lora_tx_packet.header.tx_time);
+					lora_tx_packet.imu.dt = msg.timestamp / 1000 - u48le_to_u64(lora_tx_packet.header.tx_time);
 				}
 				break;
 			}
@@ -699,14 +641,14 @@ TASK lora_formatter_task(TaskDescriptor_t *self)
 				if (msg.payload_type == P_FVEC2) {
 					lora_tx_packet.baro.p1 = float16(msg.payload.fv2.x).getBinary();
 					lora_tx_packet.baro.p2 = float16(msg.payload.fv2.y).getBinary();
-					lora_tx_packet.baro.dt = msg.timestamp/1000 - u48le_to_u64(lora_tx_packet.header.tx_time);
+					lora_tx_packet.baro.dt = msg.timestamp / 1000 - u48le_to_u64(lora_tx_packet.header.tx_time);
 				}
 				break;
 			case T_GPS:
 				if (msg.payload_type == P_FVEC2) {
 					lora_tx_packet.gps.latitude = msg.payload.fv2.x;
 					lora_tx_packet.gps.longitude = msg.payload.fv2.y;
-					lora_tx_packet.gps.dt = msg.timestamp/1000 - u48le_to_u64(lora_tx_packet.header.tx_time);
+					lora_tx_packet.gps.dt = msg.timestamp / 1000 - u48le_to_u64(lora_tx_packet.header.tx_time);
 				}
 				break;
 			case T_SYSLOG:
@@ -724,8 +666,7 @@ TASK lora_formatter_task(TaskDescriptor_t *self)
 	}
 }
 
-
-TASK lora_transmitter_task(TaskDescriptor_t *self)
+TASK lora_transmitter_task(TaskDescriptor_t* self)
 {
 	self->last_wake = xTaskGetTickCount();
 
@@ -733,7 +674,7 @@ TASK lora_transmitter_task(TaskDescriptor_t *self)
 		// Run the lora radio state machine
 		LoRaProtoState state = lora_fc_state_machine();
 		String str;
-		switch(state) {
+		switch (state) {
 		case STATE_DISCONNECTED:
 			str = "STATE_DISCONNECTED";
 			break;
@@ -754,16 +695,15 @@ TASK lora_transmitter_task(TaskDescriptor_t *self)
 	}
 }
 
-
 // UART consumer
-TASK uart_task(TaskDescriptor_t *self)
+TASK uart_task(TaskDescriptor_t* self)
 {
 	self->last_wake = xTaskGetTickCount();
 
-	while(true) {
-		ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000/UART_TASK_HZ));
+	while (true) {
+		ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000 / UART_TASK_HZ));
 		LogMessage msg;
-		const char *str;
+		const char* str;
 		size_t len = 0;
 		while (xQueueReceive(uart_msg_queue, &msg, 0) == pdTRUE) {
 			len = logger_message_to_str(&str, &msg);
@@ -772,26 +712,24 @@ TASK uart_task(TaskDescriptor_t *self)
 	}
 }
 
-
 // SD consumer
-TASK sd_formatter_task(TaskDescriptor_t *self)
+TASK sd_formatter_task(TaskDescriptor_t* self)
 {
 	self->last_wake = xTaskGetTickCount();
 
-	while(true) {
-		ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000/SD_FMT_TASK_HZ));
+	while (true) {
+		ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000 / SD_FMT_TASK_HZ));
 		LogMessage msg;
 
 		while (xQueueReceive(sd_msg_queue, &msg, 0) == pdTRUE) {
-			const char *str = NULL;
+			const char* str = NULL;
 			size_t len = logger_message_to_str(&str, &msg);
 			sdcard_write(str, len);
 		}
 	}
 }
 
-
-TASK sd_writer_task(TaskDescriptor_t *self)
+TASK sd_writer_task(TaskDescriptor_t* self)
 {
 	self->last_wake = xTaskGetTickCount();
 
@@ -801,8 +739,7 @@ TASK sd_writer_task(TaskDescriptor_t *self)
 	}
 }
 
-
-TASK cmd_handler_task(TaskDescriptor_t *self)
+TASK cmd_handler_task(TaskDescriptor_t* self)
 {
 	self->last_wake = xTaskGetTickCount();
 
@@ -816,7 +753,7 @@ TASK cmd_handler_task(TaskDescriptor_t *self)
 		packet = lora_rx_packet;
 		xSemaphoreGive(lora_rx_packet_semaphore);
 
-		switch(packet.command) {
+		switch (packet.command) {
 		case CMD_EJECT_A:
 			log(S_OTHER, T_SYSLOG, "Received command: EJECT_A");
 			break;

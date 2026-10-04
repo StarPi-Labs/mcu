@@ -29,13 +29,11 @@ The project is structured as follows:
 
 * `app/`: The core application code and firmware entry points.
 * `examples/`: Code examples to test the features of the MCU and other components.
-* `test/`: Unit tests for the various modules and components.
 * `docs/`: Relevant datasheets and documentation.
 
 ## Useful Resources
 
 Useful resources for development:
 
-* [Flight Computer Schematic](assets/schematic_flight_computer.pdf)
 * [ESP32 Web Simulator (Wokwi)](https://wokwi.com/): allows you to simulate the MCU's behavior and test code without having to upload it physically to the device.
 * [ESP32-S3 QEMU](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/api-guides/tools/qemu.html): an emulator that allows running the MCU code on a computer, useful for local debugging and development.

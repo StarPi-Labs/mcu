@@ -4,10 +4,14 @@
 
 #include "lora.h"
 #include "command_input.h"
+#include "telemetry_output.h"
 
 #include <unistd.h>
 #include <time.h>
 #include <signal.h>
+#include <stdlib.h>
+#include <sys/stat.h>
+#include <string>
 
 void sleep_ms(int milliseconds) {
 	struct timespec ts;
@@ -34,27 +38,65 @@ bool tx_packet_cb(uint8_t* packet)
 void rx_packet_cb(uint8_t* packet)
 {
 	rx_packet = *((LoRaDataPacket*)packet);
+	// The state machine hands over whatever it received in the FC window
+	if (rx_packet.header.type == PKT_DATA && rx_packet.header.id == LORA_FC_ID) {
+		telemetry_publish_data(rx_packet);
+	}
 }
 
 
 // Signal handler for clean shutdown
 static void signal_handler(int sig) {
+	// A signal sent to the whole process group can arrive twice, on two threads
+	static volatile sig_atomic_t stopping = 0;
+	if (stopping) return;
+	stopping = 1;
+
 	printf("\n[Main] Received signal %d, shutting down...\n", sig);
 	command_input_cleanup();
+	telemetry_output_cleanup();
 	exit(0);
 }
 
-int main(void)
+// Usage: radio_app [socket_dir]
+// The sockets are <socket_dir>/starpi_cmd.sock (commands in, see command_input.h)
+// and <socket_dir>/starpi_tlm.sock (telemetry and state out, see telemetry_output.h).
+// socket_dir comes from the first argument, else from STARPI_SOCKET_DIR, else /tmp.
+int main(int argc, char **argv)
 {
+	std::string socket_dir = "/tmp";
+	if (argc > 1) {
+		socket_dir = argv[1];
+	} else if (getenv("STARPI_SOCKET_DIR") != NULL && getenv("STARPI_SOCKET_DIR")[0] != '\0') {
+		socket_dir = getenv("STARPI_SOCKET_DIR");
+	}
+	mkdir(socket_dir.c_str(), 0755); // fine if it already exists, bind() reports the rest
+
+	std::string cmd_socket = socket_dir + "/starpi_cmd.sock";
+	std::string tlm_socket = socket_dir + "/starpi_tlm.sock";
+	// sizeof(sockaddr_un::sun_path), a longer path would be silently truncated
+	if (cmd_socket.size() >= 108 || tlm_socket.size() >= 108) {
+		fprintf(stderr, "[Main] Socket directory path too long: %s\n", socket_dir.c_str());
+		return 1;
+	}
+
 	// Setup signal handlers
 	signal(SIGINT, signal_handler);
 	signal(SIGTERM, signal_handler);
 
 	// Initialize command input (Unix domain socket)
-	if (!command_input_init("/tmp/starpi_cmd.sock")) {
+	if (!command_input_init(cmd_socket)) {
 		fprintf(stderr, "[Main] Failed to initialize command input\n");
 		return 1;
 	}
+
+	// Initialize telemetry output (Unix domain socket)
+	if (!telemetry_output_init(tlm_socket)) {
+		fprintf(stderr, "[Main] Failed to initialize telemetry output\n");
+		return 1;
+	}
+	LoRaProtoState published_state = STATE_DISCONNECTED;
+	telemetry_publish_state(published_state);
 
 	lora_setup(BAND_L, TX_FORCE, LORA_GS_ID, true);
 	lora_set_tx_packet_cb(tx_packet_cb);
@@ -64,6 +106,10 @@ int main(void)
 
 	while (true) {
 		state = lora_gs_state_machine();
+		if (state != published_state) {
+			published_state = state;
+			telemetry_publish_state(state);
+		}
 		const char *str;
 		switch(state) {
 		case STATE_DISCONNECTED:

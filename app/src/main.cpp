@@ -651,11 +651,9 @@ TASK lora_formatter_task(TaskDescriptor_t* self)
 					lora_tx_packet.gps.dt = msg.timestamp / 1000 - u48le_to_u64(lora_tx_packet.header.tx_time);
 				}
 				break;
-			case T_SYSLOG:
-				// FIXME: for now the rocket state is encoded like this, but it should be a separate message type
-				//        it requires some work on the ble side
-				if (msg.src == S_PARA && msg.payload_type == P_INT) {
-					lora_tx_packet.state = (uint8_t)msg.payload.i;
+			case T_ROCKET_STATE:
+				if (msg.payload_type == P_ROCKET_STATE) {
+					lora_tx_packet.state = (uint8_t)msg.payload.state;
 				}
 				break;
 			default:

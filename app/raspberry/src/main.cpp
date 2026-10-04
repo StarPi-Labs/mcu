@@ -102,7 +102,7 @@ int main(int argc, char **argv)
 	lora_set_tx_packet_cb(tx_packet_cb);
 	lora_set_rx_packet_cb(rx_packet_cb);
 
-	LoRaProtoState state;
+	LoRaProtoState state, prev_state = STATE_CONNECTING;
 
 	while (true) {
 		state = lora_gs_state_machine();
@@ -128,14 +128,16 @@ int main(int argc, char **argv)
 			str = "UNKNOWN";
 			break;
 		}
-		printf("GS state: %s\n", str);
+		if (state != prev_state) {
+			printf("GS state: %s, median_bps: %.1f\n", str, lora_get_median_bps());
+		}
 		if (state == STATE_RECEIVE) {
 			auto alt = std::bit_cast<half_float::half>(rx_packet.imu.altitude);
 			auto vsp = std::bit_cast<half_float::half>(rx_packet.imu.vspeed);
 			auto att = std::bit_cast<half_float::half>(rx_packet.imu.attitude);
 			auto p1 = std::bit_cast<half_float::half>(rx_packet.baro.p1);
 			auto p2 = std::bit_cast<half_float::half>(rx_packet.baro.p2);
-			printf("Received packet: state=%d, altitude=%f, vspeed=%f, attitude=%f, dt=%d, p1=%f, p2=%f, dt=%d, latitude=%f, longitude=%f, dt=%d\n",
+			printf("Received packet: state=%d, altitude=%f, vspeed=%f, attitude=%f, dt=%d, p1=%f, p2=%f, dt=%d, latitude=%f, longitude=%f, dt=%d, rssi=%.2f\n",
 				rx_packet.state,
 				half_float::half_cast<float>(alt),
 				half_float::half_cast<float>(vsp),
@@ -146,10 +148,11 @@ int main(int argc, char **argv)
 				rx_packet.baro.dt,
 				rx_packet.gps.latitude,
 				rx_packet.gps.longitude,
-				rx_packet.gps.dt
+				rx_packet.gps.dt,
+				lora_get_rssi()
 			);
 		}
-		//sleep_ms(1);
+		prev_state = state;
 	}
 
 	return 0;

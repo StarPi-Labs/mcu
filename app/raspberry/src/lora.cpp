@@ -42,6 +42,13 @@ static volatile uint64_t last_tx_time = 0;
 static volatile uint64_t last_rx_time = 0;
 static int last_tx_toa = 0;
 
+static float last_rssi = 0;
+
+static const size_t BPS_SAMPLE_CAPACITY = 60;
+static uint64_t last_bps_sample_time = 0;
+static float bps_samples[BPS_SAMPLE_CAPACITY] = {};
+static int bps_sample_count = 0;
+
 #define LORA_MAX_PAYLOAD 255
 static uint8_t rx_buffer[LORA_MAX_PAYLOAD];
 static uint32_t rx_len = 0;
@@ -245,6 +252,26 @@ bool lora_is_channel_free(void)
 }
 
 
+static void lora_add_bps_sample(uint32_t packet_len, uint64_t now_ms)
+{
+	if (last_bps_sample_time > 0) {
+		uint64_t dt_ms = now_ms - last_bps_sample_time;
+		if (dt_ms > 0) {
+			float bps = (packet_len * 8.0f) / (dt_ms / 1000.0f);
+			if (bps_sample_count < BPS_SAMPLE_CAPACITY) {
+				bps_samples[bps_sample_count++] = bps;
+			} else {
+				for (int i = 0; i < BPS_SAMPLE_CAPACITY - 1; i++) {
+					bps_samples[i] = bps_samples[i + 1];
+				}
+				bps_samples[BPS_SAMPLE_CAPACITY - 1] = bps;
+			}
+		}
+	}
+	last_bps_sample_time = now_ms;
+}
+
+
 // Wait for a packet to be received or timeout, return true if packet received, false otherwise
 bool lora_receive_timeout(int64_t timeout_ms)
 {
@@ -292,6 +319,8 @@ bool lora_receive_timeout(int64_t timeout_ms)
 		return false;
 	}
 
+	last_rssi = radio.getRSSI();
+	lora_add_bps_sample(rx_len, hal.millis());
 	return true;
 }
 
@@ -385,6 +414,8 @@ bool lora_transmit_timeout(void *buffer, uint32_t len, int64_t timeout_ms, LoRaT
 	if (radio.finishTransmit() != RADIOLIB_ERR_NONE) {
 		return false;
 	}
+
+	lora_add_bps_sample(len, hal.millis());
 
 	return true;
 }
@@ -861,4 +892,39 @@ LoRaProtoState lora_gs_state_machine()
 	}
 
 	return state;
+}
+
+
+float lora_get_rssi()
+{
+	return last_rssi;
+}
+
+
+float lora_get_median_bps()
+{
+	if (bps_sample_count == 0) {
+		return 0.0f;
+	}
+
+	float temp[60];
+	for (int i = 0; i < bps_sample_count; i++) {
+		temp[i] = bps_samples[i];
+	}
+
+	for (int i = 0; i < bps_sample_count - 1; i++) {
+		for (int j = i + 1; j < bps_sample_count; j++) {
+			if (temp[i] > temp[j]) {
+				float t = temp[i];
+				temp[i] = temp[j];
+				temp[j] = t;
+			}
+		}
+	}
+
+	if (bps_sample_count % 2 == 0) {
+		return (temp[bps_sample_count / 2 - 1] + temp[bps_sample_count / 2]) / 2.0f;
+	} else {
+		return temp[bps_sample_count / 2];
+	}
 }

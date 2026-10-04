@@ -60,7 +60,7 @@ int main(void)
 	lora_set_tx_packet_cb(tx_packet_cb);
 	lora_set_rx_packet_cb(rx_packet_cb);
 
-	LoRaProtoState state;
+	LoRaProtoState state, prev_state = STATE_CONNECTING;
 
 	while (true) {
 		state = lora_gs_state_machine();
@@ -82,8 +82,8 @@ int main(void)
 			str = "UNKNOWN";
 			break;
 		}
-		if (state == STATE_DISCONNECTED) {
-			printf("GS state: %s\n", str);
+		if (state != prev_state) {
+			printf("GS state: %s, median_bps: %.1f\n", str, lora_get_median_bps());
 		}
 		if (state == STATE_RECEIVE) {
 			auto alt = std::bit_cast<half_float::half>(rx_packet.imu.altitude);
@@ -106,7 +106,7 @@ int main(void)
 				lora_get_rssi()
 			);
 		}
-		//sleep_ms(1);
+		prev_state = state;
 	}
 
 	return 0;

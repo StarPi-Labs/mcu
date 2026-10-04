@@ -82,7 +82,7 @@ int main(void)
 			str = "UNKNOWN";
 			break;
 		}
-		if (state = STATE_DISCONNECTED) {
+		if (state == STATE_DISCONNECTED) {
 			printf("GS state: %s\n", str);
 		}
 		if (state == STATE_RECEIVE) {

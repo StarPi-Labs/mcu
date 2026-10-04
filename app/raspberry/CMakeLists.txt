@@ -102,5 +102,5 @@ target_link_libraries(radiolib PUBLIC ${LGPIO_LIB} pthread)
 # --------------------------------------------------------------------------
 # Your application
 # --------------------------------------------------------------------------
-add_executable(radio_app src/main.cpp src/lora.cpp src/command_input.cpp src/circular_buffer.cpp)
+add_executable(radio_app src/main.cpp src/lora.cpp src/command_input.cpp src/telemetry_output.cpp src/circular_buffer.cpp)
 target_link_libraries(radio_app PRIVATE radiolib half::half nlohmann_json::nlohmann_json pthread)

@@ -103,12 +103,18 @@ struct [[gnu::packed]] LoRaDataPacket
 	uint8_t state;
 };
 
+// Ground station command ids. The same ids are the single byte written to the
+// BLE command characteristic, and the ground station backend mirrors them
+// (COMMAND_IDS), so this enum is append-only: never reorder or reuse a value.
 enum LoRaCommand : uint8_t
 {
 	CMD_NONE,
 	CMD_EJECT_A,
 	CMD_EJECT_C,
 	CMD_CUT_MAIN,
+	CMD_CAMERAS_ON,
+	CMD_CAMERAS_OFF,
+	CMD_SENSOR_CALIBRATION,
 };
 
 struct [[gnu::packed]] LoRaCommandPacket

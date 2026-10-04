@@ -31,7 +31,8 @@
 //      {"type":"data","id":252,"number":17,"tx_time_ms":1789583292713,"state":2,
 //       "imu":{"altitude":812.5,"vspeed":95.25,"attitude":3.5,"dt_ms":-12},
 //       "baro":{"p1":921.5,"p2":921.0,"dt_ms":-31},
-//       "gps":{"latitude":39.392547,"longitude":-8.289517,"dt_ms":-180}}
+//       "gps":{"latitude":39.392547,"longitude":-8.289517,"dt_ms":-180},
+//       "rssi_dbm":-87.5,"median_bps":2140.0}
 //
 //    id, number: sender id and sequence number from the packet header (the
 //                number counts every packet the flight computer transmits,
@@ -45,6 +46,8 @@
 //    dt_ms:      when the group was last updated, relative to tx_time_ms: the
 //                sample was taken at tx_time_ms + dt_ms on the flight computer
 //                clock
+//    rssi_dbm:   signal strength of this packet at the ground station
+//    median_bps: median bit rate of the link over the last packets, both ways
 //
 // New keys may be added; clients must ignore the ones they do not know.
 //

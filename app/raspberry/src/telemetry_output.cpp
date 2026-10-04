@@ -356,5 +356,8 @@ void telemetry_publish_data(const LoRaDataPacket& packet)
 		{"longitude", float_to_json(packet.gps.longitude)},
 		{"dt_ms", (int16_t)packet.gps.dt},
 	};
+	// How well the ground station hears the flight computer
+	j["rssi_dbm"] = float_to_json(lora_get_rssi());
+	j["median_bps"] = float_to_json(lora_get_median_bps());
 	g_telemetry_output->publish(j.dump());
 }

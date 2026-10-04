@@ -145,3 +145,5 @@ LoRaProtoState lora_gs_state_machine(void);
 
 uint64_t u48le_to_u64(uint8_t u48[6]);
 void u64_to_u48le(uint64_t u64, uint8_t *u48);
+
+float lora_get_rssi();

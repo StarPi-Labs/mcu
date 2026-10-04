@@ -277,7 +277,6 @@ bool lora_receive_timeout(int64_t timeout_ms)
 	}
 	if (radio.finishReceive() != RADIOLIB_ERR_NONE) {
 		rx_operation_done = true;
-		last_rssi = radio.getRSSI();
 	}
 
 	// Timeout occurred
@@ -295,6 +294,7 @@ bool lora_receive_timeout(int64_t timeout_ms)
 		return false;
 	}
 
+	last_rssi = radio.getRSSI();
 	return true;
 }
 

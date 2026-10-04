@@ -15,8 +15,15 @@ enum class BLEStatus : uint8_t {
   DESTROY_FAIL,
 };
 
+/// @brief Callbacks invoked by the BLE stack.
 typedef struct {
-  void (*on_sensor_calibration)(void *context);
+  /// @brief Called when the ground station writes a command to the command
+  /// characteristic. Runs in the NimBLE host task: do not block.
+  /// @param command First byte written, a command id (see LoRaCommand in
+  /// lora.h, the ids are shared by both radios). Not validated: the callee
+  /// must reject unknown ids.
+  /// @param context The context pointer of this structure.
+  void (*on_command)(uint8_t command, void *context);
   void *context;
 } BLECallbacks_t;
 

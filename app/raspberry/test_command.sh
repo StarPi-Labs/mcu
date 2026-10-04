@@ -17,4 +17,13 @@ echo '{"command": 2, "data": 12345}' | socat - UNIX-CONNECT:$SOCKET
 # Send a command - CMD_CUT_MAIN (3) with data=999
 echo '{"command": 3, "data": 999}' | socat - UNIX-CONNECT:$SOCKET
 
+# Send a command - CMD_CAMERAS_ON (4) with data=0
+echo '{"command": 4, "data": 0}' | socat - UNIX-CONNECT:$SOCKET
+
+# Send a command - CMD_CAMERAS_OFF (5) with data=0
+echo '{"command": 5, "data": 0}' | socat - UNIX-CONNECT:$SOCKET
+
+# Send a command - CMD_SENSOR_CALIBRATION (6) with data=0
+echo '{"command": 6, "data": 0}' | socat - UNIX-CONNECT:$SOCKET
+
 echo "Commands sent"

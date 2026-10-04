@@ -11,8 +11,10 @@ static const NimBLEUUID
 
 static const NimBLEUUID
     SENSOR_SERVICE_UUID("53cfc3a2-72dd-4bf0-805c-acc1f8ba9706");
-static const NimBLEUUID SENSOR_CALIBRATION_CHARACTERISTIC_UUID(
-    "53cfc3a2-72dd-4bf1-805c-acc1f8ba9706");
+// Ground station commands: one byte, the command id (LoRaCommand in lora.h).
+// Historically the "sensor calibration" characteristic, the UUID is unchanged.
+static const NimBLEUUID
+    COMMAND_CHARACTERISTIC_UUID("53cfc3a2-72dd-4bf1-805c-acc1f8ba9706");
 
 static constexpr const char *DEVICE_NAME = "John StarPi's Rocket";
 
@@ -54,28 +56,33 @@ static void init_sensor_service(NimBLEServer *pServer) {
   NimBLEService *pSensorService = pServer->createService(SENSOR_SERVICE_UUID);
   assert(pSensorService && "Failed to create power service");
 
-  NimBLECharacteristic *pCalibrationCharacteristic =
-      pSensorService->createCharacteristic(
-          SENSOR_CALIBRATION_CHARACTERISTIC_UUID, NIMBLE_PROPERTY::WRITE);
-  assert(pCalibrationCharacteristic &&
-         "Failed to create calibration characteristic");
+  NimBLECharacteristic *pCommandCharacteristic =
+      pSensorService->createCharacteristic(COMMAND_CHARACTERISTIC_UUID,
+                                           NIMBLE_PROPERTY::WRITE);
+  assert(pCommandCharacteristic && "Failed to create command characteristic");
 
   // Set informational user descriptor
   const NimBLEUUID USER_DESC_UUID((uint16_t)0x2901);
-  NimBLEDescriptor *pUserDescriptor =
-      pCalibrationCharacteristic->createDescriptor(USER_DESC_UUID,
-                                                   NIMBLE_PROPERTY::READ);
+  NimBLEDescriptor *pUserDescriptor = pCommandCharacteristic->createDescriptor(
+      USER_DESC_UUID, NIMBLE_PROPERTY::READ);
   assert(pUserDescriptor && "Failed to create user descriptor");
-  pUserDescriptor->setValue("Write to calibrate sensors");
+  pUserDescriptor->setValue(
+      "Ground station command. Write one byte, the command id. "
+      "See include/lora.h:LoRaCommand");
 
-  static class SensorCallbacks : public NimBLECharacteristicCallbacks {
+  static class CommandCallbacks : public NimBLECharacteristicCallbacks {
     void onWrite(NimBLECharacteristic *pCharacteristic,
                  NimBLEConnInfo &connInfo) override {
-      g_callbacks.on_sensor_calibration(g_callbacks.context);
-    }
-  } sensor_callbacks;
+      // The command id is the first byte, anything after it is ignored.
+      NimBLEAttValue value = pCharacteristic->getValue();
+      if (value.length() == 0)
+        return;
 
-  pCalibrationCharacteristic->setCallbacks(&sensor_callbacks);
+      g_callbacks.on_command(value.data()[0], g_callbacks.context);
+    }
+  } command_callbacks;
+
+  pCommandCharacteristic->setCallbacks(&command_callbacks);
 }
 
 static void init_services(NimBLEServer *pServer) {
@@ -131,8 +138,7 @@ BLEStatus ble_send_log_message(LogMessage &message) {
 }
 
 void ble_set_callbacks(const BLECallbacks_t &callbacks) {
-  assert(callbacks.on_sensor_calibration &&
-         "on_sensor_calibration callback is null");
+  assert(callbacks.on_command && "on_command callback is null");
 
   g_callbacks = callbacks;
 }

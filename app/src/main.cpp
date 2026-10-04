@@ -28,9 +28,6 @@ extern float g_cal;
 // TX lora packet
 LoRaDataPacket lora_tx_packet;
 DECLARE_STATIC_SEMAPHORE(lora_tx_packet_semaphore);
-// RX lora packet
-LoRaCommandPacket lora_rx_packet;
-DECLARE_STATIC_SEMAPHORE(lora_rx_packet_semaphore);
 
 DECLARE_STATIC_SEMAPHORE(spi_semaphore);
 // TODO: add semaphore for i2c once we connect the pitot
@@ -52,7 +49,24 @@ DECLARE_STATIC_QUEUE(sd_msg_queue, LogMessage, LOG_DEFAULT_QUEUE_SIZE);
 DECLARE_STATIC_QUEUE(uart_msg_queue, LogMessage, LOG_DEFAULT_QUEUE_SIZE);
 DECLARE_STATIC_QUEUE(lora_msg_queue, LogMessage, LOG_DEFAULT_QUEUE_SIZE);
 DECLARE_STATIC_QUEUE(ble_msg_queue, LogMessage, LOG_DEFAULT_QUEUE_SIZE);
-DECLARE_STATIC_QUEUE(gs_command_queue, uint64_t, 16);
+
+// A ground station command, from either radio. Both the BLE write callback and the LoRa RX callback push into
+// gs_command_queue, cmd_handler_task is the only reader.
+struct GsCommand {
+	SourceSubsystem src; // radio it arrived on: S_BLE or S_LORA
+	uint8_t command;     // raw id as received (see LoRaCommand), validated by cmd_handler_task
+	uint64_t data;       // LoRaCommandPacket::data, always 0 over BLE
+};
+DECLARE_STATIC_QUEUE(gs_command_queue, GsCommand, 16);
+
+// Queue a ground station command for cmd_handler_task. Never blocks: it is called from the NimBLE host task and
+// from the LoRa state machine. Task context only, not ISR safe.
+static void gs_command_enqueue(SourceSubsystem src, uint8_t command, uint64_t data)
+{
+	GsCommand cmd = {.src = src, .command = command, .data = data};
+	if (xQueueSend(gs_command_queue, &cmd, 0) != pdTRUE)
+		log(src, T_SYSLOG, "Command queue full, command dropped");
+}
 
 bool lora_tx_cb(uint8_t* packet)
 {
@@ -65,10 +79,10 @@ bool lora_tx_cb(uint8_t* packet)
 
 void lora_rx_cb(uint8_t* packet)
 {
-	xSemaphoreTake(lora_rx_packet_semaphore, portMAX_DELAY);
-	lora_rx_packet = *((LoRaCommandPacket*)packet);
-	xSemaphoreGive(lora_rx_packet_semaphore);
-	xTaskNotifyGive(cmd_handler_task_descriptor.handle);
+	// Called by lora_fc_state_machine(), i.e. from lora_transmitter_task: task context, not an ISR
+	LoRaCommandPacket cmd;
+	memcpy(&cmd, packet, sizeof(cmd));
+	gs_command_enqueue(S_LORA, (uint8_t)cmd.command, cmd.data);
 }
 
 void setup(void)
@@ -88,8 +102,7 @@ void setup(void)
 
 	INIT_STATIC_SEMAPHORE(spi_semaphore);
 	INIT_STATIC_SEMAPHORE(lora_tx_packet_semaphore);
-	INIT_STATIC_SEMAPHORE(lora_rx_packet_semaphore);
-	if (spi_semaphore == NULL || lora_tx_packet_semaphore == NULL || lora_rx_packet_semaphore == NULL) {
+	if (spi_semaphore == NULL || lora_tx_packet_semaphore == NULL) {
 		while (true) {
 			Serial.println("Error creating semaphore");
 			delay(500);
@@ -98,16 +111,19 @@ void setup(void)
 
 	logger_init();
 
-	ble_init({.on_sensor_calibration =
-	              [](void* context) {
+	// Created before the radios are started: a BLE write can arrive as soon as ble_init() returns
+	INIT_STATIC_QUEUE(gs_command_queue);
+	if (gs_command_queue == NULL) {
+		while (true) {
+			Serial.println("Error creating queues");
+			delay(500);
+		}
+	}
+
+	ble_init({.on_command =
+	              [](uint8_t command, void* context) {
 		              (void)context;
-#pragma message "TODO: change to real calibration command"
-		              uint64_t cmd = 0xDEADBEEF;
-
-		              log(S_BLE, T_SYSLOG, "Received sensor calibration command over BLE");
-
-		              if (xQueueSend(gs_command_queue, &cmd, 0) != pdTRUE)
-			              log(S_BLE, T_SYSLOG, "Failed to send sensor calibration command to queue");
+		              gs_command_enqueue(S_BLE, command, 0);
 	              },
 	          .context = nullptr});
 
@@ -146,9 +162,8 @@ void setup(void)
 	INIT_STATIC_QUEUE(uart_msg_queue);
 	INIT_STATIC_QUEUE(lora_msg_queue);
 	INIT_STATIC_QUEUE(ble_msg_queue);
-	INIT_STATIC_QUEUE(gs_command_queue);
 	if (parachute_msg_queue == NULL || sd_msg_queue == NULL || uart_msg_queue == NULL || lora_msg_queue == NULL ||
-	    ble_msg_queue == NULL || gs_command_queue == NULL) {
+	    ble_msg_queue == NULL) {
 		while (true) {
 			Serial.println("Error creating queues");
 			delay(500);
@@ -742,27 +757,38 @@ TASK cmd_handler_task(TaskDescriptor_t* self)
 	self->last_wake = xTaskGetTickCount();
 
 	while (true) {
-		if (ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000)) == 0) {
+		GsCommand cmd;
+		if (xQueueReceive(gs_command_queue, &cmd, portMAX_DELAY) != pdTRUE) {
 			continue;
 		}
 
-		LoRaCommandPacket packet;
-		xSemaphoreTake(lora_rx_packet_semaphore, portMAX_DELAY);
-		packet = lora_rx_packet;
-		xSemaphoreGive(lora_rx_packet_semaphore);
-
-		switch (packet.command) {
+		// The log source tells which radio the command came from (S_BLE or S_LORA).
+		// Every command is only logged for now: none of them drives an output yet, and in particular
+		// the pyro commands must not fire anything until the team decides how they are armed.
+		switch (cmd.command) {
+		case CMD_NONE:
+			log(cmd.src, T_SYSLOG, "Received command: NONE");
+			break;
 		case CMD_EJECT_A:
-			log(S_OTHER, T_SYSLOG, "Received command: EJECT_A");
+			log(cmd.src, T_SYSLOG, "Received command: EJECT_A");
 			break;
 		case CMD_EJECT_C:
-			log(S_OTHER, T_SYSLOG, "Received command: EJECT_C");
+			log(cmd.src, T_SYSLOG, "Received command: EJECT_C");
 			break;
 		case CMD_CUT_MAIN:
-			log(S_OTHER, T_SYSLOG, "Received command: CUT_MAIN");
+			log(cmd.src, T_SYSLOG, "Received command: CUT_MAIN");
+			break;
+		case CMD_CAMERAS_ON:
+			log(cmd.src, T_SYSLOG, "Received command: CAMERAS_ON");
+			break;
+		case CMD_CAMERAS_OFF:
+			log(cmd.src, T_SYSLOG, "Received command: CAMERAS_OFF");
+			break;
+		case CMD_SENSOR_CALIBRATION:
+			log(cmd.src, T_SYSLOG, "Received command: SENSOR_CALIBRATION");
 			break;
 		default:
-			log(S_OTHER, T_SYSLOG, "Received unknown command");
+			log(cmd.src, T_SYSLOG, "Received unknown command");
 			break;
 		}
 	}

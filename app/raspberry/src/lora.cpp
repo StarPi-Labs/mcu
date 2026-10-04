@@ -42,6 +42,8 @@ static volatile uint64_t last_tx_time = 0;
 static volatile uint64_t last_rx_time = 0;
 static int last_tx_toa = 0;
 
+static float last_rssi = 0;
+
 #define LORA_MAX_PAYLOAD 255
 static uint8_t rx_buffer[LORA_MAX_PAYLOAD];
 static uint32_t rx_len = 0;
@@ -275,6 +277,7 @@ bool lora_receive_timeout(int64_t timeout_ms)
 	}
 	if (radio.finishReceive() != RADIOLIB_ERR_NONE) {
 		rx_operation_done = true;
+		last_rssi = radio.getRSSI();
 	}
 
 	// Timeout occurred
@@ -861,4 +864,10 @@ LoRaProtoState lora_gs_state_machine()
 	}
 
 	return state;
+}
+
+
+float lora_get_rssi()
+{
+	return last_rssi;
 }

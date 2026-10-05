@@ -1,5 +1,8 @@
 #pragma once
 
+// The ground side of this protocol is radio_app, in the ground-station repo (radio/src/lora.h): the packet
+// structs and LoRaCommand below must stay identical in both files.
+
 #include <Arduino.h>
 #include <float16.h>
 

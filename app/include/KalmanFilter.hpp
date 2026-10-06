@@ -108,7 +108,7 @@ public:
 	void predict(float a, float alpha, bool airbrake_trigger)
 	{
 		//alpha è l'angolo di tilt rispetto alla verticale
-		A(0,1) = dt * cos(alpha);
+		A(0,1) = dt;
 
 		if (!airbrake_trigger) {
 			if (a > a_boost) {
@@ -133,7 +133,7 @@ public:
 			}
 		}
 
-		x = A*x + g0*(a*cos(alpha) - g*cos(alpha)*cos(alpha))*u;
+		x = A*x + (a - g)*u;
 		//x = A*x;
 		P = A*P*A.transpose() + Q;
 
@@ -144,15 +144,16 @@ public:
 	void update(float h)
 	{
 		float S = H*P*H.transpose() + R;
-
 		Vector2f K = P*H.transpose()/S;
-
 		float z = h;
 
 		x = x + K*(z - H*x);
+
 		// Forma standard
 		// P = (Matrix2f::Identity() - K * H) * P;
-		// Forma di Joseph
-		P = (Matrix2f::Identity() - K*H) * P * (Matrix2f::Identity() - K*H).transpose() + K*R*K.transpose();
+
+		// Forma di Joseph per mantenere la covarianza simmetrica e definita positiva
+		Matrix2f I_KH = Matrix2f::Identity() - K*H;
+		P = I_KH * P * I_KH.transpose() + K*R*K.transpose();
 	}
 };

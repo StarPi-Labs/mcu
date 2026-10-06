@@ -217,8 +217,8 @@
         // --- 3. PARSING AND UPDATING DATA ---
 
         // Define our Regex patterns
-        const regexIMU = /\[IMU\]: Orientation:\s*\(([-.\d]+),\s*([-.\d]+),\s*([-.\d]+)\)/;
-        const regexBARO = /\[BARO\]:\s*Altitude:\s*([-.\d]+)/;
+        const regexIMU = /ORIENTATION:\s*\(([-.\d]+),\s*([-.\d]+),\s*([-.\d]+)\)/;
+        const regexBARO = /ALT_SPEED:\s*\(([-.\d]+),\s*([-.\d]+)\)/;
 
         // Scaling factor to map physical meters to Three.js world units
         const ALT_SCALE = 0.3;

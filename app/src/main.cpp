@@ -229,20 +229,26 @@ TASK imu_task(TaskDescriptor_t* self)
 	while (true) {
 		if (xSemaphoreTake(spi_semaphore, portMAX_DELAY) == pdTRUE) {
 			if (imu_get_sample(&sample) == 0) {
+				float ax = (float)sample.accelerometer[0] / 1000.0f;
+				float ay = (float)sample.accelerometer[1] / 1000.0f;
+				float az = (float)sample.accelerometer[2] / 1000.0f;
+				float gx = (float)sample.gyroscope[0] / 1000.0f;
+				float gy = (float)sample.gyroscope[1] / 1000.0f;
+				float gz = (float)sample.gyroscope[2] / 1000.0f;
+
 				// Update the relative orientation of the board using
 				// the Madgwick filter, readings are in mg and mdps, so
 				// conversion is needed
-				orientation.updateIMU((float)sample.gyroscope[0] / 1000.0f, (float)sample.gyroscope[1] / 1000.0f,
-				                      (float)sample.gyroscope[2] / 1000.0f, (float)sample.accelerometer[0] / 1000.0f,
-				                      (float)sample.accelerometer[1] / 1000.0f,
-				                      (float)sample.accelerometer[2] / 1000.0f);
+				orientation.updateIMU(gx, gy, gz, ax, ay, az);
 
 				// Update the altitude and vertical velocity estimation
 				// with the inertial data
 				float attitude_rad = acos(cos(orientation.getPitchRadians()) * cos(orientation.getRollRadians()));
-				altitude.predict((float)sample.accelerometer[2] / 1000.0f, attitude_rad,
-				                 false // TODO: airbrake trigger
-				);
+				float vertical_accel = +ax * sin(orientation.getPitchRadians())
+				                       -az * cos(orientation.getPitchRadians()) * cos(orientation.getRollRadians())
+				                       -ay * sin(orientation.getRollRadians()) * cos(orientation.getPitchRadians());
+				// TODO: airbrake trigger
+				altitude.predict(vertical_accel, attitude_rad, false);
 
 #if TEST_FAKE_DATA != 1
 				log(S_IMU, T_ORIENTATION, orientation.getRoll(), orientation.getPitch(), orientation.getYaw());

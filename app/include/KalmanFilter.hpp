@@ -56,6 +56,8 @@ private:
 public:
 	KalmanFilter()
 	{
+		g = g0; // valore di default, sovrascrivibile con setG()
+
 		x << 0, 0;
 		u << dt*dt/2.0, dt;
 
@@ -133,8 +135,7 @@ public:
 			}
 		}
 
-		x = A*x + (a - g)*u;
-		//x = A*x;
+		x = A*x + (a - g)*g0*u;
 		P = A*P*A.transpose() + Q;
 
 	}

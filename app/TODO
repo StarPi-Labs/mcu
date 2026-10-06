@@ -8,7 +8,9 @@
 [ ] Se uno o tutti i barometri non vanno cosa fare (kalman in freefall sfancula tanto)
 [ ] Inserire GPS come ridondanza? (solo se arrivano dati, non usare dati vecchi)
 
-[ ] Rivedi conto accellerazione, va proiettata lungo la verticale considerando
+[x] Rivedi conto accellerazione, va proiettata lungo la verticale considerando
     tutti e tre le componenti (vedi simulatore)
 
 [ ] Dorgue e main si ativano troppo presto (da vedere)
+
+[ ] Separare le routine di calibrazione e implementare comando da GS per chiamarle

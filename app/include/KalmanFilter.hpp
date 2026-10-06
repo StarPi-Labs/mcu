@@ -52,6 +52,15 @@ private:
 	// !!! ancora da capire quanto vale !!! ancora da settare
 	const float a_boost = 15;
 
+	//====== FILTRO PASSA-BASSO SULL'ACCELERAZIONE ======
+	// Filtro IIR del primo ordine: a_f += alpha_lp*(a_in - a_f)
+	// con alpha_lp = dt/(RC + dt), RC = 1/(2*pi*f_cut).
+	// A 100 Hz di campionamento, f_cut = 20 Hz dà alpha_lp ~ 0.56 (filtro leggero).
+	// Più f_cut è basso, più il filtro è pesante (e più introduce ritardo).
+	const float f_cut_acc = 20.0;          // Frequenza di taglio, in Hz
+	float alpha_lp;                        // Coefficiente del filtro (calcolato nel costruttore)
+	float a_filt;                          // Accelerazione verticale filtrata (senza gravità)
+
 
 public:
 	KalmanFilter()
@@ -72,6 +81,13 @@ public:
 		Q_base(1,1) = dt*dt;
 
 		R = sigma_bar_boost;
+
+		// Coefficiente del filtro passa-basso
+		const float RC = 1.0f/(2.0f*PI*f_cut_acc);
+		alpha_lp = dt/(RC + dt);
+
+		// In rampa il razzo è fermo: a_misurata = g, quindi a - g = 0
+		a_filt = 0.0;
 	}
 
 	void setG(float g_cal)
@@ -81,9 +97,17 @@ public:
 
 	// ===== FUNZIONI PER LA SIMULAZIONE =====
 
-	// restituisce lo stato attuale (altitudine e velocità verticale)
-	//   Vector2f: x(0) = altitudine, x(1) = velocità verticale
-	Vector2f getState() const { return x; }
+	// restituisce lo stato attuale
+	//   Vector3f: [0] = altitudine, [1] = velocità verticale,
+	//             [2] = accelerazione verticale filtrata (senza gravità, cioè a - g)
+	// Nota: l'accelerazione NON fa parte dello stato del Kalman, è solo filtrata
+	// con un passa-basso e restituita in uscita.
+	Vector3f getState() const
+	{
+		Vector3f s;
+		s << x(0), x(1), a_filt;
+		return s;
+	}
 
 	void getSigmaConstants(float &sb, float &sc, float &sa, float &sf) const
 	{
@@ -104,6 +128,8 @@ public:
 
 	// predizione dello stato a partire dall'accelerazione misurata, dall'angolo
 	// di tilt e dallo stato attuale dell'airbrake (triggerato o no)
+	// Va chiamata a ogni ciclo (dt): aggiorna anche il filtro passa-basso
+	// sull'accelerazione.
 	//   a : accelerazione verticale misurata in G, rispetto l'asse normale alla scheda
 	//   alpha : angolo di tilt rispetto alla verticale (in radianti)
 	//   airbrake_trigger : se true, si è in fase di airbrakes
@@ -138,6 +164,8 @@ public:
 		x = A*x + (a - g)*g0*u;
 		P = A*P*A.transpose() + Q;
 
+		// Filtro passa-basso sull'accelerazione (senza gravità)
+		a_filt += alpha_lp*((a - g) - a_filt);
 	}
 
 	// aggiornamento dello stato a partire da una misura di altitudine

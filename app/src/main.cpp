@@ -197,8 +197,7 @@ void setup(void)
 
 	// Register consumer tasks to the logger, these tasks will get notified when
 	// new data is ready to be read
-	logger_register_consumer(parachute_task_descriptor.handle, parachute_msg_queue, 0xffff,
-	                         T_ALT_SPEED | T_ACCELLERATION);
+	logger_register_consumer(parachute_task_descriptor.handle, parachute_msg_queue, 0xffff, T_FILTER_STATE);
 	logger_register_consumer(lora_formatter_task_descriptor.handle, lora_msg_queue, 0xffff, 0xffff);
 	logger_register_consumer(sd_formatter_task_descriptor.handle, sd_msg_queue, 0xffff, 0xffff);
 	logger_register_consumer(uart_task_descriptor.handle, uart_msg_queue, 0xffff, 0xffff);
@@ -254,7 +253,7 @@ TASK imu_task(TaskDescriptor_t* self)
 				log(S_IMU, T_ORIENTATION, orientation.getRoll(), orientation.getPitch(), orientation.getYaw());
 				log(S_IMU, T_ACCELLERATION, sample.accelerometer[0], sample.accelerometer[1], sample.accelerometer[2]);
 				log(S_IMU, T_GYRO, sample.gyroscope[0], sample.gyroscope[1], sample.gyroscope[2]);
-				log(S_IMU, T_ALT_SPEED, altitude.getState()[0], altitude.getState()[1]);
+				log(S_IMU, T_FILTER_STATE, altitude.getState()[0], altitude.getState()[1], altitude.getState()[2]);
 #else
 #define IDLE_TIME 5000
 				static struct DataSample {
@@ -313,7 +312,7 @@ TASK imu_task(TaskDescriptor_t* self)
 				struct DataSample s = get_sample();
 
 				log(S_IMU, T_ACCELLERATION, 0.0, 0.0, s.z_acc);
-				log(S_IMU, T_ALT_SPEED, s.z_alt, s.z_speed);
+				log(S_IMU, T_FILTER_STATE, s.z_alt, s.z_speed, s.z_acc);
 
 				// log real accelleration but under another type to not interfere with launch simulation
 				log(S_IMU, T_SYSLOG, sample.accelerometer[0], sample.accelerometer[1], sample.accelerometer[2]);
@@ -340,7 +339,7 @@ TASK barometer_task(TaskDescriptor_t* self)
 		altitude.update(alt);
 
 #if TEST_FAKE_DATA != 1
-		log(S_BARO, T_ALT_SPEED, altitude.getState()[0], altitude.getState()[1]);
+		log(S_BARO, T_FILTER_STATE, altitude.getState()[0], altitude.getState()[1], altitude.getState()[2]);
 		log(S_BARO, T_PRESSURE, sample1.pressure, sample2.pressure);
 #endif
 
@@ -448,10 +447,9 @@ TASK parachute_task(TaskDescriptor_t* self)
 		// used
 		LogMessage msg;
 		while (xQueueReceive(parachute_msg_queue, &msg, 0) == pdTRUE) {
-			if (msg.type == T_ALT_SPEED && msg.payload_type == P_FVEC2) {
-				z_alt = msg.payload.fv2.x;
-				z_speed = msg.payload.fv2.y;
-			} else if (msg.type == T_ACCELLERATION && msg.payload_type == P_FVEC3) {
+			if (msg.type == T_FILTER_STATE && msg.payload_type == P_FVEC3) {
+				z_alt = msg.payload.fv3.x;
+				z_speed = msg.payload.fv3.y;
 				z_acc = msg.payload.fv3.z;
 			}
 		}
@@ -639,10 +637,10 @@ TASK lora_formatter_task(TaskDescriptor_t* self)
 		xSemaphoreTake(lora_tx_packet_semaphore, portMAX_DELAY);
 		while (xQueueReceive(lora_msg_queue, &msg, 0) == pdTRUE) {
 			switch (msg.type) {
-			case T_ALT_SPEED:
-				if (msg.payload_type == P_FVEC2) {
-					lora_tx_packet.imu.altitude = float16(msg.payload.fv2.x).getBinary();
-					lora_tx_packet.imu.vspeed = float16(msg.payload.fv2.y).getBinary();
+			case T_FILTER_STATE:
+				if (msg.payload_type == P_FVEC3) {
+					lora_tx_packet.imu.altitude = float16(msg.payload.fv3.x).getBinary();
+					lora_tx_packet.imu.vspeed = float16(msg.payload.fv3.y).getBinary();
 					lora_tx_packet.imu.dt = msg.timestamp / 1000 - u48le_to_u64(lora_tx_packet.header.tx_time);
 				}
 				break;

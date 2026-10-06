@@ -64,7 +64,9 @@
             Roll: <span id="roll-val">0.00</span>°<br>
             Pitch: <span id="pitch-val">0.00</span>°<br>
             Yaw: <span id="yaw-val">0.00</span>°<br>
-            Alt:  <span id="alt-val" class="highlight">0.00</span> m
+            Alt:  <span id="alt-val" class="highlight">0.00</span> m<br>
+            VSpeed: <span id="vspeed-val" class="highlight">0.00</span> m/s<br>
+            VAccel: <span id="vaccel-val" class="highlight">0.00</span> m/s²
         </div>
         <div id="axis-legend">
             <span style="color: #ff5555;">X Axis (Red)</span><br>
@@ -218,7 +220,7 @@
 
         // Define our Regex patterns
         const regexIMU = /ORIENTATION:\s*\(([-.\d]+),\s*([-.\d]+),\s*([-.\d]+)\)/;
-        const regexBARO = /ALT_SPEED:\s*\(([-.\d]+),\s*([-.\d]+)\)/;
+        const regexBARO = /FILTER_STATE:\s*\(([-.\d]+),\s*([-.\d]+),\s*([-.\d]+)\)/;
 
         // Scaling factor to map physical meters to Three.js world units
         const ALT_SCALE = 0.3;
@@ -238,7 +240,11 @@
             const matchBARO = line.match(regexBARO);
             if (matchBARO) {
                 const altitude = parseFloat(matchBARO[1]);
+                const verticalSpeed = parseFloat(matchBARO[2]);
+                const verticalAccel = parseFloat(matchBARO[3]);
                 updateAltitude(altitude);
+                updateVerticalSpeed(verticalSpeed);
+                updateVerticalAccel(verticalAccel);
             }
         }
 
@@ -268,6 +274,14 @@
             positions[4] = visualHeight;  // Board point Y
             altLine.geometry.attributes.position.needsUpdate = true;
             altLine.computeLineDistances(); // Recalculate dashes
+        }
+
+        function updateVerticalSpeed(verticalSpeed) {
+            document.getElementById('vspeed-val').innerText = verticalSpeed.toFixed(2);
+        }
+
+        function updateVerticalAccel(verticalAccel) {
+            document.getElementById('vaccel-val').innerText = verticalAccel.toFixed(2);
         }
     </script>
 </body>

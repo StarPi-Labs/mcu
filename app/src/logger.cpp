@@ -150,8 +150,8 @@ size_t logger_message_to_str(const char** str, LogMessage* msg)
 	case T_GYRO:
 		n += snprintf(buf + n, sizeof(buf) - n, "GYRO: ");
 		break;
-	case T_ALT_SPEED:
-		n += snprintf(buf + n, sizeof(buf) - n, "ALT_SPEED: ");
+	case T_FILTER_STATE:
+		n += snprintf(buf + n, sizeof(buf) - n, "FILTER_STATE: ");
 		break;
 	case T_ORIENTATION:
 		n += snprintf(buf + n, sizeof(buf) - n, "ORIENTATION: ");

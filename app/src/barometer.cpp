@@ -66,35 +66,58 @@ bool barometer_setup(void)
 
 	// legge un po' di volte per far stabilizzare il sensore
 	// calibrate with the highest OSR to get the most accurate ground pressure
-	for (int i = 0; i < 5; i++) {
+	uint64_t start_time = millis();
+	const uint64_t baro_settle_time = 2000;
+	while (millis() - start_time < baro_settle_time) {
 		baro1.read(OSR_ULTRA_HIGH);
 		baro2.read(OSR_ULTRA_HIGH);
-		delay(50);
+		delay(10); // 10 ms delay to avoid flooding the barometer with requests
 	}
 
-	int status1 = baro1.read(OSR_ULTRA_HIGH);
-	if (status1 == 0) {
-		ground_pressure_mbar_1 = baro1.getPressure(); // autozero
-	} else {
+	float p1_median = 0, p2_median = 0, t1_median = 0, t2_median = 0;
+	uint32_t samples = 0;
+	start_time = millis();
+	const uint64_t baro_calibration_time = 3000;
+	while (millis() - start_time < baro_calibration_time) {
+		int status1 = baro1.read(OSR_ULTRA_HIGH);
+		int status2 = baro2.read(OSR_ULTRA_HIGH);
+
 		// FIXME: log the error code
-		log(S_BARO, T_SYSLOG, "[ERR] Barometer 1: Calibration failed");
+		if (status1 != 0) {
+			log(S_BARO, T_SYSLOG, "[ERR] Barometer 1: Calibration failed");
+			return false;
+		}
+		if (status2 != 0) {
+			log(S_BARO, T_SYSLOG, "[ERR] Barometer 2: Calibration failed");
+			return false;
+		}
+
+		float pressure1 = baro1.getPressure(); // autozero
+		float pressure2 = baro2.getPressure(); // autozero
+		float temperature1 = baro1.getTemperature();
+		float temperature2 = baro2.getTemperature();
+
+		p1_median += pressure1;
+		p2_median += pressure2;
+		t1_median += temperature1;
+		t2_median += temperature2;
+		samples++;
+
+		delay(10); // 10 ms delay to avoid flooding the barometer with requests
 	}
 
-	int status2 = baro2.read(OSR_ULTRA_HIGH);
-	if (status2 == 0) {
-		ground_pressure_mbar_2 = baro2.getPressure(); // autozero
-	} else {
-		// FIXME: log the error code
-		log(S_BARO, T_SYSLOG, "[ERR] Barometer 2: Calibration failed");
-	}
+	p1_median /= samples;
+	p2_median /= samples;
+	t1_median /= samples;
+	t2_median /= samples;
+
+	ground_pressure_mbar_1 = p1_median;
+	ground_pressure_mbar_2 = p2_median;
 
 	log(S_BARO, T_PRESSURE, ground_pressure_mbar_1, ground_pressure_mbar_2);
-	log(S_BARO, T_TEMPERATURE, baro1.getTemperature(), baro2.getTemperature());
-	ground_temperature_k = (baro1.getTemperature()+baro2.getTemperature())/2.0 + 273.15;
+	log(S_BARO, T_TEMPERATURE, t1_median, t2_median);
+	ground_temperature_k = (t1_median+t2_median)/2.0 + 273.15;
 
-	if (status1 != 0 || status2 != 0) {
-		return false;
-	}
 	return true;
 }
 

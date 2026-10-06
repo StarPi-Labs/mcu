@@ -79,14 +79,20 @@ void imu_setup()
 
 		FIFO_Sample sample;
 		if (imu_get_sample(&sample) == 0) {
-			// TODO: should be a.z*cos(alpha), this assumes board is perfectly horizontal
-			g_cal += (float)sample.accelerometer[2]/1000.0f;
+			// Assume the board is stationary
+			float ax = (float)sample.accelerometer[0]/1000.0f;
+			float ay = (float)sample.accelerometer[1]/1000.0f;
+			float az = (float)sample.accelerometer[2]/1000.0f;
+			float g = sqrt(ax*ax + ay*ay + az*az);
+			g_cal += g;
 			samples++;
+			delay(5);
 		}
 
 		t += (xTaskGetTickCount() - start_tick) * portTICK_PERIOD_MS;
 	}
 	g_cal /= samples;
+	g_cal = -g_cal; // Invert the sign to get the correct direction of gravity
 }
 
 

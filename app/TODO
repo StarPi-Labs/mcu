@@ -11,6 +11,6 @@
 [x] Rivedi conto accellerazione, va proiettata lungo la verticale considerando
     tutti e tre le componenti (vedi simulatore)
 
-[ ] Dorgue e main si ativano troppo presto (da vedere)
+[x] Dorgue e main si ativano troppo presto (da vedere)
 
 [ ] Separare le routine di calibrazione e implementare comando da GS per chiamarle

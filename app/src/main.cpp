@@ -384,25 +384,17 @@ TASK parachute_task(TaskDescriptor_t* self)
 
 #define PARACHUTE_TASK_HZ 10
 
-#define Z_ACC_BOOST_THRESHOLD_G 2.5
-#define Z_SPEED_BOOST_THRESHOLD_MS 25.0
-#define Z_ALT_BOOST_THRESHOLD_M 100.0
+#define Z_ACC_BOOST_THRESHOLD_G 3
+#define Z_SPEED_BOOST_THRESHOLD_MPS 25.0
 
-#define Z_ALT_COAST_THRESHOLD_M 750.0
-#define MOTOR_BURNOUT_MS 4400
-
-#define Z_SPEED_APOGEE_THRESHOLD_MS 0.5
-#define Z_ALT_APOGEE_THRESHOLD_M 2950.0
-#define MAX_TIME_TO_APOGEE_MS 28000
+#define Z_SPEED_APOGEE_THRESHOLD_MPS -0.01
 
 #define MIN_TIME_TO_1500M_MS 8540
 
-#define Z_ALT_MAIN_DEPLOYMENT_M 450.0
-#define MAX_TIME_TO_MAIN_DEPLOYMENT_MS 110000
+#define Z_ALT_MAIN_DEPLOYMENT_M 400.0
 
 #define Z_ALT_TOUCHDOWN_M 10.0
-#define Z_SPEED_STATIONARY_MS 0.1
-#define MAX_TIME_TO_TOUCHDOWN 200000
+#define Z_SPEED_STATIONARY_MPS 0.1
 
 #define BOOST_DETECTION_SAMPLE_COUNT 10
 #define BURNOUT_DETECTION_SAMPLE_COUNT 10
@@ -425,11 +417,6 @@ TASK parachute_task(TaskDescriptor_t* self)
 	float z_speed = 0;
 	float z_alt = 0;
 	float z_acc = 0;
-
-	// Milliseconds since detected motor ignition
-	int64_t ms_since_ignition = 0;
-	// Time of detected motor ignition
-	int64_t ms_ignition = 0;
 
 	// Number of consecutive samples that met the state change condition
 	int sample_count = 0;
@@ -454,9 +441,6 @@ TASK parachute_task(TaskDescriptor_t* self)
 			}
 		}
 
-		// FIXME: will this always work?
-		ms_since_ignition = millis() - ms_ignition;
-
 		// Non-blocking pyro pin timeout handling — runs every pass regardless
 		// of state so it can't stall queue draining
 		if (ejection_active && (millis() - ejection_fire_time) >= CUTTERS_ON_TIME_MS) {
@@ -473,25 +457,22 @@ TASK parachute_task(TaskDescriptor_t* self)
 		switch (state) {
 		case RS_IDLE:
 			// Detect motor ignition
-			if ((z_acc >= Z_ACC_BOOST_THRESHOLD_G && z_speed >= Z_SPEED_BOOST_THRESHOLD_MS) ||
-			    z_alt >= Z_ALT_BOOST_THRESHOLD_M) {
+			if (z_acc >= Z_ACC_BOOST_THRESHOLD_G && z_speed >= Z_SPEED_BOOST_THRESHOLD_MPS) {
 				sample_count++;
 			} else {
 				sample_count = 0;
 			}
 
 			if (sample_count >= BOOST_DETECTION_SAMPLE_COUNT) {
-				ms_ignition = millis();
 				state = RS_BOOST;
 				sample_count = 0;
 			}
 
-			// log(S_PARA, T_SYSLOG, "State: RS_IDLE");
 			break;
 
 		case RS_BOOST:
 			// Detect motor burnout
-			if (z_alt >= Z_ALT_COAST_THRESHOLD_M || ms_since_ignition >= MOTOR_BURNOUT_MS) {
+			if (z_acc < 0) {
 				sample_count++;
 			} else {
 				sample_count = 0;
@@ -502,24 +483,20 @@ TASK parachute_task(TaskDescriptor_t* self)
 				sample_count = 0;
 			}
 
-			// log(S_PARA, T_SYSLOG, "State: RS_BOOST");
 			break;
 
 		case RS_COAST:
-			if (ms_since_ignition >= MIN_TIME_TO_1500M_MS) {
-				// TODO: control aibrakes
-			}
+			// TODO: control aibrakes
 
 			// Detect apogee
-			if (z_speed <= Z_SPEED_APOGEE_THRESHOLD_MS || z_alt >= Z_ALT_APOGEE_THRESHOLD_M ||
-			    ms_since_ignition >= MAX_TIME_TO_APOGEE_MS) {
+			if (z_speed <= Z_SPEED_APOGEE_THRESHOLD_MPS) {
 				sample_count++;
 			} else {
 				sample_count = 0;
 			}
 
 			if (sample_count >= APOGEE_DETECTION_SAMPLE_COUNT) {
-				// Activate recovery A and C; pins are cleared later,
+				// Activate recovery A; pins are cleared later,
 				// non-blockingly, by the timeout check above
 				analogWrite(PIN_EJECTION_A, 256 / 2);
 				ejection_active = true;
@@ -529,14 +506,13 @@ TASK parachute_task(TaskDescriptor_t* self)
 				sample_count = 0;
 			}
 
-			// log(S_PARA, T_SYSLOG, "State: RS_COAST");
 			break;
 
 		case RS_DROGUE:
 			// TODO: retract airbrakes
 
 			// Detect main parachute deployment
-			if (z_alt <= Z_ALT_MAIN_DEPLOYMENT_M || ms_since_ignition >= MAX_TIME_TO_MAIN_DEPLOYMENT_MS) {
+			if (z_alt <= Z_ALT_MAIN_DEPLOYMENT_M) {
 				sample_count++;
 			} else {
 				sample_count = 0;
@@ -552,14 +528,11 @@ TASK parachute_task(TaskDescriptor_t* self)
 				sample_count = 0;
 			}
 
-			// log(S_PARA, T_SYSLOG, "State: RS_DROGUE");
 			break;
 
 		case RS_MAIN:
 			// Detect touchdown
-			if (z_alt <= Z_ALT_TOUCHDOWN_M ||
-			    // z_speed <= Z_SPEED_STATIONARY_MS ||
-			    ms_since_ignition >= MAX_TIME_TO_TOUCHDOWN) {
+			if (z_alt <= Z_ALT_TOUCHDOWN_M || z_speed <= Z_SPEED_STATIONARY_MPS) {
 				sample_count++;
 			} else {
 				sample_count = 0;
@@ -569,15 +542,14 @@ TASK parachute_task(TaskDescriptor_t* self)
 				state = RS_TOUCHDOWN;
 				sample_count = 0;
 			}
-			// log(S_PARA, T_SYSLOG, "State: RS_MAIN");
+
 			break;
 
 		case RS_TOUCHDOWN:
-			// log(S_PARA, T_SYSLOG, "State: RS_TOUCHDOWN");
 			break;
 
 		default:
-			// log(S_PARA, T_SYSLOG, "[ERR]: Unknown rocket state");
+			log(S_PARA, T_SYSLOG, "Unknown rocket state");
 			break;
 		}
 

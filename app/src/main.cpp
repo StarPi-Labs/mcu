@@ -532,7 +532,7 @@ TASK parachute_task(TaskDescriptor_t* self)
 
 		case RS_MAIN:
 			// Detect touchdown
-			if (z_alt <= Z_ALT_TOUCHDOWN_M || z_speed <= Z_SPEED_STATIONARY_MPS) {
+			if (z_alt <= Z_ALT_TOUCHDOWN_M || fabs(z_speed) <= Z_SPEED_STATIONARY_MPS) {
 				sample_count++;
 			} else {
 				sample_count = 0;

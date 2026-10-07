@@ -1,7 +1,4 @@
-//https://github.com/stm32duino/LSM6DSO32/tree/main/examples/LSM6DSO32_HelloWorld
-
 #include <Arduino.h>
-#include <RadioLib.h>
 
 #include "imu.h"
 #include "board.h"

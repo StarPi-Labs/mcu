@@ -411,7 +411,6 @@ TASK parachute_task(TaskDescriptor_t* self)
 #define TOUCHDOWN_DETECTION_SAMPLE_COUNT 10
 
 #define PIN_EJECTION_A PINT6_LS
-#define PIN_EJECTION_C PINT4_LS
 #define PIN_MAIN_CUTTER PINT2_LS
 
 #define CUTTERS_ON_TIME_MS 2000
@@ -419,8 +418,6 @@ TASK parachute_task(TaskDescriptor_t* self)
 	// Interface PINs setup
 	pinMode(PIN_EJECTION_A, OUTPUT);
 	digitalWrite(PIN_EJECTION_A, 0);
-	pinMode(PIN_EJECTION_C, OUTPUT);
-	digitalWrite(PIN_EJECTION_C, 0);
 	pinMode(PIN_MAIN_CUTTER, OUTPUT);
 	digitalWrite(PIN_MAIN_CUTTER, 0);
 
@@ -465,8 +462,6 @@ TASK parachute_task(TaskDescriptor_t* self)
 		if (ejection_active && (millis() - ejection_fire_time) >= CUTTERS_ON_TIME_MS) {
 			pinMode(PIN_EJECTION_A, OUTPUT);
 			digitalWrite(PIN_EJECTION_A, 0);
-			pinMode(PIN_EJECTION_C, OUTPUT);
-			digitalWrite(PIN_EJECTION_C, 0);
 			ejection_active = false;
 		}
 		if (cutter_active && (millis() - cutter_fire_time) >= CUTTERS_ON_TIME_MS) {
@@ -527,7 +522,6 @@ TASK parachute_task(TaskDescriptor_t* self)
 				// Activate recovery A and C; pins are cleared later,
 				// non-blockingly, by the timeout check above
 				analogWrite(PIN_EJECTION_A, 256 / 2);
-				digitalWrite(PIN_EJECTION_C, 1);
 				ejection_active = true;
 				ejection_fire_time = millis();
 

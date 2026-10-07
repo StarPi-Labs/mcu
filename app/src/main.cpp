@@ -235,17 +235,20 @@ TASK imu_task(TaskDescriptor_t* self)
 				float gy = (float)sample.gyroscope[1] / 1000.0f;
 				float gz = (float)sample.gyroscope[2] / 1000.0f;
 
+				// Mahony filter quaternions
+				float qw, qx, qy, qz;
+
 				// Update the relative orientation of the board using
-				// the Madgwick filter, readings are in mg and mdps, so
+				// the Mahony filter, readings are in mg and mdps, so
 				// conversion is needed
 				orientation.updateIMU(gx, gy, gz, ax, ay, az);
+				orientation.getQuaternion(&qw, &qx, &qy, &qz);
 
 				// Update the altitude and vertical velocity estimation
 				// with the inertial data
-				float attitude_rad = acos(cos(orientation.getPitchRadians()) * cos(orientation.getRollRadians()));
-				float vertical_accel = +ax * sin(orientation.getPitchRadians())
-				                       -az * cos(orientation.getPitchRadians()) * cos(orientation.getRollRadians())
-				                       -ay * sin(orientation.getRollRadians()) * cos(orientation.getPitchRadians());
+				float cos_tilt = constrain(1 - 2*(qx*qx + qy*qy), -1.0f, 1.0f);
+				float attitude_rad = acosf(cos_tilt); // same as acos(cos p * cos r) but NaN-safe
+				float vertical_accel = 2*(qx*qz - qw*qy) * ax + 2*(qy*qz + qw*qx) * ay + (1 - 2*(qx*qx + qy*qy)) * az;
 				// TODO: airbrake trigger
 				altitude.predict(vertical_accel, attitude_rad, false);
 

@@ -65,7 +65,7 @@ private:
 public:
 	KalmanFilter()
 	{
-		g = g0; // valore di default, sovrascrivibile con setG()
+		g = 1.0f; // valore di default, sovrascrivibile con setG()
 
 		x << 0, 0;
 		u << dt*dt/2.0, dt;
@@ -150,8 +150,8 @@ public:
 			}
 		} else {
 			// Airbrakes
-			if (x(1)*cos(alpha) > 0) {
-				// se la velocità verticale v=x(1)*cos(alpha) è positiva (cioè verso l'alto)
+			if (x(1) > 0) {
+				// se la velocità verticale è positiva (cioè verso l'alto)
 				Q = sigma_airbrakes*Q_base;
 				R = sigma_bar_airbrake;
 			} else {

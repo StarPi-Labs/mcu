@@ -89,7 +89,6 @@ void imu_setup()
 		t += (xTaskGetTickCount() - start_tick) * portTICK_PERIOD_MS;
 	}
 	g_cal /= samples;
-	g_cal = -g_cal; // Invert the sign to get the correct direction of gravity
 }
 
 

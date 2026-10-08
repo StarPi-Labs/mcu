@@ -55,6 +55,7 @@
 #define IMU_FIFO_WATERMARK 4
 #define IMU_FIFO_X_BDR_HZ  (IMU_TASK_HZ * 1.20f)
 #define IMU_FIFO_G_BDR_HZ  (IMU_TASK_HZ * 1.20f)
+#define IMU_CALIBRATION_TIME 5000
 
 
 // Barometer configuration

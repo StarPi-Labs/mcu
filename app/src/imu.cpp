@@ -18,8 +18,6 @@ static void IRAM_ATTR imu_fifo_interrupt()
 }
  */
 
-float g_cal = 0.0f;
-
 
 void imu_setup()
 {
@@ -67,13 +65,15 @@ void imu_setup()
 //	pinMode(IMU_INT1, INPUT_PULLDOWN);
 //	attachInterrupt(digitalPinToInterrupt(IMU_INT1), imu_fifo_interrupt, RISING);
 #endif
+}
 
-	const int cal_time_ms = 5000;
+
+float imu_calibrate(unsigned int cal_time_ms)
+{
+	float g_cal = 0.0f;
 	int samples = 0;
-	for (int t = 0; t < cal_time_ms;) {
-		// get current time in freertos tick
-		TickType_t start_tick = xTaskGetTickCount();
-
+	int64_t start_time = millis();
+	while (millis() - start_time < cal_time_ms) {
 		FIFO_Sample sample;
 		if (imu_get_sample(&sample) == 0) {
 			// Assume the board is stationary
@@ -85,10 +85,9 @@ void imu_setup()
 			samples++;
 			delay(5);
 		}
-
-		t += (xTaskGetTickCount() - start_tick) * portTICK_PERIOD_MS;
 	}
 	g_cal /= samples;
+	return g_cal;
 }
 
 

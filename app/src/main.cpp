@@ -23,8 +23,6 @@ Adafruit_Mahony orientation;
 // the parachute
 KalmanFilter altitude;
 
-extern float g_cal;
-
 // TX lora packet
 LoRaDataPacket lora_tx_packet;
 DECLARE_STATIC_SEMAPHORE(lora_tx_packet_semaphore);
@@ -128,6 +126,7 @@ void setup(void)
 	          .context = nullptr});
 
 	imu_setup();
+	float g_cal = imu_calibrate(IMU_CALIBRATION_TIME);
 	altitude.setG(g_cal);
 
 	barometer_setup();

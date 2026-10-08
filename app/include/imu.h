@@ -22,3 +22,5 @@ void imu_setup();
 /// @return 0 on success, -1 if sample is NULL, the FIFO is empty, or the
 /// accumulation overflowed.
 int imu_get_sample(FIFO_Sample* sample);
+
+float imu_calibrate(unsigned int cal_time_ms);

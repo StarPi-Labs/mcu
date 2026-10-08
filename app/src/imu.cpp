@@ -43,13 +43,10 @@ void imu_setup()
 	IMU.Enable_X();
 	IMU.Enable_G();
 
-	/*
 	// TODO: define in imu.h
-	IMU.Set_X_FS(LSM6DSO32_32g);
-	IMU.Set_G_FS(LSM6DSO32_2000dps);
+	IMU.Set_X_FS(IMU_ACCEL_FS);
+	IMU.Set_G_FS(IMU_GYRO_FS);
 
-	// TODO: define in imu.h
-	*/
 
 #if IMU_FIFO_ENABLE
 	// FIFO Configuration

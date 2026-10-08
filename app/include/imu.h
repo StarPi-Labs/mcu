@@ -4,6 +4,10 @@
 #include <LSM6DSO32Sensor.h>
 #include <SPI.h>
 
+
+#define IMU_ACCEL_FS LSM6DSO32_32g
+#define IMU_GYRO_FS  LSM6DSO32_2000dps
+
 // TODO: rename these to indicate that they are imu-specific
 typedef struct {
 	int32_t accelerometer[3];

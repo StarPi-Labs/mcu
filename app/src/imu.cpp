@@ -19,6 +19,7 @@ static void IRAM_ATTR imu_fifo_interrupt()
  */
 
 
+// FIXME: check errors
 void imu_setup()
 {
 	if (IMU.begin() != 0) {
@@ -100,10 +101,9 @@ int imu_get_sample(FIFO_Sample *sample)
 	IMU.Get_FIFO_Num_Samples(&n_samples);
 	if (n_samples == 0) return -1;
 
-	uint8_t x_count = 0, g_count = 0;
-	bool xx_ov = false, xy_ov = false, xz_ov = false;
-	bool gx_ov = false, gy_ov = false, gz_ov = false;
-	FIFO_Sample avg_sample = {0}, tmp_sample = {0};
+	uint16_t x_count = 0, g_count = 0;
+	int32_t ax = 0, ay = 0, az = 0, gx = 0, gy = 0, gz = 0;
+	FIFO_Sample tmp_sample = {0};
 
 	for (int i = 0; i < n_samples; i++) {
 		uint8_t tag = 0;
@@ -112,16 +112,16 @@ int imu_get_sample(FIFO_Sample *sample)
 		switch (tag) {
 		case LSM6DSO32_XL_NC_TAG:
 			IMU.Get_FIFO_X_Axes(tmp_sample.accelerometer);
-			xx_ov |= __builtin_add_overflow(avg_sample.accelerometer[0], tmp_sample.accelerometer[0], &avg_sample.accelerometer[0]);
-			xy_ov |= __builtin_add_overflow(avg_sample.accelerometer[1], tmp_sample.accelerometer[1], &avg_sample.accelerometer[1]);
-			xz_ov |= __builtin_add_overflow(avg_sample.accelerometer[2], tmp_sample.accelerometer[2], &avg_sample.accelerometer[2]);
+			ax += tmp_sample.accelerometer[0];
+			ay += tmp_sample.accelerometer[1];
+			az += tmp_sample.accelerometer[2];
 			x_count++;
 			break;
 		case LSM6DSO32_GYRO_NC_TAG:
 			IMU.Get_FIFO_G_Axes(tmp_sample.gyroscope);
-			gx_ov |= __builtin_add_overflow(avg_sample.gyroscope[0], tmp_sample.gyroscope[0], &avg_sample.gyroscope[0]);
-			gy_ov |= __builtin_add_overflow(avg_sample.gyroscope[1], tmp_sample.gyroscope[1], &avg_sample.gyroscope[1]);
-			gz_ov |= __builtin_add_overflow(avg_sample.gyroscope[2], tmp_sample.gyroscope[2], &avg_sample.gyroscope[2]);
+			gx += tmp_sample.gyroscope[0];
+			gy += tmp_sample.gyroscope[1];
+			gz += tmp_sample.gyroscope[2];
 			g_count++;
 			break;
 		case LSM6DSO32_TIMESTAMP_TAG:
@@ -132,26 +132,20 @@ int imu_get_sample(FIFO_Sample *sample)
 			break;
 		}
 	}
-	// on overflow return -1, indicating that the sample is invalid
-	if (xx_ov || xy_ov || xz_ov || gx_ov || gy_ov || gz_ov) {
-		// Serial.println("Overflow detected in FIFO sample accumulation");
-		return -1;
-	}
 
 	if (x_count == 0 || g_count == 0) {
 		// Serial.println("No accelerometer or gyroscope samples in FIFO");
 		return -1;
 	}
 
-	avg_sample.accelerometer[0] /= x_count;
-	avg_sample.accelerometer[1] /= x_count;
-	avg_sample.accelerometer[2] /= x_count;
-	avg_sample.gyroscope[0] /= g_count;
-	avg_sample.gyroscope[1] /= g_count;
-	avg_sample.gyroscope[2] /= g_count;
+	sample->accelerometer[0] = ax / x_count;
+	sample->accelerometer[1] = ay / x_count;
+	sample->accelerometer[2] = az / x_count;
+	sample->gyroscope[0]     = gx / g_count;
+	sample->gyroscope[1]     = gy / g_count;
+	sample->gyroscope[2]     = gz / g_count;
 	// Serial.printf("FIFO Sample: %d accel samples, %d gyro samples\n", x_count, g_count);
 
-	*sample = avg_sample;
 	return 0;
 #else
 	IMU.Get_X_Axes(sample->accelerometer);

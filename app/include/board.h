@@ -64,6 +64,7 @@
 // OSR_STANDARD works for 20Hz sampling
 //#define BARO_OSR OSR_STANDARD
 #define BARO_OSR OSR_ULTRA_HIGH
+#define BARO_CALIBRATION_TIME 5000
 
 
 // LoRa configuration

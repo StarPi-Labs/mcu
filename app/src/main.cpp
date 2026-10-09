@@ -130,6 +130,7 @@ void setup(void)
 	altitude.setG(g_cal);
 
 	barometer_setup();
+	barometer_calibrate(BARO_CALIBRATION_TIME);
 
 	lora_setup(BAND_L, TX_FORCE, LORA_FC_ID);
 	lora_set_tx_packet_cb(lora_tx_cb);

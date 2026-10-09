@@ -74,11 +74,16 @@ bool barometer_setup(void)
 		delay(10); // 10 ms delay to avoid flooding the barometer with requests
 	}
 
+	return true;
+}
+
+
+bool barometer_calibrate(unsigned int cal_time_ms)
+{
 	float p1_median = 0, p2_median = 0, t1_median = 0, t2_median = 0;
 	uint32_t samples = 0;
-	start_time = millis();
-	const uint64_t baro_calibration_time = 3000;
-	while (millis() - start_time < baro_calibration_time) {
+	uint64_t start_time = millis();
+	while (millis() - start_time < cal_time_ms) {
 		int status1 = baro1.read(OSR_ULTRA_HIGH);
 		int status2 = baro2.read(OSR_ULTRA_HIGH);
 
@@ -92,15 +97,10 @@ bool barometer_setup(void)
 			return false;
 		}
 
-		float pressure1 = baro1.getPressure(); // autozero
-		float pressure2 = baro2.getPressure(); // autozero
-		float temperature1 = baro1.getTemperature();
-		float temperature2 = baro2.getTemperature();
-
-		p1_median += pressure1;
-		p2_median += pressure2;
-		t1_median += temperature1;
-		t2_median += temperature2;
+		p1_median += baro1.getPressure();
+		p2_median += baro2.getPressure();
+		t1_median += baro1.getTemperature();
+		t2_median += baro2.getTemperature();
 		samples++;
 
 		delay(10); // 10 ms delay to avoid flooding the barometer with requests

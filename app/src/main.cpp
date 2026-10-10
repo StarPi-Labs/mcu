@@ -747,9 +747,11 @@ TASK cmd_handler_task(TaskDescriptor_t* self)
 			log(cmd.src, T_SYSLOG, "Received command: CUT_MAIN");
 			break;
 		case CMD_CAMERAS_ON:
+			digitalWrite(PIN_CAMERAS, HIGH);
 			log(cmd.src, T_SYSLOG, "Received command: CAMERAS_ON");
 			break;
 		case CMD_CAMERAS_OFF:
+			digitalWrite(PIN_CAMERAS, LOW);
 			log(cmd.src, T_SYSLOG, "Received command: CAMERAS_OFF");
 			break;
 		case CMD_SENSOR_CALIBRATION:

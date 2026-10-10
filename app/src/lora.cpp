@@ -87,10 +87,6 @@ const struct {
 };
 
 
-// TODO: all timing in lora packets could happen in local time since boot, right
-// now instead all timings are milliseconds since epoch. NOTE that the time is
-// only accurate once the GPS module has received a valid fix.
-
 static void tx_operation_done_cb(void)
 {
 	last_tx_time = hal.millis();

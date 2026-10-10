@@ -149,7 +149,6 @@ void barometer_read(BaroData *sample1, BaroData *sample2)
 	// TODO: use the unified timestamp
 	sample1->timestamp = sample2->timestamp = millis();
 
-	// TODO: linear calibration
 	if (sample1->error_status == 0) {
 		sample1->temperature = baro1.getTemperature(); // temperatura in °C
 		sample1->pressure = baro1.getPressure(); // pressione in mbar

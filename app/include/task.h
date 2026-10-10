@@ -84,7 +84,6 @@ typedef struct _TaskDescriptor_t {
 #define TASK __attribute__((noreturn)) void
 
 
-// FIXME: use a different logger
 // Wait until the next period, this should be called at the end of each task loop
 #ifdef LOG_TASK_DEADLINES
 

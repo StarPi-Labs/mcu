@@ -43,7 +43,6 @@ void imu_setup()
 	IMU.Enable_X();
 	IMU.Enable_G();
 
-	// TODO: define in imu.h
 	IMU.Set_X_FS(IMU_ACCEL_FS);
 	IMU.Set_G_FS(IMU_GYRO_FS);
 

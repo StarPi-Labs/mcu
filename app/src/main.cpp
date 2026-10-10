@@ -96,7 +96,6 @@ void setup(void)
 	I2C1.begin();
 	I2C1.setClock(100000);
 	SPI2.begin(SPI2_SCK, SPI2_MISO, SPI2_MOSI, -1);
-	// TODO: Set speed
 
 	INIT_STATIC_SEMAPHORE(spi_semaphore);
 	INIT_STATIC_SEMAPHORE(lora_tx_packet_semaphore);
@@ -153,8 +152,6 @@ void setup(void)
 		}
 	}
 
-	// FIXME: to make sure that data is always saved the log file should be flush, opened and closed sometimes,
-	// maybe add a log rotation
 	sdcard_open_log();
 
 	INIT_STATIC_QUEUE(parachute_msg_queue);
@@ -389,15 +386,7 @@ TASK parachute_task(TaskDescriptor_t* self)
 	self->last_wake = xTaskGetTickCount();
 	RocketState state = RS_IDLE;
 
-	/* TODO:
-	 * - Change unit names m/s to MPS
-	 * - Change timers from all being referenced to ignition to being referenced to the last state change
-	 * - Remove touchdown timer
-	 * - Increase accelleration threshold to 3.0g min
-	 * - Decrease altitude threshold for main deployment to 400m
-	 * - Make this a configuration file or header
-	 */
-
+// TODO: Move this config to a header or board.h
 #define PARACHUTE_TASK_HZ 10
 
 #define Z_ACC_BOOST_THRESHOLD_G 3
@@ -574,7 +563,6 @@ TASK gps_task(TaskDescriptor_t* self)
 		gps_update(&data);
 
 		if (data.num_sat < GPS_MIN_SATELLITES) {
-			// TODO: print satellites
 			log(S_GPS, T_SYSLOG, "Not enough satellites");
 		} else {
 			// LOG("[GPS]: (%d) pos: (%f, %f), alt: %fm, speed: %fkmh, time:%llu",

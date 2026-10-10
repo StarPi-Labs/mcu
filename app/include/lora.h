@@ -52,8 +52,7 @@ struct [[gnu::packed]] LoRaPacketHeader
 	LoRaPacketType type;
 	uint8_t id; // Sender ID
 	uint8_t number; // Packet sequence number
-	// TODO: specify endianness
-	uint8_t tx_time[6]; // 48 bits timestamp in milliseconds since epoch
+	uint8_t tx_time[6]; // 48 bits timestamp in milliseconds since epoch, little endian
 };
 
 struct [[gnu::packed]] LoRaSyncPacket

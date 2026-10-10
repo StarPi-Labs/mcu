@@ -203,9 +203,25 @@ void setup(void)
 	logger_register_consumer(uart_task_descriptor.handle, uart_msg_queue, 0xffff, 0xffff);
 	logger_register_consumer(ble_formatter_task_descriptor.handle, ble_msg_queue, 0xffff, 0xffff);
 
-	// set a debug led after initialization
+	// Peripheral initialization
+	pinMode(PINT1_HS, INPUT);
+	pinMode(PINT1_LS, OUTPUT);
+	digitalWrite(PINT1_LS, LOW);
+	pinMode(PINT2_HS, INPUT);
+	pinMode(PINT2_LS, OUTPUT);
+	digitalWrite(PINT2_LS, LOW);
+	pinMode(PINT3_HS, INPUT);
+	pinMode(PINT3_LS, OUTPUT);
+	digitalWrite(PINT3_LS, LOW);
+	pinMode(PINT4_LS, OUTPUT);
+	digitalWrite(PINT4_LS, LOW);
 	pinMode(PINT5_LS, OUTPUT);
-	digitalWrite(PINT5_LS, 1);
+	digitalWrite(PINT5_LS, LOW);
+	pinMode(PINT6_LS, OUTPUT);
+	digitalWrite(PINT6_LS, LOW);
+
+	// set a debug led after initialization
+	digitalWrite(PIN_DBG_LED, 1);
 }
 
 void loop(void)
@@ -402,16 +418,7 @@ TASK parachute_task(TaskDescriptor_t* self)
 #define MAIN_DETECTION_SAMPLE_COUNT 10
 #define TOUCHDOWN_DETECTION_SAMPLE_COUNT 10
 
-#define PIN_EJECTION_A PINT6_LS
-#define PIN_MAIN_CUTTER PINT2_LS
-
 #define CUTTERS_ON_TIME_MS 2000
-
-	// Interface PINs setup
-	pinMode(PIN_EJECTION_A, OUTPUT);
-	digitalWrite(PIN_EJECTION_A, 0);
-	pinMode(PIN_MAIN_CUTTER, OUTPUT);
-	digitalWrite(PIN_MAIN_CUTTER, 0);
 
 	// Sensor data each loop
 	float z_speed = 0;

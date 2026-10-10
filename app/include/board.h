@@ -35,6 +35,12 @@
 #define PINT5_LS 36 // J13
 #define PINT6_LS 37 // J14
 
+// Peripheral assignation
+#define PIN_EJECTION_A  PINT6_LS
+#define PIN_MAIN_CUTTER PINT2_LS
+#define PIN_DBG_LED     PINT5_LS // FIXME: reassign this
+#define PIN_CAMERAS     PINT1_LS
+
 
 // Task Timings
 #define IMU_TASK_HZ       100

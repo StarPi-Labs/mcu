@@ -49,8 +49,7 @@ private:
 	static constexpr float g0 = 9.80665;
 
 	// Valore di a che separa la fase di boost da quella di coast
-	// !!! ancora da capire quanto vale !!! ancora da settare
-	const float a_boost = 15;
+	const float ACC_BOOST_THRESHOLD_G = 3.0f;
 
 	//====== FILTRO PASSA-BASSO SULL'ACCELERAZIONE ======
 	// Filtro IIR del primo ordine: a_f += alpha_lp*(a_in - a_f)
@@ -139,7 +138,7 @@ public:
 		A(0,1) = dt;
 
 		if (!airbrake_trigger) {
-			if (a > a_boost) {
+			if (a > ACC_BOOST_THRESHOLD_G) {
 				// Boost  !!! Bisogna valutare le condizioni per capire bene la logica del gain scheduling
 				Q = sigma_boost*Q_base;
 				R = sigma_bar_boost;

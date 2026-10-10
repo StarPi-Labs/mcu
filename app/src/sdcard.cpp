@@ -3,6 +3,7 @@
 #include <SD_MMC.h>  // Libreria hardware SDIO per ESP32
 #include <string.h>
 
+#include "board.h"
 #include "sdcard.h"
 #include "task.h"
 
@@ -69,8 +70,7 @@ bool sdcard_init(void)
 {
 	// MODIFICA: SD_MMC non usa il chip select (CS). Usa i pin dedicati dell'ESP32.
 	// Nota: Se usi schede che cablano solo a 1-bit, usa SD_MMC.begin("/sdcard", true)
-	// TODO: define these pins
-	SD_MMC.setPins(46, 47, 48);
+	SD_MMC.setPins(SD_CLK_PIN, SD_CMD_PIN, SD_D0_PIN);
 	if (!SD_MMC.begin("/sdcard", true, false, 40000)) return false;
 
 	if (!SD_MMC.exists("/session_num.txt")) {

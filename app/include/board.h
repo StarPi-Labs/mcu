@@ -24,6 +24,11 @@
 #define GPS_TX    17
 #define GPS_RX    18
 
+// SD Pins
+#define SD_CLK_PIN 46
+#define SD_CMD_PIN 47
+#define SD_D0_PIN  48
+
 // Peripheral Pins
 #define PINT1_HS 3  // J3
 #define PINT1_LS 4  // J3

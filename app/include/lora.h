@@ -107,13 +107,13 @@ struct [[gnu::packed]] LoRaDataPacket
 // (COMMAND_IDS), so this enum is append-only: never reorder or reuse a value.
 enum LoRaCommand : uint8_t
 {
-	CMD_NONE,
-	CMD_EJECT_A,
-	CMD_EJECT_C,
-	CMD_CUT_MAIN,
-	CMD_CAMERAS_ON,
-	CMD_CAMERAS_OFF,
-	CMD_SENSOR_CALIBRATION,
+	CMD_NONE               = 0,
+	CMD_EJECT_A            = 1,
+	CMD_EJECT_C            = 2,
+	CMD_CUT_MAIN           = 3,
+	CMD_CAMERAS_ON         = 4,
+	CMD_CAMERAS_OFF        = 5,
+	CMD_SENSOR_CALIBRATION = 6,
 };
 
 struct [[gnu::packed]] LoRaCommandPacket

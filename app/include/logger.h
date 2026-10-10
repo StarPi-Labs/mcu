@@ -57,12 +57,12 @@ enum MessageType : uint16_t {
 };
 
 enum RocketState : uint8_t {
-	RS_IDLE,      // Idle state, on ramp
-	RS_BOOST,     // Motor burning, ascending
-	RS_COAST,     // Motor burnt out, still ascending
-	RS_DROGUE,    // Drogue deployed, falling
-	RS_MAIN,      // Main parachute deployed, falling
-	RS_TOUCHDOWN, // On ground
+	RS_IDLE      = 0, // Idle state, on ramp
+	RS_BOOST     = 1, // Motor burning, ascending
+	RS_COAST     = 2, // Motor burnt out, still ascending
+	RS_DROGUE    = 3, // Drogue deployed, falling
+	RS_MAIN      = 4, // Main parachute deployed, falling
+	RS_TOUCHDOWN = 5, // On ground
 };
 
 typedef struct {

@@ -28,7 +28,7 @@ LoRaDataPacket lora_tx_packet;
 DECLARE_STATIC_SEMAPHORE(lora_tx_packet_semaphore);
 
 DECLARE_STATIC_SEMAPHORE(spi_semaphore);
-// TODO: add semaphore for i2c once we connect the pitot
+DECLARE_STATIC_SEMAPHORE(i2c_semaphore);
 
 DECLARE_STATIC_TASK(imu_task);
 DECLARE_STATIC_TASK(barometer_task);
@@ -98,8 +98,9 @@ void setup(void)
 	SPI2.begin(SPI2_SCK, SPI2_MISO, SPI2_MOSI, -1);
 
 	INIT_STATIC_SEMAPHORE(spi_semaphore);
+	INIT_STATIC_SEMAPHORE(i2c_semaphore);
 	INIT_STATIC_SEMAPHORE(lora_tx_packet_semaphore);
-	if (spi_semaphore == NULL || lora_tx_packet_semaphore == NULL) {
+	if (spi_semaphore == NULL || i2c_semaphore == NULL || lora_tx_packet_semaphore == NULL) {
 		while (true) {
 			Serial.println("Error creating semaphore");
 			delay(500);
@@ -346,20 +347,23 @@ TASK barometer_task(TaskDescriptor_t* self)
 	BaroData sample1, sample2;
 
 	while (true) {
-		barometer_read(&sample1, &sample2);
+		if (xSemaphoreTake(i2c_semaphore, portMAX_DELAY) == pdTRUE) {
+			barometer_read(&sample1, &sample2);
 
-		// FIXME: is the median really the best way to fuse the two barometer readings?
-		float alt = (sample1.altitude + sample2.altitude) / 2.0f;
+			// FIXME: is the median really the best way to fuse the two barometer readings?
+			float alt = (sample1.altitude + sample2.altitude) / 2.0f;
 
-		// Update the altitude and vertical velocity estimation with the barometer data
-		altitude.update(alt);
+			// Update the altitude and vertical velocity estimation with the barometer data
+			altitude.update(alt);
 
 #if TEST_FAKE_DATA != 1
-		log(S_BARO, T_FILTER_STATE, altitude.getState()[0], altitude.getState()[1], altitude.getState()[2]);
-		log(S_BARO, T_PRESSURE, sample1.pressure, sample2.pressure);
+			log(S_BARO, T_FILTER_STATE, altitude.getState()[0], altitude.getState()[1], altitude.getState()[2]);
+			log(S_BARO, T_PRESSURE, sample1.pressure, sample2.pressure);
 #endif
 
-		TASK_WAIT_HZ(self, BARO_TASK_HZ);
+			xSemaphoreGive(i2c_semaphore);
+		}
+	TASK_WAIT_HZ(self, BARO_TASK_HZ);
 	}
 }
 

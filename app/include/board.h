@@ -57,6 +57,7 @@
 #define LORA_TX_TASK_HZ   50
 #define SD_FMT_TASK_HZ    50
 #define SD_WRITER_TASK_HZ 10
+#define PARACHUTE_TASK_HZ 10
 
 
 // IMU FIFO Configuration
@@ -90,3 +91,21 @@
 #define GPS_MIN_SATELLITES         3
 #define GPS_SERIAL_BUFFER_SIZE     1024
 #define GPS_SERIAL_READ_TIMEOUT_MS 100
+
+
+// Parachute task parameters
+#define Z_ACC_BOOST_THRESHOLD_G          3
+#define Z_SPEED_BOOST_THRESHOLD_MPS      25.0
+#define Z_SPEED_APOGEE_THRESHOLD_MPS     -0.01
+#define MIN_TIME_TO_1500M_MS             8540
+#define Z_ALT_MAIN_DEPLOYMENT_M          400.0
+#define Z_ALT_TOUCHDOWN_M                10.0
+#define Z_SPEED_STATIONARY_MPS           0.1
+#define BOOST_DETECTION_SAMPLE_COUNT     10
+#define BURNOUT_DETECTION_SAMPLE_COUNT   10
+#define APOGEE_DETECTION_SAMPLE_COUNT    10
+#define MAIN_DETECTION_SAMPLE_COUNT      10
+#define TOUCHDOWN_DETECTION_SAMPLE_COUNT 10
+#define CUTTERS_ON_TIME_MS               3000
+#define EJECTION_CO2_DELAY_MS            500
+#define CO2_ON_TIME_MS                   1000

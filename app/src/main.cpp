@@ -411,7 +411,9 @@ TASK parachute_task(TaskDescriptor_t* self)
 #define MAIN_DETECTION_SAMPLE_COUNT 10
 #define TOUCHDOWN_DETECTION_SAMPLE_COUNT 10
 
-#define CUTTERS_ON_TIME_MS 2000
+#define CUTTERS_ON_TIME_MS 3000
+#define EJECTION_CO2_DELAY 500
+#define CO2_ON_TIME        1000
 
 	// Sensor data each loop
 	float z_speed = 0;
@@ -426,6 +428,9 @@ TASK parachute_task(TaskDescriptor_t* self)
 
 	bool cutter_active = false;
 	int64_t cutter_fire_time = 0;
+
+	bool ejection_co2_active = false;
+	int64_t ejection_co2_fire_time = 0;
 
 	while (true) {
 		ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000 / PARACHUTE_TASK_HZ));
@@ -451,6 +456,11 @@ TASK parachute_task(TaskDescriptor_t* self)
 		if (cutter_active && (millis() - cutter_fire_time) >= CUTTERS_ON_TIME_MS) {
 			pinMode(PIN_MAIN_CUTTER, OUTPUT);
 			digitalWrite(PIN_MAIN_CUTTER, 0);
+			cutter_active = false;
+		}
+		if (ejection_co2_active && (millis() - ejection_co2_fire_time) >= CO2_ON_TIME) {
+			pinMode(PIN_EJECTION_C, OUTPUT);
+			digitalWrite(PIN_EJECTION_C, 0);
 			cutter_active = false;
 		}
 
@@ -501,6 +511,13 @@ TASK parachute_task(TaskDescriptor_t* self)
 				analogWrite(PIN_EJECTION_A, 256 / 2);
 				ejection_active = true;
 				ejection_fire_time = millis();
+
+				delay(EJECTION_CO2_DELAY);
+
+				digitalWrite(PIN_EJECTION_C, HIGH);
+				ejection_co2_active = true;
+				ejection_co2_fire_time = millis();
+
 
 				state = RS_DROGUE;
 				sample_count = 0;

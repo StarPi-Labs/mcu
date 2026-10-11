@@ -42,9 +42,10 @@
 
 // Peripheral assignation
 #define PIN_EJECTION_A  PINT6_LS
+#define PIN_EJECTION_C  PINT4_LS
 #define PIN_MAIN_CUTTER PINT2_LS
-#define PIN_DBG_LED     PINT5_LS // FIXME: reassign this
-#define PIN_CAMERAS     PINT1_LS
+#define PIN_DBG_LED     PINT5_LS
+#define PIN_CAMERAS     PINT1_LS // FIXME: reassign this
 
 
 // Task Timings

@@ -20,48 +20,58 @@ static void IRAM_ATTR imu_fifo_interrupt()
 
 
 // FIXME: check errors
-void imu_setup()
+// returns true on success, false on failure
+bool imu_setup()
 {
 	if (IMU.begin() != 0) {
-		while(1) {
-			log(S_IMU, T_SYSLOG, "[ERR] Failed to initialize IMU");
-			delay(1000);
-		}
+		log(S_IMU, T_SYSLOG, "[ERR] Failed to initialize IMU");
+		return false;
 	}
 
 	// Should be 0x6C
 	uint8_t id;
-	IMU.ReadID(&id);
+	if (IMU.ReadID(&id) != 0) {
+		log(S_IMU, T_SYSLOG, "[ERR] Get ID");
+		return false;
+	}
 	if (id != 0x6C) {
-		while(1) {
-			//ERR("IMU ID mismatch: expected 0x6C, got %lu", (uint32_t)id);
-			log(S_IMU, T_SYSLOG, "[ERR] ID mismatch");
-			delay(1000);
-		}
+		log(S_IMU, T_SYSLOG, "[ERR] ID mismatch");
 	}
 
-	IMU.Enable_X();
-	IMU.Enable_G();
+	if (IMU.Enable_X() !=0 || IMU.Enable_G() != 0) {
+		log(S_IMU, T_SYSLOG, "[ERR] Enable gyro or accel");
+		return false;
+	}
 
-	IMU.Set_X_FS(IMU_ACCEL_FS);
-	IMU.Set_G_FS(IMU_GYRO_FS);
-
+	if (IMU.Set_X_FS(IMU_ACCEL_FS) != 0 || IMU.Set_G_FS(IMU_GYRO_FS) != 0) {
+		log(S_IMU, T_SYSLOG, "[ERR] Change FS");
+		return false;
+	}
 
 #if IMU_FIFO_ENABLE
 	// FIFO Configuration
 	// TODO: to enable timestamps we need to fork the library and expose an
 	//       API to change the correct bits in FIFO_CTRL4
-	IMU.Set_FIFO_Mode(LSM6DSO32_STREAM_MODE);
-	IMU.Set_FIFO_X_BDR(IMU_FIFO_X_BDR_HZ);
-	IMU.Set_FIFO_G_BDR(IMU_FIFO_G_BDR_HZ);
-	IMU.Set_X_ODR(IMU_FIFO_X_BDR_HZ);
-	IMU.Set_G_ODR(IMU_FIFO_G_BDR_HZ);
-
+	if (IMU.Set_FIFO_Mode(LSM6DSO32_STREAM_MODE) != 0) {
+		log(S_IMU, T_SYSLOG, "[ERR] Enable FIFO");
+		return false;
+	}
+	if (IMU.Set_FIFO_X_BDR(IMU_FIFO_X_BDR_HZ) != 0 || IMU.Set_FIFO_G_BDR(IMU_FIFO_G_BDR_HZ) != 0) {
+		log(S_IMU, T_SYSLOG, "[ERR] Change buffer data rate");
+		return false;
+	}
+	if (IMU.Set_X_ODR(IMU_FIFO_X_BDR_HZ) != 0 || IMU.Set_G_ODR(IMU_FIFO_G_BDR_HZ) != 0) {
+		log(S_IMU, T_SYSLOG, "[ERR] Change output data rate");
+		return false;
+	}
+	
 	// FIFO Interrupt
 //	IMU.Set_FIFO_Watermark_Level(IMU_FIFO_WATERMARK);
 //	pinMode(IMU_INT1, INPUT_PULLDOWN);
 //	attachInterrupt(digitalPinToInterrupt(IMU_INT1), imu_fifo_interrupt, RISING);
 #endif
+
+	return true;
 }
 
 
@@ -87,14 +97,17 @@ float imu_calibrate(unsigned int cal_time_ms)
 	return g_cal;
 }
 
-
+// TODO: make this consistent with imu_init
 int imu_get_sample(FIFO_Sample *sample)
 {
 	if (sample == NULL) return -1;
 
 #if IMU_FIFO_ENABLE
 	uint16_t n_samples;
-	IMU.Get_FIFO_Num_Samples(&n_samples);
+	if (IMU.Get_FIFO_Num_Samples(&n_samples) != 0) {
+		log(S_IMU, T_SYSLOG, "[ERR] Get FIFO status");
+		return -1;
+	}
 	if (n_samples == 0) return -1;
 
 	uint16_t x_count = 0, g_count = 0;
@@ -103,18 +116,27 @@ int imu_get_sample(FIFO_Sample *sample)
 
 	for (int i = 0; i < n_samples; i++) {
 		uint8_t tag = 0;
-		IMU.Get_FIFO_Tag(&tag);
+		if (IMU.Get_FIFO_Tag(&tag) != 0) {
+			log(S_IMU, T_SYSLOG, "[ERR] Get FIFO tag");
+			return -1;
+		}
 
 		switch (tag) {
 		case LSM6DSO32_XL_NC_TAG:
-			IMU.Get_FIFO_X_Axes(tmp_sample.accelerometer);
+			if (IMU.Get_FIFO_X_Axes(tmp_sample.accelerometer) != 0) {
+				log(S_IMU, T_SYSLOG, "[ERR] Get X axes");
+				return -1;
+			}
 			ax += tmp_sample.accelerometer[0];
 			ay += tmp_sample.accelerometer[1];
 			az += tmp_sample.accelerometer[2];
 			x_count++;
 			break;
 		case LSM6DSO32_GYRO_NC_TAG:
-			IMU.Get_FIFO_G_Axes(tmp_sample.gyroscope);
+			if (IMU.Get_FIFO_G_Axes(tmp_sample.gyroscope) != 0) {
+				log(S_IMU, T_SYSLOG, "[ERR] Get G axes");
+				return -1;
+			}
 			gx += tmp_sample.gyroscope[0];
 			gy += tmp_sample.gyroscope[1];
 			gz += tmp_sample.gyroscope[2];
@@ -122,7 +144,10 @@ int imu_get_sample(FIFO_Sample *sample)
 			break;
 		case LSM6DSO32_TIMESTAMP_TAG:
 			// TODO: convert timestamp to unix time (local time in microseconds)
-			IMU.Get_FIFO_Data(tmp_sample.timestamp);
+			if (IMU.Get_FIFO_Data(tmp_sample.timestamp) != 0) {
+				log(S_IMU, T_SYSLOG, "[ERR] Get timestamp");
+				return -1;
+			}
 			break;
 		default:
 			break;
@@ -142,10 +167,17 @@ int imu_get_sample(FIFO_Sample *sample)
 	sample->gyroscope[2]     = gz / g_count;
 	// Serial.printf("FIFO Sample: %d accel samples, %d gyro samples\n", x_count, g_count);
 
-	return 0;
-#else
-	IMU.Get_X_Axes(sample->accelerometer);
-	IMU.Get_G_Axes(sample->gyroscope);
-	return 0;
+	#else
+	if (IMU.Get_X_Axes(sample->accelerometer) != 0) {
+		log(S_IMU, T_SYSLOG, "[ERR] Get X axes");
+		return -1;
+	}
+	if (IMU.Get_G_Axes(sample->gyroscope) != 0) {
+		log(S_IMU, T_SYSLOG, "[ERR] Get G axes");
+		return -1;
+
+	}
 #endif
+
+	return 0;
 }

@@ -17,7 +17,7 @@ typedef struct {
 
 extern LSM6DSO32Sensor IMU;
 
-void imu_setup();
+bool imu_setup();
 /// @brief Reads a sample from the IMU.
 /// When IMU_FIFO_ENABLE is set, all samples currently in the FIFO are averaged
 /// into a single sample; otherwise the current sensor output is read directly.

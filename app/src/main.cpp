@@ -125,7 +125,12 @@ void setup(void)
 	              },
 	          .context = nullptr});
 
-	imu_setup();
+	if (imu_setup() == false) {
+		// FIXME: telemetry should receive this error state
+		while (true) {
+			delay(1000);
+		}
+	}
 	float g_cal = imu_calibrate(IMU_CALIBRATION_TIME);
 	altitude.setG(g_cal);
 
@@ -351,10 +356,21 @@ TASK barometer_task(TaskDescriptor_t* self)
 			barometer_read(&sample1, &sample2);
 
 			// FIXME: is the median really the best way to fuse the two barometer readings?
-			float alt = (sample1.altitude + sample2.altitude) / 2.0f;
+			float alt = 0;
+			if (sample1.error_status == 0 && sample2.error_status == 0) {
+				alt = (sample1.altitude + sample2.altitude) / 2.0f;
+			} else if (sample1.error_status == 0) {
+				alt = sample1.altitude;
+			} else if (sample2.error_status == 0) {
+				alt = sample2.altitude;
+			} else {
+				log(S_BARO, T_SYSLOG, "[ERR] Reading barometers");
+			}
 
 			// Update the altitude and vertical velocity estimation with the barometer data
-			altitude.update(alt);
+			if (sample1.error_status == 0 || sample2.error_status == 0) {
+				altitude.update(alt);
+			}
 
 #if TEST_FAKE_DATA != 1
 			log(S_BARO, T_FILTER_STATE, altitude.getState()[0], altitude.getState()[1], altitude.getState()[2]);

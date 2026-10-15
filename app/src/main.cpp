@@ -222,6 +222,23 @@ void setup(void)
 	digitalWrite(PINT5_LS, LOW);
 	pinMode(PINT6_LS, OUTPUT);
 	digitalWrite(PINT6_LS, LOW);
+
+	digitalWrite(PIN_DBG_LED, HIGH);
+	delay(200);
+	digitalWrite(PIN_DBG_LED, LOW);
+	delay(200);
+	digitalWrite(PIN_DBG_LED, HIGH);
+	delay(200);
+	digitalWrite(PIN_DBG_LED, LOW);
+	delay(200);
+	digitalWrite(PIN_DBG_LED, HIGH);
+	delay(200);
+	digitalWrite(PIN_DBG_LED, LOW);
+	delay(200);
+	digitalWrite(PIN_DBG_LED, HIGH);
+	delay(200);
+	digitalWrite(PIN_DBG_LED, LOW);
+	delay(200);
 }
 
 void loop(void)

@@ -27,5 +27,5 @@ bool imu_setup();
 /// accumulation overflowed.
 int imu_get_sample(FIFO_Sample* sample);
 
-float imu_calibrate(unsigned int cal_time_ms);
+bool imu_calibrate(float *g_cal, unsigned int cal_time_ms);
 bool is_imu_healthy_ground(float ax, float ay, float az, float gx, float gy, float gz);

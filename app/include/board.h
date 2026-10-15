@@ -96,7 +96,7 @@
 // Parachute task parameters
 #define Z_ACC_BOOST_THRESHOLD_G          3
 #define Z_SPEED_BOOST_THRESHOLD_MPS      25.0
-#define Z_SPEED_APOGEE_THRESHOLD_MPS     -0.01
+#define Z_SPEED_APOGEE_THRESHOLD_MPS     0.0
 #define MIN_TIME_TO_1500M_MS             8540
 #define Z_ALT_MAIN_DEPLOYMENT_M          400.0
 #define Z_ALT_TOUCHDOWN_M                10.0

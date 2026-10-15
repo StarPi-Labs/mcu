@@ -168,10 +168,17 @@ void setup(void)
 	if (imu_setup() == false) {
 		// FIXME: telemetry should receive this error state
 		while (true) {
+			log(S_OTHER, T_SYSLOG, "IMU setup failed");
 			delay(1000);
 		}
 	}
-	float g_cal = imu_calibrate(IMU_CALIBRATION_TIME);
+	float g_cal;
+	if (imu_calibrate(&g_cal, IMU_CALIBRATION_TIME) == false) {
+		while (true) {
+			log(S_OTHER, T_SYSLOG, "IMU calibration failed");
+			delay(1000);
+		}
+	}
 	altitude.setG(g_cal);
 
 	barometer_setup();
@@ -179,7 +186,7 @@ void setup(void)
 
 	gps_setup();
 
-	
+
 	/* ======================== TASKS INITIALIZATION ======================== */
 	// Core 0 tasks
 	INIT_STATIC_TASK(imu_task, "imu", NULL, tskIDLE_PRIORITY + 10, 0);
@@ -497,6 +504,8 @@ TASK parachute_task(TaskDescriptor_t* self)
 				state = RS_BOOST;
 				sample_count = 0;
 			}
+
+			// Check sensor health
 
 			break;
 

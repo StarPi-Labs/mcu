@@ -74,10 +74,11 @@ bool imu_setup()
 	return true;
 }
 
-
-float imu_calibrate(unsigned int cal_time_ms)
+// return true on success, false on failure
+bool imu_calibrate(float *g_cal, unsigned int cal_time_ms)
 {
-	float g_cal = 0.0f;
+	if (g_cal == NULL) return false;
+	float g = 0; 
 	int samples = 0;
 	int64_t start_time = millis();
 	while (millis() - start_time < cal_time_ms) {
@@ -88,13 +89,17 @@ float imu_calibrate(unsigned int cal_time_ms)
 			float ay = (float)sample.accelerometer[1]/1000.0f;
 			float az = (float)sample.accelerometer[2]/1000.0f;
 			float g = sqrt(ax*ax + ay*ay + az*az);
-			g_cal += g;
+			g += g;
 			samples++;
 			delay(5);
 		}
 	}
-	g_cal /= samples;
-	return g_cal;
+	if (samples != 0) {
+		g /= samples;
+		*g_cal = g;
+		return true;
+	}
+	return false;
 }
 
 // TODO: make this consistent with imu_init

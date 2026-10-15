@@ -75,21 +75,21 @@ bool imu_setup()
 }
 
 // return true on success, false on failure
+// Assumes the board is stationary
 bool imu_calibrate(float *g_cal, unsigned int cal_time_ms)
 {
 	if (g_cal == NULL) return false;
-	float g = 0; 
+	float g = 0.0f; 
 	int samples = 0;
 	int64_t start_time = millis();
 	while (millis() - start_time < cal_time_ms) {
 		FIFO_Sample sample;
 		if (imu_get_sample(&sample) == 0) {
-			// Assume the board is stationary
 			float ax = (float)sample.accelerometer[0]/1000.0f;
 			float ay = (float)sample.accelerometer[1]/1000.0f;
 			float az = (float)sample.accelerometer[2]/1000.0f;
-			float g = sqrt(ax*ax + ay*ay + az*az);
-			g += g;
+
+			g += sqrt(ax*ax + ay*ay + az*az);
 			samples++;
 			delay(5);
 		}

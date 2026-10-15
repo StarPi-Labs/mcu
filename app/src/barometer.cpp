@@ -160,3 +160,53 @@ void barometer_read(BaroData *sample1, BaroData *sample2)
 		sample2->altitude = compute_altitude(sample2->pressure, ground_pressure_mbar_2); // altitudine in metri
 	}
 }
+
+
+bool is_baro_healthy_ground(float pressure, float temperature) {
+    
+    static int count = 0;
+    static constexpr int max_count = 10; 
+
+
+    bool temp_ok = temperature < 70.0f && temperature > 10.0f;
+    bool pressure_ok = pressure < 104000.0f && pressure > 94000.0f;
+
+
+    static bool variance_ok = true;
+
+    static constexpr float variance_thr = 100.0f * 2.4f * 2.4f; 
+    static constexpr int samples = 10;
+    static float press_samples[samples];
+    static int sample_index = 0;
+
+    press_samples[sample_index] = pressure;
+
+    sample_index = (sample_index + 1) % samples;
+
+    if (sample_index == 0){
+
+        float press_mean = 0;
+
+        for (int i = 0; i < samples; i++){
+            press_mean += press_samples[i];
+        }
+        press_mean /= samples;
+
+        float press_variance = 0;
+        for (int i = 0; i < samples; i++){
+            press_variance += (press_samples[i] - press_mean) * (press_samples[i] - press_mean);
+        }
+
+        press_variance /= samples;
+
+        variance_ok = press_variance < variance_thr && press_variance > std::numeric_limits<float>::epsilon();
+
+    } 
+
+
+
+    if (!temp_ok || !pressure_ok || !variance_ok) count++;
+    else count = 0;
+
+    return count < max_count;
+}

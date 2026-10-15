@@ -110,3 +110,6 @@
 #define EJECTION_CO2_DELAY_MS            500
 #define CO2_ON_TIME_MS                   1000
 #define STOP_SD_WRITE_MS                 600000
+
+
+#define GROUND_CHECK_TIMER_MS            60*1000

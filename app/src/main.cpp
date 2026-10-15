@@ -25,6 +25,7 @@ KalmanFilter altitude;
 
 // Enables SD card writing
 static bool enable_sd_card = true;
+static int64_t setup_finished_time_ms; 
 
 // TX lora packet
 LoRaDataPacket lora_tx_packet;
@@ -85,6 +86,7 @@ void lora_rx_cb(uint8_t* packet)
 	memcpy(&cmd, packet, sizeof(cmd));
 	gs_command_enqueue(S_LORA, (uint8_t)cmd.command, cmd.data);
 }
+
 
 void setup(void)
 {
@@ -266,11 +268,27 @@ void setup(void)
 	delay(200);
 	digitalWrite(PIN_DBG_LED, LOW);
 	delay(200);
+
+	setup_finished_time_ms = millis();
 }
+
+static bool imu_healthy = true;
+static bool baro_healthy = true;
 
 // Heartbeat
 void loop(void)
 {
+	//first minute after setup check sensor health
+	if (millis() - setup_finished_time_ms < GROUND_CHECK_TIMER_MS) {
+		imu_healthy = is_imu_healthy_ground(altitude.getLastAx(), altitude.getLastAy(), altitude.getLastAz(),
+			altitude.getLastGx(), altitude.getLastGy(), altitude.getLastGz());
+		baro_healthy = is_baro_healthy_ground(ground_pressure_mbar_1, _ground_temperature_k);
+		
+		log(S_OTHER, T_SYSLOG, "IMU health:", imu_healthy);
+		log(S_OTHER, T_SYSLOG, "Barometer health:", baro_healthy);
+	
+	}
+
 	digitalWrite(PIN_DBG_LED, HIGH);
 	delay(1000);
 	digitalWrite(PIN_DBG_LED, LOW);

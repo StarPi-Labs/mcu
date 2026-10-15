@@ -418,6 +418,7 @@ TASK barometer_task(TaskDescriptor_t* self)
 #if TEST_FAKE_DATA != 1
 			log(S_BARO, T_FILTER_STATE, altitude.getState()[0], altitude.getState()[1], altitude.getState()[2]);
 			log(S_BARO, T_PRESSURE, sample1.pressure, sample2.pressure);
+			log(S_BARO, T_SYSLOG, sample1.altitude, sample2.altitude);
 #endif
 
 			xSemaphoreGive(i2c_semaphore);

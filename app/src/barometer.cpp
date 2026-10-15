@@ -27,23 +27,23 @@ MS5611 baro2(BARO2_ADDRESS, &I2C1);
 //impostato con OSR di 4096, se si vuole + veloce ma meno preciso si abbassa da 2^12 a 2^11 o 2^10
 
 
-float ground_pressure_mbar_1 = 0.0; // memorizzo pressione misurata sulla rampa di lancio
-float ground_pressure_mbar_2 = 0.0; // memorizzo pressione misurata sulla rampa di lancio
+float ground_pressure_pa_1 = 0.0; // memorizzo pressione misurata sulla rampa di lancio
+float ground_pressure_pa_2 = 0.0; // memorizzo pressione misurata sulla rampa di lancio
 float ground_temperature_k = 0.0;
 
 
 /*scaletta: 1. reset del barometro;
-            2. qualche ciclo a vuoto per stabilizzarsi(Delta Sigma);
-            3. Salva il valore di pressione sulla rampa di lancio;
-            4. Ciclo infinito dove prende i valori e applica il filtro.
+			2. qualche ciclo a vuoto per stabilizzarsi(Delta Sigma);
+			3. Salva il valore di pressione sulla rampa di lancio;
+			4. Ciclo infinito dove prende i valori e applica il filtro.
 
 miglioramenti se funziona e si vuole upgradare:   1.si può far una media di 30-40 letture per percepire la pressione al suolo, perche ora se ne fa solo 1;
-                                                  2.si aumentano il numero di elementi in coda;
-                                                  3.si può aggiungere un ciclo di retry se restituisce false lo status.7
+												  2.si aumentano il numero di elementi in coda;
+												  3.si può aggiungere un ciclo di retry se restituisce false lo status.7
 
 parametri di variazione: 1. Frequenza(ora a 20 hz);
-                         2. OSR(ora a 12, quindi 4096 campioni e ci mette circa 9 ms);
-                         3. alpha del filtro(ora a 0.15. Se si aumenta è più sensibile ai cambiamenti di quota, ma dato più tremolante);
+						 2. OSR(ora a 12, quindi 4096 campioni e ci mette circa 9 ms);
+						 3. alpha del filtro(ora a 0.15. Se si aumenta è più sensibile ai cambiamenti di quota, ma dato più tremolante);
 
 */
 
@@ -97,8 +97,8 @@ bool barometer_calibrate(unsigned int cal_time_ms)
 			return false;
 		}
 
-		p1_median += baro1.getPressure();
-		p2_median += baro2.getPressure();
+		p1_median += baro1.getPressurePascal();
+		p2_median += baro2.getPressurePascal();
 		t1_median += baro1.getTemperature();
 		t2_median += baro2.getTemperature();
 		samples++;
@@ -111,23 +111,24 @@ bool barometer_calibrate(unsigned int cal_time_ms)
 	t1_median /= samples;
 	t2_median /= samples;
 
-	ground_pressure_mbar_1 = p1_median;
-	ground_pressure_mbar_2 = p2_median;
+	ground_pressure_pa_1 = p1_median;
+	ground_pressure_pa_2 = p2_median;
 
-	log(S_BARO, T_PRESSURE, ground_pressure_mbar_1, ground_pressure_mbar_2);
+	log(S_BARO, T_PRESSURE, ground_pressure_pa_1, ground_pressure_pa_2);
 	log(S_BARO, T_TEMPERATURE, t1_median, t2_median);
 	ground_temperature_k = (t1_median+t2_median)/2.0 + 273.15;
 
 	return true;
 }
 
-// NOTE: cats vega as reference -> sea level temp and pressure are 15°C and 1013.25 mbar, respectively
-//  	 as such baro calibration is useless, this should be changed if we don't use cats vega as reference
+// NOTE: cats vega as reference -> sea level temp and pressure are 15°C and 101250 Pa, respectively
+//       as such baro calibration is useless, this should be changed if we don't use cats vega as reference
 // https://www.mide.com/air-pressure-at-altitude-calculator
 float compute_altitude(float air_pressure, float ground_pressure)
 {
-	constexpr float temp_0_k = 15.0f + 273.15f; // standard temperature at sea level [K]
-	constexpr float pressure_0 = 101250.0f;
+	constexpr float ground_reference_temperature_k = 15.0f + 273.15f; // standard temperature at sea level
+	constexpr float ground_reference_pressure_pa = 101250.0f;
+	constexpr float ground_reference_altitude_m = 0.0f;
 
 	// FIXME: Lb and M change with weather conditions
 	const float Lb = -0.0065; // standard temperature lapse rate [K/m]
@@ -135,14 +136,13 @@ float compute_altitude(float air_pressure, float ground_pressure)
 	const float R = 8.31432;  // Universal gas constant [N*m/mol*K]
 	const float g0 = 9.80665; // Gravitational constant [m/s^2]
 
-	float x = temp_0_k / Lb;
-	float p = air_pressure / pressure_0;
-	float e = -(R*Lb)/(g0*M);
+	const float exponent = -(R*Lb)/(g0*M);
+	float temperature_rise = ground_reference_temperature_k / Lb;
+	float pressure_ratio = air_pressure / ground_reference_pressure_pa;
 
-	float altitude = (powf(p, e) - 1) * x;
-	float ground_altitude_m = (powf(ground_pressure / pressure_0, e) - 1) * x;
+	float altitude = ground_reference_altitude_m + temperature_rise * (powf(pressure_ratio, exponent) - 1);
 
-	return altitude - ground_altitude_m; 
+	return altitude;
 }
 
 
@@ -158,67 +158,62 @@ void barometer_read(BaroData *sample1, BaroData *sample2)
 
 	if (sample1->error_status == 0) {
 		sample1->temperature = baro1.getTemperature(); // temperatura in °C
-		sample1->pressure = baro1.getPressure(); // pressione in mbar
-		sample1->altitude = compute_altitude(sample1->pressure, ground_pressure_mbar_1); // altitudine in metri
+		sample1->pressure = baro1.getPressurePascal(); // pressione in Pa
+		sample1->altitude = compute_altitude(sample1->pressure, ground_pressure_pa_1); // altitudine in metri
 	}
 	if (sample2->error_status == 0) {
 		sample2->temperature = baro2.getTemperature(); // temperatura in °C
-		sample2->pressure = baro2.getPressure(); // pressione in mbar
-		sample2->altitude = compute_altitude(sample2->pressure, ground_pressure_mbar_2); // altitudine in metri
+		sample2->pressure = baro2.getPressurePascal(); // pressione in Pa
+		sample2->altitude = compute_altitude(sample2->pressure, ground_pressure_pa_2); // altitudine in metri
 	}
 }
 
 
 bool is_baro_healthy_ground(float p1, float p2, float t1, float t2) {
-    
-    static int count = 0;
-    static constexpr int max_count = 10; 
+	
+	static int count = 0;
+	static constexpr int max_count = 10; 
 
-	bool diff_ok = abs(p1 - p2) < 600 && abs(t1 - t2) < 20.0f; //baro pressure delta approx. 50m
+	bool diff_ok = abs(p1 - p2) < 600 && abs(t1 - t2) < 40.0f; //baro pressure delta approx. 50m
 
 
 	float pressure = 0.5f * (p1 + p2);
 	float temperature = 0.5f * (t1 + t2);
 
-    bool temp_ok = temperature < 70.0f && temperature > 10.0f;
-    bool pressure_ok = pressure < 104000.0f && pressure > 94000.0f;
+	bool temp_ok = temperature < 70.0f && temperature > 10.0f;
+	bool pressure_ok = pressure < 104000.0f && pressure > 94000.0f;
 
 
-    static bool variance_ok = true;
+	static bool variance_ok = true;
 
-    static constexpr float variance_thr = 100.0f * 2.4f * 2.4f; 
-    static constexpr int samples = 10;
-    static float press_samples[samples];
-    static int sample_index = 0;
+	static constexpr float variance_thr = 100.0f * 2.4f * 2.4f; 
+	static constexpr int samples = 10;
+	static float press_samples[samples];
+	static int sample_index = 0;
 
-    press_samples[sample_index] = pressure;
+	press_samples[sample_index] = pressure;
 
-    sample_index = (sample_index + 1) % samples;
+	sample_index = (sample_index + 1) % samples;
 
-    if (sample_index == 0){
+	if (sample_index == 0){
+		float press_mean = 0;
 
-        float press_mean = 0;
+		for (int i = 0; i < samples; i++){
+			press_mean += press_samples[i];
+		}
+		press_mean /= samples;
 
-        for (int i = 0; i < samples; i++){
-            press_mean += press_samples[i];
-        }
-        press_mean /= samples;
+		float press_variance = 0;
+		for (int i = 0; i < samples; i++){
+			press_variance += (press_samples[i] - press_mean) * (press_samples[i] - press_mean);
+		}
+		press_variance /= samples;
 
-        float press_variance = 0;
-        for (int i = 0; i < samples; i++){
-            press_variance += (press_samples[i] - press_mean) * (press_samples[i] - press_mean);
-        }
+		variance_ok = press_variance < variance_thr && press_variance > std::numeric_limits<float>::epsilon();
+	} 
 
-        press_variance /= samples;
+	if (!diff_ok || !temp_ok || !pressure_ok || !variance_ok) count++;
+	else count = 0;
 
-        variance_ok = press_variance < variance_thr && press_variance > std::numeric_limits<float>::epsilon();
-
-    } 
-
-
-
-    if (!diff_ok || !temp_ok || !pressure_ok || !variance_ok) count++;
-    else count = 0;
-
-    return count < max_count;
+	return count < max_count;
 }

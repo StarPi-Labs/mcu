@@ -5,9 +5,9 @@
 
 struct BaroData {
 	uint32_t timestamp;
-	float temperature;
-	float pressure;
-	float altitude;
+	float temperature; // degrees C
+	float pressure;    // pascal
+	float altitude;    // meters
 	int error_status;
 };
 

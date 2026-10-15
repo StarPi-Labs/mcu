@@ -23,6 +23,9 @@ Adafruit_Mahony orientation;
 // the parachute
 KalmanFilter altitude;
 
+// Enables SD card writing
+static bool enable_sd_card = true;
+
 // TX lora packet
 LoRaDataPacket lora_tx_packet;
 DECLARE_STATIC_SEMAPHORE(lora_tx_packet_semaphore);
@@ -139,6 +142,7 @@ void setup(void)
 			delay(500);
 		}
 	}
+	enable_sd_card = true;
 	// creates folder /session_<session_num>
 	if (!sdcard_start_session()) {
 		while (true) {
@@ -436,6 +440,8 @@ TASK parachute_task(TaskDescriptor_t* self)
 	// Number of consecutive samples that met the state change condition
 	int sample_count = 0;
 
+	int64_t last_state_change_time = millis();
+
 	bool ejection_active = false;
 	int64_t ejection_fire_time = 0;
 
@@ -487,6 +493,7 @@ TASK parachute_task(TaskDescriptor_t* self)
 			}
 
 			if (sample_count >= BOOST_DETECTION_SAMPLE_COUNT) {
+				last_state_change_time = millis();
 				state = RS_BOOST;
 				sample_count = 0;
 			}
@@ -502,6 +509,7 @@ TASK parachute_task(TaskDescriptor_t* self)
 			}
 
 			if (sample_count >= BURNOUT_DETECTION_SAMPLE_COUNT) {
+				last_state_change_time = millis();
 				state = RS_COAST;
 				sample_count = 0;
 			}
@@ -532,6 +540,7 @@ TASK parachute_task(TaskDescriptor_t* self)
 				ejection_co2_fire_time = millis();
 
 
+				last_state_change_time = millis();
 				state = RS_DROGUE;
 				sample_count = 0;
 			}
@@ -554,6 +563,7 @@ TASK parachute_task(TaskDescriptor_t* self)
 				cutter_active = true;
 				cutter_fire_time = millis();
 
+				last_state_change_time = millis();
 				state = RS_MAIN;
 				sample_count = 0;
 			}
@@ -569,6 +579,7 @@ TASK parachute_task(TaskDescriptor_t* self)
 			}
 
 			if (sample_count >= TOUCHDOWN_DETECTION_SAMPLE_COUNT) {
+				last_state_change_time = millis();
 				state = RS_TOUCHDOWN;
 				sample_count = 0;
 			}
@@ -576,6 +587,9 @@ TASK parachute_task(TaskDescriptor_t* self)
 			break;
 
 		case RS_TOUCHDOWN:
+			if (millis() - last_state_change_time > STOP_SD_WRITE_MS) {
+				enable_sd_card = false;
+			}
 			break;
 
 		default:
@@ -739,7 +753,9 @@ TASK sd_formatter_task(TaskDescriptor_t* self)
 		while (xQueueReceive(sd_msg_queue, &msg, 0) == pdTRUE) {
 			const char* str = NULL;
 			size_t len = logger_message_to_str(&str, &msg);
-			sdcard_write(str, len);
+			if (enable_sd_card == true) {
+				sdcard_write(str, len);
+			}
 		}
 	}
 }

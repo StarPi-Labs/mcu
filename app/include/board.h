@@ -109,3 +109,4 @@
 #define CUTTERS_ON_TIME_MS               3000
 #define EJECTION_CO2_DELAY_MS            500
 #define CO2_ON_TIME_MS                   1000
+#define STOP_SD_WRITE_MS                 600000

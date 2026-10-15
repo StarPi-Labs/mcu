@@ -41,11 +41,11 @@
 #define PINT6_LS 37 // J14
 
 // Peripheral assignation
-#define PIN_EJECTION_A  PINT6_LS
-#define PIN_EJECTION_C  PINT4_LS
-#define PIN_MAIN_CUTTER PINT2_LS
-#define PIN_DBG_LED     PINT5_LS
-#define PIN_CAMERAS     PINT1_LS // FIXME: reassign this
+#define PIN_CUTTER_1 PINT6_LS
+#define PIN_CUTTER_2 PINT2_LS
+#define PIN_EMATCH   PINT4_LS
+#define PIN_DBG_LED  PINT5_LS
+#define PIN_CAMERAS  PINT1_LS // FIXME: reassign this
 
 
 // Task Timings
@@ -108,7 +108,7 @@
 #define TOUCHDOWN_DETECTION_SAMPLE_COUNT 10
 #define CUTTERS_ON_TIME_MS               3000
 #define EJECTION_CO2_DELAY_MS            2000
-#define CO2_ON_TIME_MS                   1000
+#define EMATCH_ON_TIME_MS                1000
 #define STOP_SD_WRITE_MS                 600000
 
 

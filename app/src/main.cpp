@@ -480,14 +480,14 @@ TASK parachute_task(TaskDescriptor_t* self)
 
 	int64_t last_state_change_time = millis();
 
-	bool ejection_active = false;
-	int64_t ejection_fire_time = 0;
+	bool cutter_1_active = false;
+	int64_t cutter_1_fire_time_ms = 0;
 
-	bool cutter_active = false;
-	int64_t cutter_fire_time = 0;
+	bool cutter_2_active = false;
+	int64_t cutter_2_fire_time = 0;
 
-	bool ejection_co2_active = false;
-	int64_t ejection_co2_fire_time = 0;
+	bool ematch_active = false;
+	int64_t ematch_fire_time = 0;
 
 	while (true) {
 		ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000 / PARACHUTE_TASK_HZ));
@@ -505,20 +505,20 @@ TASK parachute_task(TaskDescriptor_t* self)
 
 		// Non-blocking pyro pin timeout handling — runs every pass regardless
 		// of state so it can't stall queue draining
-		if (ejection_active && (millis() - ejection_fire_time) >= CUTTERS_ON_TIME_MS) {
-			pinMode(PIN_EJECTION_A, OUTPUT);
-			digitalWrite(PIN_EJECTION_A, 0);
-			ejection_active = false;
+		if (cutter_1_active && (millis() - cutter_1_fire_time_ms) >= CUTTERS_ON_TIME_MS) {
+			pinMode(PIN_CUTTER_1, OUTPUT);
+			digitalWrite(PIN_CUTTER_1, 0);
+			cutter_1_active = false;
 		}
-		if (cutter_active && (millis() - cutter_fire_time) >= CUTTERS_ON_TIME_MS) {
-			pinMode(PIN_MAIN_CUTTER, OUTPUT);
-			digitalWrite(PIN_MAIN_CUTTER, 0);
-			cutter_active = false;
+		if (cutter_2_active && (millis() - cutter_2_fire_time) >= CUTTERS_ON_TIME_MS) {
+			pinMode(PIN_CUTTER_2, OUTPUT);
+			digitalWrite(PIN_CUTTER_2, 0);
+			cutter_2_active = false;
 		}
-		if (ejection_co2_active && (millis() - ejection_co2_fire_time) >= CO2_ON_TIME_MS) {
-			pinMode(PIN_EJECTION_C, OUTPUT);
-			digitalWrite(PIN_EJECTION_C, 0);
-			ejection_co2_active = false;
+		if (ematch_active && (millis() - ematch_fire_time) >= EMATCH_ON_TIME_MS) {
+			pinMode(PIN_EMATCH, OUTPUT);
+			digitalWrite(PIN_EMATCH, 0);
+			ematch_active = false;
 		}
 
 		switch (state) {
@@ -569,15 +569,15 @@ TASK parachute_task(TaskDescriptor_t* self)
 			if (sample_count >= APOGEE_DETECTION_SAMPLE_COUNT) {
 				// Activate recovery A; pins are cleared later,
 				// non-blockingly, by the timeout check above
-				analogWrite(PIN_EJECTION_A, 256 / 2);
-				ejection_active = true;
-				ejection_fire_time = millis();
+				analogWrite(PIN_CUTTER_1, 256 / 2);
+				cutter_1_active = true;
+				cutter_1_fire_time_ms = millis();
 
 				delay(EJECTION_CO2_DELAY_MS);
 
-				digitalWrite(PIN_EJECTION_C, HIGH);
-				ejection_co2_active = true;
-				ejection_co2_fire_time = millis();
+				digitalWrite(PIN_EMATCH, HIGH);
+				ematch_active = true;
+				ematch_fire_time = millis();
 
 
 				last_state_change_time = millis();
@@ -599,9 +599,9 @@ TASK parachute_task(TaskDescriptor_t* self)
 
 			if (sample_count >= MAIN_DETECTION_SAMPLE_COUNT) {
 				// Cut main parachute; pin cleared later, non-blockingly
-				analogWrite(PIN_MAIN_CUTTER, 256 / 2);
-				cutter_active = true;
-				cutter_fire_time = millis();
+				analogWrite(PIN_CUTTER_2, 256 / 2);
+				cutter_2_active = true;
+				cutter_2_fire_time = millis();
 
 				last_state_change_time = millis();
 				state = RS_MAIN;

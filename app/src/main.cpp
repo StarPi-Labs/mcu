@@ -181,8 +181,18 @@ void setup(void)
 	}
 	altitude.setG(g_cal);
 
-	barometer_setup();
-	barometer_calibrate(BARO_CALIBRATION_TIME);
+	if (barometer_setup() == false) {
+		while (true) {
+			log(S_OTHER, T_SYSLOG, "Barometer setup failed");
+			delay(1000);
+		}
+	}
+	if (barometer_calibrate(BARO_CALIBRATION_TIME) == false) {
+		while (true) {
+			log(S_OTHER, T_SYSLOG, "Barometer calibration failed");
+			delay(1000);
+		}
+	}
 
 	gps_setup();
 

@@ -222,15 +222,14 @@ void setup(void)
 	digitalWrite(PINT5_LS, LOW);
 	pinMode(PINT6_LS, OUTPUT);
 	digitalWrite(PINT6_LS, LOW);
-
-	// set a debug led after initialization
-	digitalWrite(PIN_DBG_LED, 1);
 }
 
 void loop(void)
 {
-	//	if (Serial)
-	//		Serial.println("LOOP");
+	// set a debug led after initialization
+	digitalWrite(PIN_DBG_LED, HIGH);
+	delay(1000);
+	digitalWrite(PIN_DBG_LED, LOW);
 	delay(1000);
 }
 

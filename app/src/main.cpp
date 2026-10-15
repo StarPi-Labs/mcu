@@ -278,17 +278,6 @@ static bool baro_healthy = true;
 // Heartbeat
 void loop(void)
 {
-	//first minute after setup check sensor health
-	if (millis() - setup_finished_time_ms < GROUND_CHECK_TIMER_MS) {
-		imu_healthy = is_imu_healthy_ground(altitude.getLastAx(), altitude.getLastAy(), altitude.getLastAz(),
-			altitude.getLastGx(), altitude.getLastGy(), altitude.getLastGz());
-		baro_healthy = is_baro_healthy_ground(ground_pressure_mbar_1, _ground_temperature_k);
-		
-		log(S_OTHER, T_SYSLOG, "IMU health:", imu_healthy);
-		log(S_OTHER, T_SYSLOG, "Barometer health:", baro_healthy);
-	
-	}
-
 	digitalWrite(PIN_DBG_LED, HIGH);
 	delay(1000);
 	digitalWrite(PIN_DBG_LED, LOW);
@@ -314,6 +303,12 @@ TASK imu_task(TaskDescriptor_t* self)
 				float gx = (float)sample.gyroscope[0] / 1000.0f;
 				float gy = (float)sample.gyroscope[1] / 1000.0f;
 				float gz = (float)sample.gyroscope[2] / 1000.0f;
+			
+				//first minute after setup check sensor health
+				if (millis() - setup_finished_time_ms < GROUND_CHECK_TIMER_MS) {
+					imu_healthy = is_imu_healthy_ground(ax, ay, az, gx, gy, gz);
+					if (!imu_healthy) 	log(S_OTHER, T_SYSLOG, "IMU not healthy");
+				}
 
 				// Mahony filter quaternions
 				float qw, qx, qy, qz;
@@ -415,6 +410,13 @@ TASK barometer_task(TaskDescriptor_t* self)
 	while (true) {
 		if (xSemaphoreTake(i2c_semaphore, portMAX_DELAY) == pdTRUE) {
 			barometer_read(&sample1, &sample2);
+
+			//first minute after setup check sensor health
+			if (millis() - setup_finished_time_ms < GROUND_CHECK_TIMER_MS) {
+	
+				baro_healthy = is_baro_healthy_ground(sample1.pressure, sample2.pressure, sample1.temperature, sample2.temperature);
+				if (!baro_healthy) 	log(S_OTHER, T_SYSLOG, "Baro not healthy");
+			}
 
 			// FIXME: is the median really the best way to fuse the two barometer readings?
 			float alt = 0;

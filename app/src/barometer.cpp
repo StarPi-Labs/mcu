@@ -169,11 +169,16 @@ void barometer_read(BaroData *sample1, BaroData *sample2)
 }
 
 
-bool is_baro_healthy_ground(float pressure, float temperature) {
+bool is_baro_healthy_ground(float p1, float p2, float t1, float t2) {
     
     static int count = 0;
     static constexpr int max_count = 10; 
 
+	bool diff_ok = abs(p1 - p2) < 600 && abs(t1 - t2) < 20.0f; //baro pressure delta approx. 50m
+
+
+	float pressure = 0.5f * (p1 + p2);
+	float temperature = 0.5f * (t1 + t2);
 
     bool temp_ok = temperature < 70.0f && temperature > 10.0f;
     bool pressure_ok = pressure < 104000.0f && pressure > 94000.0f;
@@ -212,7 +217,7 @@ bool is_baro_healthy_ground(float pressure, float temperature) {
 
 
 
-    if (!temp_ok || !pressure_ok || !variance_ok) count++;
+    if (!diff_ok || !temp_ok || !pressure_ok || !variance_ok) count++;
     else count = 0;
 
     return count < max_count;

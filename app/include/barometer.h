@@ -15,4 +15,4 @@ struct BaroData {
 bool barometer_setup(void);
 bool barometer_calibrate(unsigned int cal_time_ms);
 void barometer_read(BaroData *sample1, BaroData *sample2);
-bool is_baro_healthy_ground(float pressure, float temperature);
+bool is_baro_healthy_ground(float p1, float p2, float t1, float t2);

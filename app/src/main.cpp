@@ -518,7 +518,7 @@ TASK parachute_task(TaskDescriptor_t* self)
 		if (ejection_co2_active && (millis() - ejection_co2_fire_time) >= CO2_ON_TIME_MS) {
 			pinMode(PIN_EJECTION_C, OUTPUT);
 			digitalWrite(PIN_EJECTION_C, 0);
-			cutter_active = false;
+			ejection_co2_active = false;
 		}
 
 		switch (state) {

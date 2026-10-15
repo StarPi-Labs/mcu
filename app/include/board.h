@@ -107,7 +107,7 @@
 #define MAIN_DETECTION_SAMPLE_COUNT      10
 #define TOUCHDOWN_DETECTION_SAMPLE_COUNT 10
 #define CUTTERS_ON_TIME_MS               3000
-#define EJECTION_CO2_DELAY_MS            500
+#define EJECTION_CO2_DELAY_MS            2000
 #define CO2_ON_TIME_MS                   1000
 #define STOP_SD_WRITE_MS                 600000
 

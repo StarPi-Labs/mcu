@@ -85,7 +85,7 @@ void lora_rx_cb(uint8_t* packet)
 
 void setup(void)
 {
-
+	/* ===================== PERIPHERAL INITIALIZATION ====================== */
 	Serial.begin(115200);
 	//	while (!Serial) {
 	//		delay(100);
@@ -97,6 +97,8 @@ void setup(void)
 	I2C1.setClock(100000);
 	SPI2.begin(SPI2_SCK, SPI2_MISO, SPI2_MOSI, -1);
 
+
+	/* ===================== SEMAPHORES INITIALIZATION ====================== */
 	INIT_STATIC_SEMAPHORE(spi_semaphore);
 	INIT_STATIC_SEMAPHORE(i2c_semaphore);
 	INIT_STATIC_SEMAPHORE(lora_tx_packet_semaphore);
@@ -107,16 +109,44 @@ void setup(void)
 		}
 	}
 
-	logger_init();
 
-	// Created before the radios are started: a BLE write can arrive as soon as ble_init() returns
+	/* ======================= QUEUES INITIALIZATION ======================== */
+	INIT_STATIC_QUEUE(parachute_msg_queue);
+	INIT_STATIC_QUEUE(sd_msg_queue);
+	INIT_STATIC_QUEUE(uart_msg_queue);
+	INIT_STATIC_QUEUE(lora_msg_queue);
+	INIT_STATIC_QUEUE(ble_msg_queue);
 	INIT_STATIC_QUEUE(gs_command_queue);
-	if (gs_command_queue == NULL) {
+	if (parachute_msg_queue == NULL ||
+	    sd_msg_queue == NULL        ||
+	    uart_msg_queue == NULL      ||
+	    lora_msg_queue == NULL      ||
+	    gs_command_queue == NULL    ||
+	    ble_msg_queue == NULL) {
 		while (true) {
 			Serial.println("Error creating queues");
 			delay(500);
 		}
 	}
+
+
+	/* ================= LOGGING & TELEMETRY INITIALIZATION ================= */
+	logger_init();
+
+	if (!sdcard_init()) {
+		while (true) {
+			Serial.println("SD init failed");
+			delay(500);
+		}
+	}
+	// creates folder /session_<session_num>
+	if (!sdcard_start_session()) {
+		while (true) {
+			Serial.println("Error creating the SD session folder");
+			delay(500);
+		}
+	}
+	sdcard_open_log();
 
 	ble_init({.on_command =
 	              [](uint8_t command, void* context) {
@@ -125,6 +155,12 @@ void setup(void)
 	              },
 	          .context = nullptr});
 
+	lora_setup(BAND_L, TX_FORCE, LORA_FC_ID);
+	lora_set_tx_packet_cb(lora_tx_cb);
+	lora_set_rx_packet_cb(lora_rx_cb);
+
+
+	/* ======================= SENSORS INITIALIZATION ======================= */
 	if (imu_setup() == false) {
 		// FIXME: telemetry should receive this error state
 		while (true) {
@@ -137,42 +173,10 @@ void setup(void)
 	barometer_setup();
 	barometer_calibrate(BARO_CALIBRATION_TIME);
 
-	lora_setup(BAND_L, TX_FORCE, LORA_FC_ID);
-	lora_set_tx_packet_cb(lora_tx_cb);
-	lora_set_rx_packet_cb(lora_rx_cb);
-
 	gps_setup();
 
-	if (!sdcard_init()) {
-		while (true) {
-			Serial.println("SD init failed");
-			delay(500);
-		}
-	}
-
-	// creates folder /session_<session_num>
-	if (!sdcard_start_session()) {
-		while (true) {
-			Serial.println("Error creating the SD session folder");
-			delay(500);
-		}
-	}
-
-	sdcard_open_log();
-
-	INIT_STATIC_QUEUE(parachute_msg_queue);
-	INIT_STATIC_QUEUE(sd_msg_queue);
-	INIT_STATIC_QUEUE(uart_msg_queue);
-	INIT_STATIC_QUEUE(lora_msg_queue);
-	INIT_STATIC_QUEUE(ble_msg_queue);
-	if (parachute_msg_queue == NULL || sd_msg_queue == NULL || uart_msg_queue == NULL || lora_msg_queue == NULL ||
-	    ble_msg_queue == NULL) {
-		while (true) {
-			Serial.println("Error creating queues");
-			delay(500);
-		}
-	}
-
+	
+	/* ======================== TASKS INITIALIZATION ======================== */
 	// Core 0 tasks
 	INIT_STATIC_TASK(imu_task, "imu", NULL, tskIDLE_PRIORITY + 10, 0);
 	INIT_STATIC_TASK(barometer_task, "barometer", NULL, tskIDLE_PRIORITY + 9, 0);
@@ -206,7 +210,8 @@ void setup(void)
 	logger_register_consumer(uart_task_descriptor.handle, uart_msg_queue, 0xffff, 0xffff);
 	logger_register_consumer(ble_formatter_task_descriptor.handle, ble_msg_queue, 0xffff, 0xffff);
 
-	// Peripheral initialization
+
+	/* ====================== PERIPHERAL INITIALIZATION ===================== */
 	pinMode(PINT1_HS, INPUT);
 	pinMode(PINT1_LS, OUTPUT);
 	digitalWrite(PINT1_LS, LOW);
@@ -223,6 +228,7 @@ void setup(void)
 	pinMode(PINT6_LS, OUTPUT);
 	digitalWrite(PINT6_LS, LOW);
 
+	// Blink to confirm end of setup
 	digitalWrite(PIN_DBG_LED, HIGH);
 	delay(200);
 	digitalWrite(PIN_DBG_LED, LOW);
@@ -241,9 +247,9 @@ void setup(void)
 	delay(200);
 }
 
+// Heartbeat
 void loop(void)
 {
-	// set a debug led after initialization
 	digitalWrite(PIN_DBG_LED, HIGH);
 	delay(1000);
 	digitalWrite(PIN_DBG_LED, LOW);

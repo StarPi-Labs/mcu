@@ -17,5 +17,5 @@ bool barometer_calibrate(unsigned int cal_time_ms);
 void barometer_read(BaroData *sample1, BaroData *sample2);
 bool is_baro_healthy_ground(float p1, float p2, float t1, float t2);
 
-float compute_pressure_vega(float delta_altitude_vega = 3000, float ground_pressure);
+float compute_pressure_vega(float delta_altitude_vega, float ground_pressure);
 float compute_height_real(float pressure_real, float ground_pressure, float ground_temp);

@@ -146,7 +146,7 @@ float compute_altitude(float air_pressure, float ground_pressure)
 }
 
 
-float compute_pressure_vega(float delta_altitude_vega = 3000, float ground_pressure){
+float compute_pressure_vega(float delta_altitude_vega, float ground_pressure){
 	constexpr float ground_reference_temperature_k = 15.0f + 273.15f; // standard temperature at sea level
 	constexpr float ground_reference_pressure_pa = 101250.0f;
 	constexpr float ground_reference_altitude_m = 0.0f;
@@ -157,16 +157,17 @@ float compute_pressure_vega(float delta_altitude_vega = 3000, float ground_press
 	const float R = 8.31432;  // Universal gas constant [N*m/mol*K]
 	const float g0 = 9.80665; // Gravitational constant [m/s^2]
 
+	delta_altitude_vega = 3000;
 
 	const float exponent = -(R*Lb)/(g0*M);
 	float temperature_rise = ground_reference_temperature_k / Lb;
-	float pressure_ratio = air_pressure / ground_reference_pressure_pa;
+	float pressure_ratio = ground_pressure / ground_reference_pressure_pa;
 	float ground_altitude_vega = temperature_rise * (powf(pressure_ratio, exponent) - 1);
 	
 
 	float pressure_vega_target = ground_reference_pressure_pa * powf(1/(1+Lb/ground_reference_pressure_pa * (delta_altitude_vega + ground_altitude_vega)), (g0*M)/(R*Lb));
 
-	log(S_OTHER, T_SYSLOG, ground_altitude_vega, pressure_vega_target);
+	Serial.printf("DIOBASTARDO %f %f\n", ground_altitude_vega, pressure_vega_target);
 
 	return pressure_vega_target;
 }
@@ -181,7 +182,7 @@ float compute_height_real(float pressure_real, float ground_pressure, float grou
 
 	const float exponent = -(R*Lb)/(g0*M);
 	float temperature_rise = ground_temp / Lb;
-	float pressure_ratio = air_pressure / ground_pressure;
+	float pressure_ratio = pressure_real / ground_pressure;
 
 	float altitude = temperature_rise * (powf(pressure_ratio, exponent) - 1);
 

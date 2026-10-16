@@ -282,8 +282,8 @@ void setup(void)
 void loop(void)
 {
 
-	float p1 = compute_pressure_vega(3000);
-	float target_alt = compute_height_real(p1);
+	//float p1 = compute_pressure_vega(3000);
+	//float target_alt = compute_height_real(p1;
 
 //	log(S_OTHER, T_SYSLOG, "pressione a 3000m del vega: ");
 //	log(S_OTHER, T_SYSLOG, p1);
@@ -439,7 +439,8 @@ TASK barometer_task(TaskDescriptor_t* self)
 			
 			}
 
-			static bool first call = true;
+			compute_pressure_vega(3000, sample1.pressure);
+			static bool first_call = true;
 			if (first_call){
 				first_call = false;
 				float target_alt = compute_height_real(sample1.pressure, sample1.pressure, sample1.temperature);

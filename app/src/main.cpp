@@ -252,21 +252,21 @@ void setup(void)
 	digitalWrite(PINT6_LS, LOW);
 
 	// Blink to confirm end of setup
-	digitalWrite(PIN_DBG_LED, HIGH);
+	analogWrite(PIN_DBG_LED, DBG_LED_PWM);
 	delay(200);
-	digitalWrite(PIN_DBG_LED, LOW);
+	analogWrite(PIN_DBG_LED, 0);
 	delay(200);
-	digitalWrite(PIN_DBG_LED, HIGH);
+	analogWrite(PIN_DBG_LED, DBG_LED_PWM);
 	delay(200);
-	digitalWrite(PIN_DBG_LED, LOW);
+	analogWrite(PIN_DBG_LED, 0);
 	delay(200);
-	digitalWrite(PIN_DBG_LED, HIGH);
+	analogWrite(PIN_DBG_LED, DBG_LED_PWM);
 	delay(200);
-	digitalWrite(PIN_DBG_LED, LOW);
+	analogWrite(PIN_DBG_LED, 0);
 	delay(200);
-	digitalWrite(PIN_DBG_LED, HIGH);
+	analogWrite(PIN_DBG_LED, DBG_LED_PWM);
 	delay(200);
-	digitalWrite(PIN_DBG_LED, LOW);
+	analogWrite(PIN_DBG_LED, 0);
 	delay(200);
 
 	setup_finished_time_ms = millis();
@@ -278,9 +278,9 @@ static bool baro_healthy = true;
 // Heartbeat
 void loop(void)
 {
-	digitalWrite(PIN_DBG_LED, HIGH);
+	analogWrite(PIN_DBG_LED, DBG_LED_PWM);
 	delay(1000);
-	digitalWrite(PIN_DBG_LED, LOW);
+	analogWrite(PIN_DBG_LED, 0);
 	delay(1000);
 }
 

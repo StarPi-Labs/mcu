@@ -113,4 +113,6 @@
 #define STOP_SD_WRITE_MS                 600000
 
 
+// Others
 #define GROUND_CHECK_TIMER_MS            60*1000
+#define DBG_LED_PWM                      255/3

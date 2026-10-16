@@ -1,16 +1,39 @@
 [ ] Aggiorna la bool airbrake_trigger del filtro di kalman quando accendiamo e
     spengiamo l'airbrake
-[ ] Aggiornare valore di soglia per cui il filtro di kalman pensa di essere in boost
+[x] Aggiornare valore di soglia per cui il filtro di kalman pensa di essere in boost
 [ ] Aggiornare valori dei sigma nel filtro di kalman
 
 [ ] Controllare che ho dati IMU e in caso non ci fossero disabilitare filtro di kalman
     (con solo barometro si hanno risultati migliori)
 [ ] Se uno o tutti i barometri non vanno cosa fare (kalman in freefall sfancula tanto)
-[ ] Inserire GPS come ridondanza? (solo se arrivano dati, non usare dati vecchi)
+[x] Inserire GPS come ridondanza? (solo se arrivano dati, non usare dati vecchi)
 
 [x] Rivedi conto accellerazione, va proiettata lungo la verticale considerando
     tutti e tre le componenti (vedi simulatore)
 
 [x] Dorgue e main si ativano troppo presto (da vedere)
 
-[ ] Separare le routine di calibrazione e implementare comando da GS per chiamarle
+[x] Separare le routine di calibrazione e implementare comando da GS per chiamarle
+
+[ ] Aprire airbrake in caso di errore, tranne se airbrake è rotto e abbiamo perso un petalo
+
+[ ] FSM: se l'accellerometro muore la detection del burnout viene male dato che 
+    z_acc non viene aggiornato
+
+[x] Rivedere la detection dell'apogeo, quando azionare se appena comincia a scendere
+    o quando si è appena fermato
+[ ] Raggruppare la variabili da cambiare
+[x] Vedere TODO nel codice
+[x] Aggiornare dati metereologici in giornata di lancio, creare un comando da GS
+    che li aggiorna nel codice. Oppure usare quelli del vega (anche formula)
+[ ] Tieni scheda accesa per sei ore e vedi se il log contiene tutto, oppure dividi
+    file in max 50MiB ciascuno
+
+[ ] TESTA CAMBIO VARIABILI FSM e PIN PERIFERICHE CON LED
+[ ] Timer per passare da apogeo a drogue, molto largo in caso IMU morta
+[ ] Valutare se non attivare cutter in caso si usi timer di emergenza per passare
+    COAST->DROGUE e DROGUE->MAIN dato che in quel caso il VEGA dovrebbe aver già attivato
+[ ] Capire quale dei due barometri è fuori norma, capendo quale è più lontano da 146m
+[ ] Se falliscono entrambi i sensori cosa facciamo? aspettiamo? recuperiamo? apriamo
+    l'aerofreno? Se poi riprendo e sono in uno stato diverso da quello in cui sono
+    davvero posso recuperare lo stato vero?

@@ -741,6 +741,8 @@ TASK lora_formatter_task(TaskDescriptor_t* self)
 				break;
 			}
 		}
+		// TODO: this should be better
+		lora_tx_packet.sensor_status = imu_healthy << 0 | baro_healthy << 1;
 		xSemaphoreGive(lora_tx_packet_semaphore);
 	}
 }

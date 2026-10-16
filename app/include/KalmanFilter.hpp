@@ -132,32 +132,40 @@ public:
 	//   a : accelerazione verticale misurata in G, rispetto l'asse normale alla scheda
 	//   alpha : angolo di tilt rispetto alla verticale (in radianti)
 	//   airbrake_trigger : se true, si è in fase di airbrakes
-	void predict(float a, float alpha, bool airbrake_trigger)
+	void predict(float a, float alpha, bool airbrake_trigger, bool imu_ok)
 	{
 		//alpha è l'angolo di tilt rispetto alla verticale
 		A(0,1) = dt;
 
-		if (!airbrake_trigger) {
-			if (a > ACC_BOOST_THRESHOLD_G) {
-				// Boost  !!! Bisogna valutare le condizioni per capire bene la logica del gain scheduling
-				Q = sigma_boost*Q_base;
-				R = sigma_bar_boost;
+		if (imu_ok) {
+			if (!airbrake_trigger) {
+				if (a > ACC_BOOST_THRESHOLD_G) {
+					// Boost  !!! Bisogna valutare le condizioni per capire bene la logica del gain scheduling
+					Q = sigma_boost*Q_base;
+					R = sigma_bar_boost;
+				} else {
+					// Coast
+					Q = sigma_coast*Q_base;
+					R = sigma_bar_coast;
+				}
 			} else {
-				// Coast
-				Q = sigma_coast*Q_base;
-				R = sigma_bar_coast;
+				// Airbrakes
+				if (x(1) > 0) {
+					// se la velocità verticale è positiva (cioè verso l'alto)
+					Q = sigma_airbrakes*Q_base;
+					R = sigma_bar_airbrake;
+				} else {
+					// Free fall
+					Q = sigma_freefall*Q_base;
+					R = sigma_bar_freefall;
+				}
 			}
 		} else {
-			// Airbrakes
-			if (x(1) > 0) {
-				// se la velocità verticale è positiva (cioè verso l'alto)
-				Q = sigma_airbrakes*Q_base;
-				R = sigma_bar_airbrake;
-			} else {
-				// Free fall
-				Q = sigma_freefall*Q_base;
-				R = sigma_bar_freefall;
-			}
+			// If IMU is not ok simply not calling predict does not work, so use
+			// a constant speed model and increase the uncertainty on the IMU value
+			// basically trusting only the barometer
+			a = g;
+			Q = (sigma_boost*10)*Q_base;
 		}
 
 		x = A*x + (a - g)*g0*u;

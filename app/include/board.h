@@ -97,7 +97,8 @@
 #define Z_ACC_BOOST_THRESHOLD_G          3
 #define Z_SPEED_BOOST_THRESHOLD_MPS      25.0
 #define Z_SPEED_APOGEE_THRESHOLD_MPS     0.0
-#define MIN_TIME_TO_1500M_MS             8540
+#define MAX_ALT_BURNOUT_M                700
+#define MIN_AIRBRAKE_ALT_M               1500
 #define Z_ALT_MAIN_DEPLOYMENT_M          400.0
 #define Z_ALT_TOUCHDOWN_M                10.0
 #define Z_SPEED_STATIONARY_MPS           0.1
@@ -112,4 +113,6 @@
 #define STOP_SD_WRITE_MS                 600000
 
 
+// Others
 #define GROUND_CHECK_TIMER_MS            60*1000
+#define DBG_LED_PWM                      255/3

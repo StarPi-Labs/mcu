@@ -102,6 +102,7 @@ struct [[gnu::packed]] LoRaDataPacket
 		int16_t dt;
 	} gps;
 	uint8_t state;
+	uint8_t sensor_status;
 };
 
 // Ground station command ids. The same ids are the single byte written to the

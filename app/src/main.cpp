@@ -27,6 +27,11 @@ KalmanFilter altitude;
 static bool enable_sd_card = true;
 static int64_t setup_finished_time_ms; 
 
+// flags
+static bool imu_healthy = true;
+static bool baro_healthy = true;
+static bool airbrake_active = false;
+
 // TX lora packet
 LoRaDataPacket lora_tx_packet;
 DECLARE_STATIC_SEMAPHORE(lora_tx_packet_semaphore);
@@ -252,28 +257,26 @@ void setup(void)
 	digitalWrite(PINT6_LS, LOW);
 
 	// Blink to confirm end of setup
-	digitalWrite(PIN_DBG_LED, HIGH);
+	analogWrite(PIN_DBG_LED, DBG_LED_PWM);
 	delay(200);
-	digitalWrite(PIN_DBG_LED, LOW);
+	analogWrite(PIN_DBG_LED, 0);
 	delay(200);
-	digitalWrite(PIN_DBG_LED, HIGH);
+	analogWrite(PIN_DBG_LED, DBG_LED_PWM);
 	delay(200);
-	digitalWrite(PIN_DBG_LED, LOW);
+	analogWrite(PIN_DBG_LED, 0);
 	delay(200);
-	digitalWrite(PIN_DBG_LED, HIGH);
+	analogWrite(PIN_DBG_LED, DBG_LED_PWM);
 	delay(200);
-	digitalWrite(PIN_DBG_LED, LOW);
+	analogWrite(PIN_DBG_LED, 0);
 	delay(200);
-	digitalWrite(PIN_DBG_LED, HIGH);
+	analogWrite(PIN_DBG_LED, DBG_LED_PWM);
 	delay(200);
-	digitalWrite(PIN_DBG_LED, LOW);
+	analogWrite(PIN_DBG_LED, 0);
 	delay(200);
 
 	setup_finished_time_ms = millis();
 }
 
-static bool imu_healthy = true;
-static bool baro_healthy = true;
 
 // Heartbeat
 void loop(void)
@@ -289,10 +292,9 @@ void loop(void)
 //	log(S_OTHER, T_SYSLOG, target_alt);
 	
 
-
-	digitalWrite(PIN_DBG_LED, HIGH);
+	analogWrite(PIN_DBG_LED, DBG_LED_PWM);
 	delay(1000);
-	digitalWrite(PIN_DBG_LED, LOW);
+	analogWrite(PIN_DBG_LED, 0);
 	delay(1000);
 }
 
@@ -337,7 +339,7 @@ TASK imu_task(TaskDescriptor_t* self)
 				float attitude_rad = acosf(cos_tilt); // same as acos(cos p * cos r) but NaN-safe
 				float vertical_accel = 2*(qx*qz - qw*qy) * ax + 2*(qy*qz + qw*qx) * ay + (1 - 2*(qx*qx + qy*qy)) * az;
 				// TODO: airbrake trigger
-				altitude.predict(vertical_accel, attitude_rad, false);
+				altitude.predict(vertical_accel, attitude_rad, airbrake_active, true);
 
 #if TEST_FAKE_DATA != 1
 				log(S_IMU, T_ORIENTATION, orientation.getRoll(), orientation.getPitch(), orientation.getYaw());
@@ -407,6 +409,9 @@ TASK imu_task(TaskDescriptor_t* self)
 				// log real accelleration but under another type to not interfere with launch simulation
 				log(S_IMU, T_SYSLOG, sample.accelerometer[0], sample.accelerometer[1], sample.accelerometer[2]);
 #endif
+			} else {
+				// IMU reading was not ok, still predict with constant speed model
+				altitude.predict(0, 0, airbrake_active, false);
 			}
 			xSemaphoreGive(spi_semaphore);
 		}
@@ -574,7 +579,7 @@ TASK parachute_task(TaskDescriptor_t* self)
 
 		case RS_BOOST:
 			// Detect motor burnout
-			if (z_acc < 0) {
+			if (z_acc < 0 || z_alt > MAX_ALT_BURNOUT_M) {
 				sample_count++;
 			} else {
 				sample_count = 0;
@@ -589,7 +594,10 @@ TASK parachute_task(TaskDescriptor_t* self)
 			break;
 
 		case RS_COAST:
-			// TODO: control aibrakes
+		if (z_alt > MIN_AIRBRAKE_ALT_M) {
+				// TODO: control aibrakes
+				// airbrake_active = true;
+			}
 
 			// Detect apogee
 			if (z_speed <= Z_SPEED_APOGEE_THRESHOLD_MPS) {
@@ -621,6 +629,7 @@ TASK parachute_task(TaskDescriptor_t* self)
 
 		case RS_DROGUE:
 			// TODO: retract airbrakes
+			// airbrake_active = false;
 
 			// Detect main parachute deployment
 			if (z_alt <= Z_ALT_MAIN_DEPLOYMENT_M) {
@@ -763,6 +772,8 @@ TASK lora_formatter_task(TaskDescriptor_t* self)
 				break;
 			}
 		}
+		// TODO: this should be better
+		lora_tx_packet.sensor_status = imu_healthy << 0 | baro_healthy << 1;
 		xSemaphoreGive(lora_tx_packet_semaphore);
 	}
 }

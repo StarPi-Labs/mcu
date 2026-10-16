@@ -74,8 +74,8 @@ void AirBrake::compute_predicted_apogee_m()
 	float v_axis = vel_z / cosf(attitude_deg*DEG_TO_RAD);
 	float x_geom = theta_to_extension();
 
-	double cd_min = 0.2656285714286 * x_geom + 0.3339857142857;
-	double k = (0.5 * compute_rho(alt_z) * cd_min * FRONTAL_AREA)/ROCKET_MASS;
+	float cd_min = 0.21371 * x_geom * x_geom - 2.4482 * 0.001 * x_geom + 0.38143;
+	float k = (0.5 * compute_rho(alt_z) * cd_min * FRONTAL_AREA)/ROCKET_MASS;
 
 	if (vel_z > 0 && k > 1e-12) {
 		predicted_apogee = alt_z + 0.5/k * log(1+((k*vel_z)*(k*vel_z))/G0);
@@ -111,7 +111,21 @@ float AirBrake::PID(float error){
 
 
 float AirBrake::transfer_function(float theta_PID_rad){
+	static long last_time = millis();
+	float dt = (millis() - last_time) / 1000;
+
+	float num_s[2] = {64.93, -0.811625};
+	float den_s[4] = {64.93, 22.561625, 1.271875, 0.0125};
+
+	static float y_last = theta_PID_rad;
+	float 
 	
+	y_last = theta_PID_rad;
+
+
+	float y_dddot = theta_PID_rad + 
+
+	static float y_dot
 }
 
 

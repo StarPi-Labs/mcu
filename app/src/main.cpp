@@ -325,7 +325,7 @@ TASK imu_task(TaskDescriptor_t* self)
 				float attitude_rad = acosf(cos_tilt); // same as acos(cos p * cos r) but NaN-safe
 				float vertical_accel = 2*(qx*qz - qw*qy) * ax + 2*(qy*qz + qw*qx) * ay + (1 - 2*(qx*qx + qy*qy)) * az;
 				// TODO: airbrake trigger
-				altitude.predict(vertical_accel, attitude_rad, false);
+				altitude.predict(vertical_accel, attitude_rad, false, true);
 
 #if TEST_FAKE_DATA != 1
 				log(S_IMU, T_ORIENTATION, orientation.getRoll(), orientation.getPitch(), orientation.getYaw());
@@ -395,6 +395,9 @@ TASK imu_task(TaskDescriptor_t* self)
 				// log real accelleration but under another type to not interfere with launch simulation
 				log(S_IMU, T_SYSLOG, sample.accelerometer[0], sample.accelerometer[1], sample.accelerometer[2]);
 #endif
+			} else {
+				// IMU reading was not ok, still predict with constant speed model
+				altitude.predict(0, 0, false, false);
 			}
 			xSemaphoreGive(spi_semaphore);
 		}
@@ -415,7 +418,7 @@ TASK barometer_task(TaskDescriptor_t* self)
 			if (millis() - setup_finished_time_ms < GROUND_CHECK_TIMER_MS) {
 	
 				baro_healthy = is_baro_healthy_ground(sample1.pressure, sample2.pressure, sample1.temperature, sample2.temperature);
-				if (!baro_healthy) 	log(S_OTHER, T_SYSLOG, "Baro not healthy");
+				if (!baro_healthy) log(S_OTHER, T_SYSLOG, "Baro not healthy");
 			}
 
 			// FIXME: is the median really the best way to fuse the two barometer readings?
@@ -542,7 +545,7 @@ TASK parachute_task(TaskDescriptor_t* self)
 
 		case RS_BOOST:
 			// Detect motor burnout
-			if (z_acc < 0) {
+			if (z_acc < 0 || z_alt > MAX_ALT_BURNOUT_M) {
 				sample_count++;
 			} else {
 				sample_count = 0;

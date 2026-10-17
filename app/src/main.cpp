@@ -281,17 +281,6 @@ void setup(void)
 // Heartbeat
 void loop(void)
 {
-
-	//float p1 = compute_pressure_vega(3000);
-	//float target_alt = compute_height_real(p1;
-
-//	log(S_OTHER, T_SYSLOG, "pressione a 3000m del vega: ");
-//	log(S_OTHER, T_SYSLOG, p1);
-
-//	log(S_OTHER, T_SYSLOG, "target_alt: ");
-//	log(S_OTHER, T_SYSLOG, target_alt);
-	
-
 	analogWrite(PIN_DBG_LED, DBG_LED_PWM);
 	delay(1000);
 	analogWrite(PIN_DBG_LED, 0);
@@ -419,8 +408,6 @@ TASK imu_task(TaskDescriptor_t* self)
 	}
 }
 
-static float ground_temp0 = 0.0f;
-static float ground_pressure0 = 0.0f;
 TASK barometer_task(TaskDescriptor_t* self)
 {
 	self->last_wake = xTaskGetTickCount();
@@ -435,25 +422,6 @@ TASK barometer_task(TaskDescriptor_t* self)
 	
 				baro_healthy = is_baro_healthy_ground(sample1.pressure, sample2.pressure, sample1.temperature, sample2.temperature);
 				if (!baro_healthy) 	log(S_OTHER, T_SYSLOG, "Baro not healthy");
-
-			
-			}
-
-			compute_pressure_vega(3000, sample1.pressure);
-			static bool first_call = true;
-			if (first_call){
-				first_call = false;
-				float target_alt = compute_height_real(sample1.pressure, sample1.pressure, sample1.temperature);
-				// log();
-
-				ground_pressure0 = sample1.pressure;
-				ground_temp0 = sample1.temperature;
-			}
-			else {
-				float target_alt = compute_height_real(sample1.pressure, ground_pressure0, ground_temp0);
-
-				// log();
-
 			}
 
 			// FIXME: is the median really the best way to fuse the two barometer readings?

@@ -30,6 +30,32 @@ MS5611 baro2(BARO2_ADDRESS, &I2C1);
 float ground_pressure_pa_1 = 0.0; // memorizzo pressione misurata sulla rampa di lancio
 float ground_pressure_pa_2 = 0.0; // memorizzo pressione misurata sulla rampa di lancio
 float ground_temperature_k = 0.0;
+float ground_reference_altitude_m = 0.0f; // altitudine alla calibrazione calcolata con atmosfera standard dal livello del mare
+
+
+// NOTE: cats vega as reference -> sea level temp and pressure are 15°C and 101250 Pa, respectively
+//       as such baro calibration is useless, this should be changed if we don't use cats vega as reference
+// https://www.mide.com/air-pressure-at-altitude-calculator
+float compute_altitude(float air_pressure, float ground_pressure)
+{
+	(void)ground_pressure;
+	constexpr float ground_reference_temperature_k = 15.0f + 273.15f; // standard temperature at sea level
+	constexpr float ground_reference_pressure_pa = 101250.0f;
+
+	// FIXME: Lb and M change with weather conditions
+	const float Lb = -0.0065; // standard temperature lapse rate [K/m]
+	const float M = 0.0289644; // Molar mass of air [kg/mol]
+	const float R = 8.31432;  // Universal gas constant [N*m/mol*K]
+	const float g0 = 9.80665; // Gravitational constant [m/s^2]
+
+	const float exponent = -(R*Lb)/(g0*M);
+	float temperature_rise = ground_reference_temperature_k / Lb;
+	float pressure_ratio = air_pressure / ground_reference_pressure_pa;
+
+	float altitude = ground_reference_altitude_m + temperature_rise * (powf(pressure_ratio, exponent) - 1);
+
+	return altitude;
+}
 
 
 /*scaletta: 1. reset del barometro;
@@ -114,35 +140,14 @@ bool barometer_calibrate(unsigned int cal_time_ms)
 	ground_pressure_pa_1 = p1_median;
 	ground_pressure_pa_2 = p2_median;
 
+	float m = (ground_pressure_pa_1+ground_pressure_pa_2)/2.0f;
+	ground_reference_altitude_m = compute_altitude(m, m);
+
 	log(S_BARO, T_PRESSURE, ground_pressure_pa_1, ground_pressure_pa_2);
 	log(S_BARO, T_TEMPERATURE, t1_median, t2_median);
 	ground_temperature_k = (t1_median+t2_median)/2.0 + 273.15;
 
 	return true;
-}
-
-// NOTE: cats vega as reference -> sea level temp and pressure are 15°C and 101250 Pa, respectively
-//       as such baro calibration is useless, this should be changed if we don't use cats vega as reference
-// https://www.mide.com/air-pressure-at-altitude-calculator
-float compute_altitude(float air_pressure, float ground_pressure)
-{
-	constexpr float ground_reference_temperature_k = 15.0f + 273.15f; // standard temperature at sea level
-	constexpr float ground_reference_pressure_pa = 101250.0f;
-	constexpr float ground_reference_altitude_m = 0.0f;
-
-	// FIXME: Lb and M change with weather conditions
-	const float Lb = -0.0065; // standard temperature lapse rate [K/m]
-	const float M = 0.0289644; // Molar mass of air [kg/mol]
-	const float R = 8.31432;  // Universal gas constant [N*m/mol*K]
-	const float g0 = 9.80665; // Gravitational constant [m/s^2]
-
-	const float exponent = -(R*Lb)/(g0*M);
-	float temperature_rise = ground_reference_temperature_k / Lb;
-	float pressure_ratio = air_pressure / ground_reference_pressure_pa;
-
-	float altitude = ground_reference_altitude_m + temperature_rise * (powf(pressure_ratio, exponent) - 1);
-
-	return altitude;
 }
 
 

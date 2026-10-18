@@ -276,21 +276,21 @@ void setup(void)
 	digitalWrite(PINT6_LS, LOW);
 
 	// Blink to confirm end of setup
-	analogWrite(PIN_DBG_LED, DBG_LED_PWM);
+	digitalWrite(PIN_DBG_LED, HIGH);
 	delay(200);
-	analogWrite(PIN_DBG_LED, 0);
+	digitalWrite(PIN_DBG_LED, LOW);
 	delay(200);
-	analogWrite(PIN_DBG_LED, DBG_LED_PWM);
+	digitalWrite(PIN_DBG_LED, HIGH);
 	delay(200);
-	analogWrite(PIN_DBG_LED, 0);
+	digitalWrite(PIN_DBG_LED, LOW);
 	delay(200);
-	analogWrite(PIN_DBG_LED, DBG_LED_PWM);
+	digitalWrite(PIN_DBG_LED, HIGH);
 	delay(200);
-	analogWrite(PIN_DBG_LED, 0);
+	digitalWrite(PIN_DBG_LED, LOW);
 	delay(200);
-	analogWrite(PIN_DBG_LED, DBG_LED_PWM);
+	digitalWrite(PIN_DBG_LED, HIGH);
 	delay(200);
-	analogWrite(PIN_DBG_LED, 0);
+	digitalWrite(PIN_DBG_LED, LOW);
 	delay(200);
 
 	setup_finished_time_ms = millis();
@@ -300,9 +300,9 @@ void setup(void)
 // Heartbeat
 void loop(void)
 {
-	analogWrite(PIN_DBG_LED, DBG_LED_PWM);
+	digitalWrite(PIN_DBG_LED, HIGH);
 	delay(1000);
-	analogWrite(PIN_DBG_LED, 0);
+	digitalWrite(PIN_DBG_LED, LOW);
 	delay(1000);
 }
 

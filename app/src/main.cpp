@@ -13,11 +13,14 @@
 #include "sdcard.h"
 #include "task.h"
 
+#include "airbrake.hpp"
+
 SPIClass SPI2(FSPI);
 TwoWire I2C1(0);
 
 // State filter for orientation estimation, used in the IMU task
 Adafruit_Mahony orientation;
+float attitude_rad;
 
 // Altitude and veritcal velocity state filter, used to sense when to deploy
 // the parachute
@@ -322,7 +325,7 @@ TASK imu_task(TaskDescriptor_t* self)
 				// Update the altitude and vertical velocity estimation
 				// with the inertial data
 				float cos_tilt = constrain(1 - 2*(qx*qx + qy*qy), -1.0f, 1.0f);
-				float attitude_rad = acosf(cos_tilt); // same as acos(cos p * cos r) but NaN-safe
+				attitude_rad = acosf(cos_tilt); // same as acos(cos p * cos r) but NaN-safe
 				float vertical_accel = 2*(qx*qz - qw*qy) * ax + 2*(qy*qz + qw*qx) * ay + (1 - 2*(qx*qx + qy*qy)) * az;
 				// TODO: airbrake trigger
 				altitude.predict(vertical_accel, attitude_rad, false, true);
@@ -503,6 +506,8 @@ TASK parachute_task(TaskDescriptor_t* self)
 				z_alt = msg.payload.fv3.x;
 				z_speed = msg.payload.fv3.y;
 				z_acc = msg.payload.fv3.z;
+				// msg.payload.
+				//pressure = msg.payload.
 			}
 		}
 
@@ -560,7 +565,30 @@ TASK parachute_task(TaskDescriptor_t* self)
 			break;
 
 		case RS_COAST:
-			// TODO: control aibrakes
+			if (z_alt > MIN_AIRBRAKE_ALT_M) {
+				// TODO: control aibrakes
+				// airbrake_active = true;
+
+				static AirBrake petali;
+				float pressure = 0.0f;
+				float theta_pid = petali.theta_update(z_alt, z_speed, attitude_rad, pressure);
+				//attuazione airbrake
+				
+				/*
+				//TODO: setta valori
+				petali.input_values(alt, vel, attitude);
+				float theta_pid = petali.PID(3000 - petali.predicted_apogee); //capisci se positivo o negativo
+				
+
+				//TODO: attuazione servo con theta_pid
+				
+				
+				petali.transfer_function(theta_pid);
+				petali.compute_predicted_apogee_m();
+
+				*/
+
+			}
 
 			// Detect apogee
 			if (z_speed <= Z_SPEED_APOGEE_THRESHOLD_MPS) {
@@ -592,7 +620,7 @@ TASK parachute_task(TaskDescriptor_t* self)
 
 		case RS_DROGUE:
 			// TODO: retract airbrakes
-
+			// airbrake_active = false;
 			// Detect main parachute deployment
 			if (z_alt <= Z_ALT_MAIN_DEPLOYMENT_M) {
 				sample_count++;
@@ -734,6 +762,8 @@ TASK lora_formatter_task(TaskDescriptor_t* self)
 				break;
 			}
 		}
+		 // gemini mi dà errore ->
+		// lora_tx_packet.sensor_status = imu_healthy << 0 | baro_healthy << 1;
 		xSemaphoreGive(lora_tx_packet_semaphore);
 	}
 }

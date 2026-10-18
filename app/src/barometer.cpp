@@ -124,7 +124,7 @@ bool barometer_calibrate(unsigned int cal_time_ms)
 // NOTE: cats vega as reference -> sea level temp and pressure are 15°C and 101250 Pa, respectively
 //       as such baro calibration is useless, this should be changed if we don't use cats vega as reference
 // https://www.mide.com/air-pressure-at-altitude-calculator
-float compute_altitude(float air_pressure, float ground_pressure)
+float compute_altitude_asl(float air_pressure)
 {
 	constexpr float ground_reference_temperature_k = 15.0f + 273.15f; // standard temperature at sea level
 	constexpr float ground_reference_pressure_pa = 101250.0f;
@@ -159,12 +159,12 @@ void barometer_read(BaroData *sample1, BaroData *sample2)
 	if (sample1->error_status == 0) {
 		sample1->temperature = baro1.getTemperature(); // temperatura in °C
 		sample1->pressure = baro1.getPressurePascal(); // pressione in Pa
-		sample1->altitude = compute_altitude(sample1->pressure, ground_pressure_pa_1); // altitudine in metri
+		sample1->altitude = compute_altitude_asl(sample1->pressure, ground_pressure_pa_1); // altitudine in metri
 	}
 	if (sample2->error_status == 0) {
 		sample2->temperature = baro2.getTemperature(); // temperatura in °C
 		sample2->pressure = baro2.getPressurePascal(); // pressione in Pa
-		sample2->altitude = compute_altitude(sample2->pressure, ground_pressure_pa_2); // altitudine in metri
+		sample2->altitude = compute_altitude_asl(sample2->pressure, ground_pressure_pa_2); // altitudine in metri
 	}
 }
 

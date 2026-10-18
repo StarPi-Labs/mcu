@@ -114,3 +114,4 @@
 
 
 #define GROUND_CHECK_TIMER_MS            60*1000
+#define MIN_AIRBRAKE_ALT_M               1500

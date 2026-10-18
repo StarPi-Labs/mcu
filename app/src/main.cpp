@@ -13,6 +13,11 @@
 #include "sdcard.h"
 #include "task.h"
 
+#if TEST_FAKE_DATA == 1
+#include "test_synthetic_data.h"
+#endif
+
+
 SPIClass SPI2(FSPI);
 TwoWire I2C1(0);
 
@@ -359,40 +364,18 @@ TASK imu_task(TaskDescriptor_t* self)
 				log(S_IMU, T_GYRO, gx, gy, gz);
 				log(S_IMU, T_FILTER_STATE, fs[0], fs[1], fs[2]);
 #else
-#define IDLE_TIME 5000
-				static struct DataSample {
-					uint32_t time;
-					float z_alt;
-					float z_speed;
-					float z_acc;
-				} test_data[] = {
-				    {0 + 0, 0.0, 0.0, 0.0},
-				    {IDLE_TIME + 0, 0.0, 0.0, 0.0},              // Idle time
-				    {IDLE_TIME + 660, 2.0, 35.24, 6.05},         // Rail exit
-				    {IDLE_TIME + 2100, 132.0, 132.0, 7.1},       // Max g
-				    {IDLE_TIME + 4300, 712.7, 251.02, -1.66},    // Motor burnout
-				    {IDLE_TIME + 25700, 3175.22, 0.0, -0.99},    // Apogee
-				    {IDLE_TIME + 28190, 3145.11, -24.6, -0.83},  // Drogue deployment
-				    {IDLE_TIME + 30000, 2946.39, -28.2, -0.05},  // End drogue deployment
-				    {IDLE_TIME + 108790, 465.11, -31.71, 0.0},   // Just before main
-				    {IDLE_TIME + 109000, 464.00, -31.71, 13.62}, // Main deployment
-				    {IDLE_TIME + 109150, 462.00, -5.5, 0.05},    // End main deployment
-				    {IDLE_TIME + 170000, 0.0, 0.0, 0.05},        // Just before impact
-				    {IDLE_TIME + 170100, 0.0, 0.0, 0.0},         // Touchdown
-				};
-#define TEST_DATA_SIZE sizeof(test_data) / sizeof(test_data[0])
-
+				const uint32_t IDLE_TIME = 5000;
 				auto get_sample = [&] {
 					uint32_t current_time = millis() - start_time;
-					if (current_time <= test_data[0].time) {
+					if (current_time <= test_data[0].time + IDLE_TIME) {
 						return test_data[0];
 					}
 
-					if (current_time >= test_data[TEST_DATA_SIZE - 1].time) {
-						return test_data[TEST_DATA_SIZE - 1];
+					if (current_time >= test_data[TEST_DATA_LEN - 1].time) {
+						return test_data[TEST_DATA_LEN - 1];
 					}
 
-					for (size_t i = 0; i < TEST_DATA_SIZE - 1; i++) {
+					for (size_t i = 0; i < TEST_DATA_LEN - 1; i++) {
 						if (current_time >= test_data[i].time && current_time < test_data[i + 1].time) {
 							uint32_t t0 = test_data[i].time;
 							uint32_t t1 = test_data[i + 1].time;
@@ -402,7 +385,7 @@ TASK imu_task(TaskDescriptor_t* self)
 
 							auto lerp = [](float start, float end, float frac) { return start + frac * (end - start); };
 
-							DataSample result;
+							struct DataSample result;
 							result.z_alt = lerp(test_data[i].z_alt, test_data[i + 1].z_alt, fraction);
 							result.z_speed = lerp(test_data[i].z_speed, test_data[i + 1].z_speed, fraction);
 							result.z_acc = lerp(test_data[i].z_acc, test_data[i + 1].z_acc, fraction);
@@ -410,16 +393,16 @@ TASK imu_task(TaskDescriptor_t* self)
 							return result;
 						}
 					}
-					return test_data[TEST_DATA_SIZE - 1];
+					return test_data[TEST_DATA_LEN - 1];
 				};
 
 				struct DataSample s = get_sample();
 
-				log(S_IMU, T_ACCELLERATION, 0.0, 0.0, s.z_acc);
+				log(S_BARO, T_PRESSURE, s.pressure, s.pressure);
 				log(S_IMU, T_FILTER_STATE, s.z_alt, s.z_speed, s.z_acc);
 
 				// log real accelleration but under another type to not interfere with launch simulation
-				log(S_IMU, T_SYSLOG, sample.accelerometer[0], sample.accelerometer[1], sample.accelerometer[2]);
+				log(S_IMU, T_SYSLOG, ax, ay, az);
 #endif
 			} else {
 				// IMU reading was not ok, still predict with constant speed model

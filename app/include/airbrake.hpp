@@ -1,7 +1,9 @@
 #pragma once
 #include <cmath>
 #include "barometer.h"
-#include <algorithm>
+#include "KalmanFilter.hpp"
+
+
 
 extern float current_ts;
 
@@ -31,7 +33,9 @@ inline float compute_altitude_real(float P){
 
 class AirBrake {
 private:
-	float alt_z;
+
+	KalmanFilter kalman;
+
 	float vel_z;
 	float theta_servo_rad;
 	float attitude_rad;
@@ -42,8 +46,6 @@ private:
 
 	float current_pressure;
 
-	float target_alt_asl = 2960;
-	float ALT_ZERO = 160.0f;
 	static constexpr float RHO_ZERO = 1.225f;
 
 	static constexpr float TEMP_ZERO = 273.15f + 20.0f; // TODO: use real temp?, is it sea level?
@@ -51,8 +53,6 @@ private:
 	static constexpr float FRONTAL_AREA = 0.149f * 0.149f * 3.14159265358979323846f * 0.25f;
 	static constexpr float G0 = 9.80665f;
 	static constexpr float ROCKET_MASS = 32.41f; // FIXME: change mass
-	static constexpr float RAD_TO_DEG = 180.0f / 3.14159265358979323846f;
-	static constexpr float DEG_TO_RAD = 3.14159265358979323846f / 180.0f;
 	// const float R = 1.0f; // FIXME: change arm radius
 	// const float L = 1.0f; // FIXME: change arm radius
 
@@ -74,22 +74,28 @@ private:
 	void transfer_function(float theta_PID_deg);
 
 	//68657 Pa -> 3000m
-	//99370 Pa -> rampa 
-	//101250 Pa -> mare
 
 public:
+	float alt_z;
+	float alt_ground = 160.0f;
+
 
 	AirBrake();
 	void reset();
-	void input_values(float alt, float vel, float attitude, float pressure);
-	float predict_apogee(float alt, float vel, float attitude, float pressure);
+	void input_values(float alt, float vel, float attitude, float pressure, float z_acc = 0.0f);
+	float predict_apogee(float alt, float vel, float attitude, float pressure, float z_acc = 0.0f);
 	float get_predicted_apogee() const { return predicted_apogee; }
 	float get_target_alt_asl() const { return target_alt_asl; }
-	float theta_update(float alt, float vel, float attitude, float pressure);
+	float get_altitude_target() const { return target_alt_asl; }
+	float theta_update(float alt, float vel, float attitude, float pressure, float z_acc = 0.0f);
 	float theta_update();
+	
 	// void set_altitude_0(float ground_pressure);
+	float set_altitude_target(float ground_pressure);
 	float get_altitude_asl(float pressure);
-	// void set_altitude_target(float p_vega_3000);
+
+
+	float target_alt_asl = 2960; 
 
 };
 
@@ -101,21 +107,17 @@ public:
 // void AirBrake::set_ground_pressure(float _ground_pressure) : ground_pressure(_ground_pressure){ }
 
 
-//includi parametro temperatura
-float AirBrake::get_altitude_asl(float pressure){
-	float altitude = compute_altitude_real(pressure);//ground_temp_k/(15.0f + 273.15f) * compute_altitude(pressure, ground_pressure) + 145.0f;
-
-	return altitude;
+float AirBrake::set_altitude_target(float ground_pressure){
+	float p_vega_3000 = compute_pressure_vega(3000, ground_pressure);
+	target_alt_asl = compute_altitude_real(p_vega_3000);
+	return target_alt_asl;
 }
-
-// void AirBrake::set_altitude_target(float p_vega_3000){
-// 	target_alt_asl = get_altitude(p_vega_3000);
-// }
 
 
 AirBrake::AirBrake() {
 	reset();
-	target_alt_asl = get_altitude_asl(P_VEGA_3000);
+	kalman.setG(9.80665);
+
 }
 
 inline void AirBrake::reset() {
@@ -125,13 +127,13 @@ inline void AirBrake::reset() {
 	attitude_rad = 0.0f;
 	predicted_apogee = 0.0f;
 	current_pressure = 0.0f;
-	target_alt_asl = get_altitude_asl(P_VEGA_3000);
-	error_int = 0.0f;
+	// target_alt_asl = compute_altitude_real(P_VEGA_3000);
 	pid_last_time = 0;
 	tf_last_time = 0;
 	x_tf[0] = 0.0f;
 	x_tf[1] = 0.0f;
 	x_tf[2] = 0.0f;
+	kalman.setG(9.80665);
 }
 
 
@@ -160,17 +162,25 @@ float AirBrake::theta_to_extension()
 }
 
 
-void AirBrake::input_values(float alt, float vel, float attitude, float pressure) {
+void AirBrake::input_values(float alt, float vel, float attitude, float pressure, float z_acc) {
 	// alt_z = alt; 
 	vel_z = vel; 
 	attitude_rad = attitude; 
 	current_pressure = pressure;
+
+	float altitude_baro = compute_altitude_real(pressure);//ground_temp_k/(15.0f + 273.15f) * compute_altitude(pressure, ground_pressure) + 145.0f;
+
+	kalman.predict(z_acc, attitude_rad, true, true); //assumo imu_ok
+	kalman.update(altitude_baro);
+
+	//TODO: deve essere l'altitudine
+	alt_z = kalman.getState()[0];
+
 }
 
 
 void AirBrake::compute_predicted_apogee_m()
 {
-	alt_z = compute_altitude_asl(current_pressure);
 
 	float v_axis = vel_z / cosf(attitude_rad);
 	float x_geom = theta_to_extension();
@@ -183,17 +193,17 @@ void AirBrake::compute_predicted_apogee_m()
 }
 
 
-float AirBrake::predict_apogee(float alt, float vel, float attitude_rad, float pressure)
+float AirBrake::predict_apogee(float alt, float vel, float attitude_rad, float pressure, float z_acc)
 {
-	input_values(alt, vel, attitude_rad, pressure);
+	input_values(alt, vel, attitude_rad, pressure, z_acc);
 	compute_predicted_apogee_m();
 	return predicted_apogee;
 }
 
 
 float AirBrake::PID(float error){
-	if (pid_last_time == 0) pid_last_time = millis();
-	float dt = (millis() - pid_last_time) / 1000.0f;
+	if (pid_last_time == 0) pid_last_time = micros();
+	float dt = (micros() - pid_last_time) / 1000000.0f;
 
 	// se passato abbastanza tempo
 	if (dt > 0.0f && dt < 0.25f) {
@@ -202,36 +212,16 @@ float AirBrake::PID(float error){
 
 	float theta_pid = kp * error + ki * error_int;// + kd * error_der;
 
-	pid_last_time = millis();
+	pid_last_time = micros();
 
 	float theta_pid_clamped = std::min(108.0f, std::max(theta_pid, 0.0f));
 	return theta_pid_clamped;
 }
 
-/*
-float AirBrake::transfer_function(float theta_PID_rad){
-	static long last_time = millis();
-	float dt = (millis() - last_time) / 1000;
-
-	float num_s[2] = {64.93, -0.811625};
-	float den_s[4] = {64.93, 22.561625, 1.271875, 0.0125};
-
-	static float y_last = theta_PID_rad;
-	
-	
-	y_last = theta_PID_rad;
-
-
-	float y_dddot = theta_PID_rad + 
-
-	static float y_dot;
-}
-*/
-
 //scritta da gemini -> controlla
 void AirBrake::transfer_function(float theta_PID_deg) {
-
-	float theta_PID_rad = theta_PID_deg * 2 * M_PI / 180.0f;
+    // Conversione corretta da gradi a radianti (senza il * 2)
+    float theta_PID_rad = theta_PID_deg * DEG_TO_RAD;
 
     // 1. Calcolo del dt preciso in secondi
     if (tf_last_time == 0) tf_last_time = micros();
@@ -241,7 +231,7 @@ void AirBrake::transfer_function(float theta_PID_deg) {
 
     // Protezione per il primo ciclo o se il microcontrollore si blocca per troppo tempo
     if (dt <= 0.0f || dt > 0.25f) {
-        dt = 0.0f; 
+        return;
     }
 
     // 2. Definizione dei coefficienti originali tramite array
@@ -249,9 +239,8 @@ void AirBrake::transfer_function(float theta_PID_deg) {
     float num_s[2] = {64.93f, -0.811625f};
     float den_s[4] = {64.93f, 22.561625f, 1.271875f, 0.0125f};
 
-    // 3. Normalizzazione nel codice (dividiamo tutto per il grado massimo den_s[3])
+    // 3. Normalizzazione (dividiamo tutto per il grado massimo den_s[3])
     float norm_factor = den_s[3];
-
     for (int i = 0; i < 2; i++) {
         num_s[i] /= norm_factor;
     }
@@ -259,32 +248,35 @@ void AirBrake::transfer_function(float theta_PID_deg) {
         den_s[i] /= norm_factor;
     }
 
-    // 4. Array per gli stati del sistema (memoria tra un ciclo e l'altro)
-    // x_tf[0] = stato base, x_tf[1] = derivata prima, x_tf[2] = derivata seconda
-    float x_dot[3];
+    // 4. Sub-stepping: dividiamo dt in 10 sotto-passi (a 100 Hz -> sub_dt = 1 ms)
+    // Garantisce precisione identica a Simulink e stabilità anche fino a 10 Hz
+    constexpr int SUBSTEPS = 10;
+    float sub_dt = dt / static_cast<float>(SUBSTEPS);
 
-    // 5. Calcolo delle derivate degli stati (Spazio degli Stati)
-    x_dot[0] = x_tf[1];
-    x_dot[1] = x_tf[2];
-    x_dot[2] = theta_PID_rad - (den_s[0] * x_tf[0]) - (den_s[1] * x_tf[1]) - (den_s[2] * x_tf[2]);
+    for (int step = 0; step < SUBSTEPS; step++) {
+        float x_dot[3];
 
-    // 6. Integrazione numerica (stato_attuale = stato_precedente + derivata * dt)
-    for (int i = 0; i < 3; i++) {
-        x_tf[i] += x_dot[i] * dt;
+        // 5. Calcolo delle derivate degli stati (Spazio degli Stati)
+        x_dot[0] = x_tf[1];
+        x_dot[1] = x_tf[2];
+        x_dot[2] = theta_PID_rad - (den_s[0] * x_tf[0]) - (den_s[1] * x_tf[1]) - (den_s[2] * x_tf[2]);
+
+        // 6. Integrazione numerica sul singolo sotto-passo
+        for (int i = 0; i < 3; i++) {
+            x_tf[i] += x_dot[i] * sub_dt;
+        }
     }
 
     // 7. Calcolo dell'output combinando gli stati con il numeratore normalizzato
     float theta_EFF_rad = (num_s[0] * x_tf[0]) + (num_s[1] * x_tf[1]);
 
-
-	theta_servo_rad = theta_EFF_rad;
+    theta_servo_rad = theta_EFF_rad;
 }
 
 
 //aggiusta target
-
-float AirBrake::theta_update(float alt, float vel, float attitude, float pressure){
-	input_values(alt, vel, attitude, pressure);
+float AirBrake::theta_update(float alt, float vel, float attitude, float pressure, float z_acc){
+	input_values(alt, vel, attitude, pressure, z_acc);
 	
 	compute_predicted_apogee_m();
 	float theta_pid_deg = PID(predicted_apogee - target_alt_asl); 
@@ -301,5 +293,7 @@ float AirBrake::theta_update(){
 
 	return theta_pid;
 }
+
+
 
 

@@ -571,7 +571,7 @@ TASK parachute_task(TaskDescriptor_t* self)
 
 				static AirBrake petali;
 				float pressure = 0.0f;
-				float theta_pid = petali.theta_update(z_alt, z_speed, attitude_rad, pressure);
+				float theta_pid_deg = petali.theta_update(z_alt, z_speed, attitude_rad, pressure);
 				//attuazione airbrake
 				
 				/*

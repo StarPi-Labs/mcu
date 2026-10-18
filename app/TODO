@@ -37,3 +37,7 @@
 [ ] Se falliscono entrambi i sensori cosa facciamo? aspettiamo? recuperiamo? apriamo
     l'aerofreno? Se poi riprendo e sono in uno stato diverso da quello in cui sono
     davvero posso recuperare lo stato vero?
+
+1. pid e simulazione
+2. abbellisci sim?
+3. ragionare su safety check 

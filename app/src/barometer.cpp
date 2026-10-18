@@ -124,26 +124,6 @@ bool barometer_calibrate(unsigned int cal_time_ms)
 // NOTE: cats vega as reference -> sea level temp and pressure are 15°C and 101250 Pa, respectively
 //       as such baro calibration is useless, this should be changed if we don't use cats vega as reference
 // https://www.mide.com/air-pressure-at-altitude-calculator
-float compute_altitude_asl(float air_pressure)
-{
-	constexpr float ground_reference_temperature_k = 15.0f + 273.15f; // standard temperature at sea level
-	constexpr float ground_reference_pressure_pa = 101250.0f;
-	constexpr float ground_reference_altitude_m = 0.0f;
-
-	// FIXME: Lb and M change with weather conditions
-	const float Lb = -0.0065; // standard temperature lapse rate [K/m]
-	const float M = 0.0289644; // Molar mass of air [kg/mol]
-	const float R = 8.31432;  // Universal gas constant [N*m/mol*K]
-	const float g0 = 9.80665; // Gravitational constant [m/s^2]
-
-	const float exponent = -(R*Lb)/(g0*M);
-	float temperature_rise = ground_reference_temperature_k / Lb;
-	float pressure_ratio = air_pressure / ground_reference_pressure_pa;
-
-	float altitude = ground_reference_altitude_m + temperature_rise * (powf(pressure_ratio, exponent) - 1);
-
-	return altitude;
-}
 
 
 void barometer_read(BaroData *sample1, BaroData *sample2)
@@ -159,12 +139,12 @@ void barometer_read(BaroData *sample1, BaroData *sample2)
 	if (sample1->error_status == 0) {
 		sample1->temperature = baro1.getTemperature(); // temperatura in °C
 		sample1->pressure = baro1.getPressurePascal(); // pressione in Pa
-		sample1->altitude = compute_altitude_asl(sample1->pressure, ground_pressure_pa_1); // altitudine in metri
+		sample1->altitude = compute_altitude_asl(sample1->pressure); // altitudine in metri
 	}
 	if (sample2->error_status == 0) {
 		sample2->temperature = baro2.getTemperature(); // temperatura in °C
 		sample2->pressure = baro2.getPressurePascal(); // pressione in Pa
-		sample2->altitude = compute_altitude_asl(sample2->pressure, ground_pressure_pa_2); // altitudine in metri
+		sample2->altitude = compute_altitude_asl(sample2->pressure); // altitudine in metri
 	}
 }
 
@@ -217,3 +197,44 @@ bool is_baro_healthy_ground(float p1, float p2, float t1, float t2) {
 
 	return count < max_count;
 }
+
+
+float compute_altitude_asl(float air_pressure)
+{
+	constexpr float ground_reference_temperature_k = 15.0f + 273.15f; // standard temperature at sea level
+	constexpr float ground_reference_pressure_pa = 101250.0f;
+
+	// FIXME: Lb and M change with weather conditions
+	const float Lb = -0.0065; // standard temperature lapse rate [K/m]
+	const float M = 0.0289644; // Molar mass of air [kg/mol]
+	const float R = 8.31432;  // Universal gas constant [N*m/mol*K]
+	const float g0 = 9.80665; // Gravitational constant [m/s^2]
+
+	const float exponent = -(R*Lb)/(g0*M);
+	float temperature_rise = ground_reference_temperature_k / Lb;
+	float pressure_ratio = air_pressure / ground_reference_pressure_pa;
+
+	float altitude = temperature_rise * (powf(pressure_ratio, exponent) - 1);
+
+	return altitude;
+}
+
+
+float compute_pressure_vega(float delta_altitude_vega, float ground_pressure){
+	constexpr float ground_reference_temperature_k = 15.0f + 273.15f; // standard temperature at sea level
+	constexpr float ground_reference_pressure_pa = 101250.0f;
+
+	constexpr float Lb = -0.0065; // standard temperature lapse rate [K/m]
+	constexpr float M = 0.0289644; // Molar mass of air [kg/mol]
+	constexpr float R = 8.31432;  // Universal gas constant [N*m/mol*K]
+	constexpr float g0 = 9.80665; // Gravitational constant [m/s^2]
+
+
+	float ground_altitude_vega = compute_altitude_asl(ground_pressure);
+
+	float pressure_vega_target = ground_reference_pressure_pa * powf(1/(1+Lb/ground_reference_temperature_k * (delta_altitude_vega + ground_altitude_vega)), (g0*M)/(R*Lb));
+
+	return pressure_vega_target;
+}
+
+

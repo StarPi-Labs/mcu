@@ -19,6 +19,7 @@ private:
 	Matrix2f Q_base;
 	float R;        // Covarianza del rumore di misura
 
+	/*
 	//====== VARIANZA DEL RUMORE DI PROCESSO ======
 	const float sigma_boost     = 7.0; // Boost fase
 	const float sigma_coast     = 7.0; // Coast fase
@@ -31,8 +32,12 @@ private:
 	const float sigma_bar_coast    = 1.5; // Coast fase
 	const float sigma_bar_airbrake = 1.5; // Airbrakes fase
 	const float sigma_bar_freefall = 1.5; // Free fall fase
+	*/
 
-	/* Un'alternativa sarebbe questa:
+	const float sigma_bar_airbrake = 1.5; // Airbrakes fase
+
+
+	// Un'alternativa sarebbe questa:
 	const float sigma_boost = 300.0;      // Boost fase
 	const float sigma_coast = 6.0;        // Coast fase
 	const float sigma_airbrakes = 100.0;  // Airbrakes fase
@@ -42,7 +47,7 @@ private:
 	const float sigma_bar_boost = 3500.0;  // Boost fase
 	const float sigma_bar_coast = 1.0;     // Coast fase
 	const float sigma_bar_highdrag = 20.0; // Airbrakes fase
-	const float sigma_bar_freefall = 3.0;  // Free fall fase*/
+	const float sigma_bar_freefall = 3.0;  // Free fall fase
 
 	const float dt = 0.01;                 // Tempo di campionamento, in secondi
 	float g;    // Accelerazione gravitazionale

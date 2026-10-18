@@ -90,8 +90,8 @@ struct [[gnu::packed]] LoRaDataPacket
 		int16_t dt;
 	} imu;
 	struct {
-		uint16_t p1;       // float16, changed to uint16_t for packing
-		uint16_t p2;       // float16, changed to uint16_t for packing
+		uint16_t p1;       // float16 hPa, changed to uint16_t for packing
+		uint16_t p2;       // float16 hPa, changed to uint16_t for packing
 		int16_t dt;
 	} baro;
 	struct {

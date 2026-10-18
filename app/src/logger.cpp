@@ -110,7 +110,20 @@ size_t logger_message_to_str(const char** str, LogMessage* msg)
 		n = snprintf(buf, sizeof(buf), "%s.%06" PRIu32 " ", time_str, usec);
 	}
 #else
-	n = snprintf(buf, sizeof(buf), "%" PRIu64 " ", msg->timestamp);
+	static uint64_t last_ts;
+	static unsigned since_abs = ~0u; // forces absolute on first call
+
+	int64_t d = (int64_t)(msg->timestamp - last_ts);
+
+	if (since_abs >= 1000 || d > 1000000 || d < -1000000) {
+		n = snprintf(buf, sizeof(buf), "T%" PRIu64 " ", msg->timestamp);
+		since_abs = 0;
+	} else {
+		n = snprintf(buf, sizeof(buf), "%+" PRId64 " ", d);
+		since_abs++;
+	}
+	last_ts = msg->timestamp;
+	//n = snprintf(buf, sizeof(buf), "%" PRIu64 " ", msg->timestamp);
 #endif
 
 	switch (msg->src) {

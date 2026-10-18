@@ -52,7 +52,7 @@ float compute_altitude(float air_pressure, float ground_pressure)
 	float temperature_rise = ground_reference_temperature_k / Lb;
 	float pressure_ratio = air_pressure / ground_reference_pressure_pa;
 
-	float altitude = ground_reference_altitude_m + temperature_rise * (powf(pressure_ratio, exponent) - 1);
+	float altitude =  temperature_rise * (powf(pressure_ratio, exponent) - 1) - ground_reference_altitude_m;
 
 	return altitude;
 }

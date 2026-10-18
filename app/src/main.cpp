@@ -356,7 +356,7 @@ TASK imu_task(TaskDescriptor_t* self)
 				Vector3f fs = altitude.getState();
 				log(S_IMU, T_ORIENTATION, orientation.getRoll(), orientation.getPitch(), orientation.getYaw());
 				log(S_IMU, T_ACCELLERATION, sample.accelerometer[0], sample.accelerometer[1], sample.accelerometer[2]);
-				log(S_IMU, T_GYRO, sample.gyroscope[0], sample.gyroscope[1], sample.gyroscope[2]);
+				log(S_IMU, T_GYRO, gx, gy, gz);
 				log(S_IMU, T_FILTER_STATE, fs[0], fs[1], fs[2]);
 #else
 #define IDLE_TIME 5000

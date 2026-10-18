@@ -39,6 +39,7 @@ DECLARE_STATIC_SEMAPHORE(lora_tx_packet_semaphore);
 
 DECLARE_STATIC_SEMAPHORE(spi_semaphore);
 DECLARE_STATIC_SEMAPHORE(i2c_semaphore);
+DECLARE_STATIC_SEMAPHORE(altitude_semaphore);
 
 DECLARE_STATIC_TASK(imu_task);
 DECLARE_STATIC_TASK(barometer_task);
@@ -119,8 +120,12 @@ void setup(void)
 	/* ===================== SEMAPHORES INITIALIZATION ====================== */
 	INIT_STATIC_SEMAPHORE(spi_semaphore);
 	INIT_STATIC_SEMAPHORE(i2c_semaphore);
+	INIT_STATIC_SEMAPHORE(altitude_semaphore);
 	INIT_STATIC_SEMAPHORE(lora_tx_packet_semaphore);
-	if (spi_semaphore == NULL || i2c_semaphore == NULL || lora_tx_packet_semaphore == NULL) {
+	if (spi_semaphore == NULL            ||
+	    i2c_semaphore == NULL            ||
+	    lora_tx_packet_semaphore == NULL ||
+	    altitude_semaphore == NULL) {
 		while (true) {
 			Serial.println("Error creating semaphore");
 			delay(500);
@@ -336,13 +341,17 @@ TASK imu_task(TaskDescriptor_t* self)
 				float attitude_rad = acosf(cos_tilt); // same as acos(cos p * cos r) but NaN-safe
 				float vertical_accel = 2*(qx*qz - qw*qy) * ax + 2*(qy*qz + qw*qx) * ay + (1 - 2*(qx*qx + qy*qy)) * az;
 				// TODO: airbrake trigger
-				altitude.predict(vertical_accel, attitude_rad, airbrake_active, true);
-
+				if (xSemaphoreTake(altitude_semaphore, portMAX_DELAY) == pdTRUE) {
+					altitude.predict(vertical_accel, attitude_rad, airbrake_active, true);
+					xSemaphoreGive(altitude_semaphore);
+				}
+				
 #if TEST_FAKE_DATA != 1
+				Vector3f fs = altitude.getState();
 				log(S_IMU, T_ORIENTATION, orientation.getRoll(), orientation.getPitch(), orientation.getYaw());
 				log(S_IMU, T_ACCELLERATION, sample.accelerometer[0], sample.accelerometer[1], sample.accelerometer[2]);
 				log(S_IMU, T_GYRO, sample.gyroscope[0], sample.gyroscope[1], sample.gyroscope[2]);
-				log(S_IMU, T_FILTER_STATE, altitude.getState()[0], altitude.getState()[1], altitude.getState()[2]);
+				log(S_IMU, T_FILTER_STATE, fs[0], fs[1], fs[2]);
 #else
 #define IDLE_TIME 5000
 				static struct DataSample {
@@ -408,7 +417,10 @@ TASK imu_task(TaskDescriptor_t* self)
 #endif
 			} else {
 				// IMU reading was not ok, still predict with constant speed model
-				altitude.predict(0, 0, airbrake_active, false);
+				if (xSemaphoreTake(altitude_semaphore, portMAX_DELAY) == pdTRUE) {
+					altitude.predict(0, 0, airbrake_active, false);
+					xSemaphoreGive(altitude_semaphore);
+				}
 			}
 			xSemaphoreGive(spi_semaphore);
 		}
@@ -446,11 +458,15 @@ TASK barometer_task(TaskDescriptor_t* self)
 
 			// Update the altitude and vertical velocity estimation with the barometer data
 			if (sample1.error_status == 0 || sample2.error_status == 0) {
-				altitude.update(alt);
+				if (xSemaphoreTake(altitude_semaphore, portMAX_DELAY) == pdTRUE) {
+					altitude.update(alt);
+					xSemaphoreGive(altitude_semaphore);
+				}
 			}
 
 #if TEST_FAKE_DATA != 1
-			log(S_BARO, T_FILTER_STATE, altitude.getState()[0], altitude.getState()[1], altitude.getState()[2]);
+			Vector3f fs = altitude.getState();
+			log(S_BARO, T_FILTER_STATE, fs[0], fs[1], fs[2]);
 			log(S_BARO, T_PRESSURE, sample1.pressure, sample2.pressure);
 			log(S_BARO, T_SYSLOG, sample1.altitude, sample2.altitude);
 #endif
@@ -877,7 +893,10 @@ TASK cmd_handler_task(TaskDescriptor_t* self)
 			if (xSemaphoreTake(spi_semaphore, portMAX_DELAY) == pdTRUE) {
 				float g_cal;
 				if (imu_calibrate(&g_cal, IMU_CALIBRATION_TIME) == true) {
-					altitude.setG(g_cal);
+					if (xSemaphoreTake(altitude_semaphore, portMAX_DELAY) == pdTRUE) {
+						altitude.setG(g_cal);
+						xSemaphoreGive(altitude_semaphore);
+					}
 				} else {
 					log(cmd.src, T_SYSLOG, "IMU Calibration Failed");
 				}

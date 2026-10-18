@@ -737,8 +737,9 @@ TASK lora_formatter_task(TaskDescriptor_t* self)
 			}
 			case T_PRESSURE:
 				if (msg.payload_type == P_FVEC2) {
-					lora_tx_packet.baro.p1 = float16(msg.payload.fv2.x).getBinary();
-					lora_tx_packet.baro.p2 = float16(msg.payload.fv2.y).getBinary();
+					// Pa -> hPa: float16 max is 65504, so Pa would overflow
+					lora_tx_packet.baro.p1 = float16(msg.payload.fv2.x / 100.0f).getBinary();
+					lora_tx_packet.baro.p2 = float16(msg.payload.fv2.y / 100.0f).getBinary();
 					lora_tx_packet.baro.dt = msg.timestamp / 1000 - u48le_to_u64(lora_tx_packet.header.tx_time);
 				}
 				break;

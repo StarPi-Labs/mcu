@@ -598,11 +598,11 @@ TASK parachute_task(TaskDescriptor_t* self)
 				cutter_1_active = true;
 				cutter_1_fire_time_ms = millis();
 
-				delay(EJECTION_CO2_DELAY_MS);
+				//delay(EJECTION_CO2_DELAY_MS);
 
-				digitalWrite(PIN_EMATCH, HIGH);
-				ematch_active = true;
-				ematch_fire_time = millis();
+				//digitalWrite(PIN_EMATCH, HIGH);
+				//ematch_active = true;
+				//ematch_fire_time = millis();
 
 
 				last_state_change_time = millis();

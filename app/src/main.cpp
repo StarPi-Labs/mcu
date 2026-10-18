@@ -106,6 +106,13 @@ void setup(void)
 	I2C1.setPins(I2C1_SDA, I2C1_SCL);
 	I2C1.begin();
 	I2C1.setClock(100000);
+	
+	// put all chip selects high, the individual setup calls will handle them later
+	pinMode(IMU_CS, OUTPUT);
+	digitalWrite(IMU_CS, HIGH);
+	pinMode(LORA_CS, OUTPUT);
+	digitalWrite(LORA_CS, HIGH);
+
 	SPI2.begin(SPI2_SCK, SPI2_MISO, SPI2_MOSI, -1);
 
 

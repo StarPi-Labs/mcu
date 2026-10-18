@@ -139,7 +139,7 @@ struct BandRequirements {
 };
 
 
-void lora_setup(FrequencyBands band, LoRaTxMode mode, uint8_t id, bool respect_power_limit = true);
+void lora_setup(FrequencyBands band, int channel, LoRaTxMode mode, uint8_t id, bool respect_power_limit = true);
 
 void lora_set_tx_packet_cb(bool (*cb)(uint8_t*)); // Set action that fetches a packet to be sent
 void lora_set_rx_packet_cb(void (*cb)(uint8_t*)); // Set action when a packet arrives

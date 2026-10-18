@@ -5,6 +5,7 @@
 #include "lora.h"
 #include "command_input.h"
 #include "telemetry_output.h"
+#include "board.h"
 
 #include <unistd.h>
 #include <time.h>
@@ -98,7 +99,7 @@ int main(int argc, char **argv)
 	LoRaProtoState published_state = STATE_DISCONNECTED;
 	telemetry_publish_state(published_state);
 
-	lora_setup(BAND_L, TX_FORCE, LORA_GS_ID, true);
+	lora_setup(BAND_L, LORA_CHANNEL, TX_FORCE, LORA_GS_ID, true);
 	lora_set_tx_packet_cb(tx_packet_cb);
 	lora_set_rx_packet_cb(rx_packet_cb);
 

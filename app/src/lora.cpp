@@ -100,7 +100,7 @@ static void rx_operation_done_cb(void)
 }
 
 
-void lora_setup(FrequencyBands band, LoRaTxMode mode, uint8_t id, bool respect_power_limit)
+void lora_setup(FrequencyBands band, int channel, LoRaTxMode mode, uint8_t id, bool respect_power_limit)
 {
 	int state = radio.begin();
 	if (state != RADIOLIB_ERR_NONE) {
@@ -124,7 +124,10 @@ void lora_setup(FrequencyBands band, LoRaTxMode mode, uint8_t id, bool respect_p
 
 	radio.setDio2AsRfSwitch(true);
 
-	radio.setFrequency(EU_868_BANDS[band].freq_start_mhz + (float)EU_868_BANDS[band].ch_bw_khz/2000.0); // TODO: switch channel
+	int ch = min(max(channel, 1), EU_868_BANDS[band].num_channels);
+	float bw_mhz = EU_868_BANDS[band].ch_bw_khz / 1000.0;
+	float cf_mhz = EU_868_BANDS[band].freq_start_mhz + bw_mhz*(ch-1) + bw_mhz/2;
+	radio.setFrequency(cf_mhz);
 	radio.setBandwidth(EU_868_BANDS[band].ch_bw_khz);
 
 	if (respect_power_limit) {

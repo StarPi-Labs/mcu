@@ -32,6 +32,7 @@ static bool imu_healthy = true;
 static bool baro_healthy = true;
 static bool airbrake_active = false;
 bool system_armed = true; // FIXME: SYSTEM SHOULD BE STARTED DISARMED
+static RocketState rocket_state = RS_IDLE; // copy of the parachute task state, read by the command handler
 
 // TX lora packet
 LoRaDataPacket lora_tx_packet;
@@ -675,6 +676,7 @@ TASK parachute_task(TaskDescriptor_t* self)
 		}
 
 		// log rocket state for telemetry and debugging
+		rocket_state = state;
 		log(S_PARA, T_ROCKET_STATE, state);
 	}
 }
@@ -886,6 +888,12 @@ TASK cmd_handler_task(TaskDescriptor_t* self)
 			break;
 		case CMD_SENSOR_CALIBRATION:
 			log(cmd.src, T_SYSLOG, "Received command: SENSOR_CALIBRATION");
+			// Calibrate only on the ramp, in flight this would stop the IMU
+			// and barometer tasks and reset the ground references
+			if (rocket_state != RS_IDLE) {
+				log(cmd.src, T_SYSLOG, "Calibration refused, rocket is not idle");
+				break;
+			}
 			// IMU calibration
 			// FIXME: since IMU is on the same bus as the lora radio, taking this 
 			//        semaphore for the whole calibration process disconnects the

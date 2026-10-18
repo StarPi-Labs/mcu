@@ -119,6 +119,7 @@ enum LoRaCommand : uint8_t
 	CMD_SENSOR_CALIBRATION = 6,
 	CMD_SYSTEM_ARM         = 7,
 	CMD_SYSTEM_DISARM      = 8,
+	CMD_SET_GROUND_TEMP    = 9,
 };
 
 struct [[gnu::packed]] LoRaCommandPacket

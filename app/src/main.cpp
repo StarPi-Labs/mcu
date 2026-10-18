@@ -892,6 +892,10 @@ TASK cmd_handler_task(TaskDescriptor_t* self)
 			log(cmd.src, T_SYSLOG, "Received command: SYSTEM_DISARM");
 			system_armed = false;
 			break;
+		case CMD_SET_GROUND_TEMP:
+			log(cmd.src, T_SYSLOG, "Received command: UPDATE_GROUND_TEMP");
+			barometer_set_ground_temp_c((float)cmd.data);
+			break;
 		default:
 			log(cmd.src, T_SYSLOG, "Received unknown command");
 			break;

@@ -151,6 +151,12 @@ bool barometer_calibrate(unsigned int cal_time_ms)
 }
 
 
+void barometer_set_ground_temp_c(float temp_c)
+{
+	ground_temperature_k = temp_c + 273.15;
+}
+
+
 void barometer_read(BaroData *sample1, BaroData *sample2)
 {
 	if (sample1 == NULL || sample2 == NULL) return;

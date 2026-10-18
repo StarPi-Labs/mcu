@@ -34,6 +34,11 @@ static bool airbrake_active = false;
 bool system_armed = true; // FIXME: SYSTEM SHOULD BE STARTED DISARMED
 static RocketState rocket_state = RS_IDLE; // copy of the parachute task state, read by the command handler
 
+// calibration
+float gx_bias = 0;
+float gy_bias = 0;
+float gz_bias = 0;
+
 // TX lora packet
 LoRaDataPacket lora_tx_packet;
 DECLARE_STATIC_SEMAPHORE(lora_tx_packet_semaphore);
@@ -194,7 +199,7 @@ void setup(void)
 		}
 	}
 	float g_cal;
-	if (imu_calibrate(&g_cal, IMU_CALIBRATION_TIME) == false) {
+	if (imu_calibrate(&g_cal, &gx_bias, &gy_bias, &gz_bias, IMU_CALIBRATION_TIME) == false) {
 		while (true) {
 			log(S_OTHER, T_SYSLOG, "IMU calibration failed");
 			delay(1000);
@@ -317,9 +322,9 @@ TASK imu_task(TaskDescriptor_t* self)
 				float ax = (float)sample.accelerometer[0] / 1000.0f;
 				float ay = (float)sample.accelerometer[1] / 1000.0f;
 				float az = (float)sample.accelerometer[2] / 1000.0f;
-				float gx = (float)sample.gyroscope[0] / 1000.0f;
-				float gy = (float)sample.gyroscope[1] / 1000.0f;
-				float gz = (float)sample.gyroscope[2] / 1000.0f;
+				float gx = ((float)sample.gyroscope[0] - gx_bias) / 1000.0f;
+				float gy = ((float)sample.gyroscope[1] - gy_bias) / 1000.0f;
+				float gz = ((float)sample.gyroscope[2] - gz_bias) / 1000.0f;
 			
 				//first minute after setup check sensor health
 				if (millis() - setup_finished_time_ms < GROUND_CHECK_TIMER_MS) {
@@ -900,7 +905,7 @@ TASK cmd_handler_task(TaskDescriptor_t* self)
 			//        telemetry link temporarely
 			if (xSemaphoreTake(spi_semaphore, portMAX_DELAY) == pdTRUE) {
 				float g_cal;
-				if (imu_calibrate(&g_cal, IMU_CALIBRATION_TIME) == true) {
+				if (imu_calibrate(&g_cal, &gx_bias, &gy_bias, &gz_bias, IMU_CALIBRATION_TIME) == true) {
 					if (xSemaphoreTake(altitude_semaphore, portMAX_DELAY) == pdTRUE) {
 						altitude.setG(g_cal);
 						xSemaphoreGive(altitude_semaphore);

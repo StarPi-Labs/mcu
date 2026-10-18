@@ -76,10 +76,11 @@ bool imu_setup()
 
 // return true on success, false on failure
 // Assumes the board is stationary
-bool imu_calibrate(float *g_cal, unsigned int cal_time_ms)
+bool imu_calibrate(float *g_cal, float *gx_bias, float *gy_bias, float *gz_bias, unsigned int cal_time_ms)
 {
 	if (g_cal == NULL) return false;
-	float g = 0.0f; 
+	float g = 0.0f;
+	float gx = 0, gy = 0, gz = 0;
 	int samples = 0;
 	int64_t start_time = millis();
 	while (millis() - start_time < cal_time_ms) {
@@ -89,6 +90,10 @@ bool imu_calibrate(float *g_cal, unsigned int cal_time_ms)
 			float ay = (float)sample.accelerometer[1]/1000.0f;
 			float az = (float)sample.accelerometer[2]/1000.0f;
 
+			gx += (float)sample.gyroscope[0];
+			gy += (float)sample.gyroscope[1];
+			gz += (float)sample.gyroscope[2];
+
 			g += sqrt(ax*ax + ay*ay + az*az);
 			samples++;
 			delay(5);
@@ -96,7 +101,15 @@ bool imu_calibrate(float *g_cal, unsigned int cal_time_ms)
 	}
 	if (samples != 0) {
 		g /= samples;
+		gx /= samples;
+		gy /= samples;
+		gz /= samples;
+
 		*g_cal = g;
+		*gx_bias = gx;
+		*gy_bias = gy;
+		*gz_bias = gz;
+
 		return true;
 	}
 	return false;

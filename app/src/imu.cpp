@@ -78,7 +78,7 @@ bool imu_setup()
 // Assumes the board is stationary
 bool imu_calibrate(float *g_cal, float *gx_bias, float *gy_bias, float *gz_bias, unsigned int cal_time_ms)
 {
-	if (g_cal == NULL) return false;
+	if (g_cal == NULL || gx_bias == NULL || gy_bias == NULL || gz_bias == NULL) return false;
 	float g = 0.0f;
 	float gx = 0, gy = 0, gz = 0;
 	int samples = 0;
@@ -104,6 +104,16 @@ bool imu_calibrate(float *g_cal, float *gx_bias, float *gy_bias, float *gz_bias,
 		gx /= samples;
 		gy /= samples;
 		gz /= samples;
+
+		// A bias this big is not a zero-rate offset but a faulty gyro (e.g.
+		// self-test left on), subtracting it would hide it from the health check
+		constexpr float max_bias_mdps = 5000.0f; // same as gyro_threshold in is_imu_healthy_ground
+		if (std::abs(gx) > max_bias_mdps || std::abs(gy) > max_bias_mdps || std::abs(gz) > max_bias_mdps) {
+			log(S_IMU, T_SYSLOG, "[ERR] Gyro bias too large, not applied");
+			gx = 0;
+			gy = 0;
+			gz = 0;
+		}
 
 		*g_cal = g;
 		*gx_bias = gx;

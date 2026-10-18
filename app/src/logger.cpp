@@ -115,66 +115,70 @@ size_t logger_message_to_str(const char** str, LogMessage* msg)
 
 	switch (msg->src) {
 	case S_IMU:
-		n += snprintf(buf + n, sizeof(buf) - n, "[IMU] ");
+		n += snprintf(buf + n, sizeof(buf) - n, "IMU");
 		break;
 	case S_BARO:
-		n += snprintf(buf + n, sizeof(buf) - n, "[BARO] ");
+		n += snprintf(buf + n, sizeof(buf) - n, "BARO");
 		break;
 	case S_GPS:
-		n += snprintf(buf + n, sizeof(buf) - n, "[GPS] ");
+		n += snprintf(buf + n, sizeof(buf) - n, "GPS");
 		break;
 	case S_LORA:
-		n += snprintf(buf + n, sizeof(buf) - n, "[LORA] ");
+		n += snprintf(buf + n, sizeof(buf) - n, "LORA");
 		break;
 	case S_SD:
-		n += snprintf(buf + n, sizeof(buf) - n, "[SD] ");
+		n += snprintf(buf + n, sizeof(buf) - n, "SD");
 		break;
 	case S_PARA:
-		n += snprintf(buf + n, sizeof(buf) - n, "[PARACHUTE] ");
+		n += snprintf(buf + n, sizeof(buf) - n, "PARA");
 		break;
 	case S_BLE:
-		n += snprintf(buf + n, sizeof(buf) - n, "[BLUETOOTH] ");
+		n += snprintf(buf + n, sizeof(buf) - n, "BT");
 		break;
 	case S_OTHER:
-		n += snprintf(buf + n, sizeof(buf) - n, "[OTHER] ");
+		n += snprintf(buf + n, sizeof(buf) - n, "OTHER");
 		break;
 	default:
-		n += snprintf(buf + n, sizeof(buf) - n, "[UNKNOWN SRC] ");
+		n += snprintf(buf + n, sizeof(buf) - n, "UNK");
 		break;
 	}
 
+	n += snprintf(buf + n, sizeof(buf) - n, " ");
+
 	switch (msg->type) {
 	case T_ACCELLERATION:
-		n += snprintf(buf + n, sizeof(buf) - n, "ACCEL: ");
+		n += snprintf(buf + n, sizeof(buf) - n, "ACC");
 		break;
 	case T_GYRO:
-		n += snprintf(buf + n, sizeof(buf) - n, "GYRO: ");
+		n += snprintf(buf + n, sizeof(buf) - n, "GYRO");
 		break;
 	case T_FILTER_STATE:
-		n += snprintf(buf + n, sizeof(buf) - n, "FILTER_STATE: ");
+		n += snprintf(buf + n, sizeof(buf) - n, "FLT");
 		break;
 	case T_ORIENTATION:
-		n += snprintf(buf + n, sizeof(buf) - n, "ORIENTATION: ");
+		n += snprintf(buf + n, sizeof(buf) - n, "ORIEN");
 		break;
 	case T_PRESSURE:
-		n += snprintf(buf + n, sizeof(buf) - n, "PRESSURE: ");
+		n += snprintf(buf + n, sizeof(buf) - n, "PRESS");
 		break;
 	case T_TEMPERATURE:
-		n += snprintf(buf + n, sizeof(buf) - n, "TEMP: ");
+		n += snprintf(buf + n, sizeof(buf) - n, "TEMP");
 		break;
 	case T_GPS:
-		n += snprintf(buf + n, sizeof(buf) - n, "GPS: ");
+		n += snprintf(buf + n, sizeof(buf) - n, "GPS");
 		break;
 	case T_SYSLOG:
-		n += snprintf(buf + n, sizeof(buf) - n, "SYSLOG: ");
+		n += snprintf(buf + n, sizeof(buf) - n, "LOG");
 		break;
 	case T_ROCKET_STATE:
-		n += snprintf(buf + n, sizeof(buf) - n, "ROCKET_STATE: ");
+		n += snprintf(buf + n, sizeof(buf) - n, "STATE");
 		break;
 	default:
-		n += snprintf(buf + n, sizeof(buf) - n, "UNKNOWN TYPE: ");
+		n += snprintf(buf + n, sizeof(buf) - n, "UNK");
 		break;
 	}
+
+	n += snprintf(buf + n, sizeof(buf) - n, " ");
 
 	switch (msg->payload_type) {
 	case P_NONE:
@@ -195,14 +199,14 @@ size_t logger_message_to_str(const char** str, LogMessage* msg)
 		n += snprintf(buf + n, sizeof(buf) - n, "%ld", msg->payload.l);
 		break;
 	case P_FVEC2:
-		n += snprintf(buf + n, sizeof(buf) - n, "(%.3f, %.3f)", (double)msg->payload.fv2.x, (double)msg->payload.fv2.y);
+		n += snprintf(buf + n, sizeof(buf) - n, "%.3f %.3f", (double)msg->payload.fv2.x, (double)msg->payload.fv2.y);
 		break;
 	case P_FVEC3:
-		n += snprintf(buf + n, sizeof(buf) - n, "(%.3f, %.3f, %.3f)", (double)msg->payload.fv3.x,
+		n += snprintf(buf + n, sizeof(buf) - n, "%.3f %.3f %.3f", (double)msg->payload.fv3.x,
 		              (double)msg->payload.fv3.y, (double)msg->payload.fv3.z);
 		break;
 	case P_STRING:
-		n += snprintf(buf + n, sizeof(buf) - n, "%s", msg->payload.s ? msg->payload.s : "(null)");
+		n += snprintf(buf + n, sizeof(buf) - n, "%s", msg->payload.s ? msg->payload.s : "null");
 		break;
 	case P_ROCKET_STATE:
 		const char* out;

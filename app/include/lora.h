@@ -115,6 +115,8 @@ enum LoRaCommand : uint8_t
 	CMD_CAMERAS_ON         = 4,
 	CMD_CAMERAS_OFF        = 5,
 	CMD_SENSOR_CALIBRATION = 6,
+	CMD_SYSTEM_ARM         = 7,
+	CMD_SYSTEM_DISARM      = 8,
 };
 
 struct [[gnu::packed]] LoRaCommandPacket

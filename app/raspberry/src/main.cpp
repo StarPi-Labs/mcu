@@ -137,8 +137,9 @@ int main(int argc, char **argv)
 			auto att = std::bit_cast<half_float::half>(rx_packet.imu.attitude);
 			auto p1 = std::bit_cast<half_float::half>(rx_packet.baro.p1);
 			auto p2 = std::bit_cast<half_float::half>(rx_packet.baro.p2);
-			printf("Received packet: state=%d, sensor_status=%x, altitude=%f, vspeed=%f, attitude=%f, dt=%d, p1=%f, p2=%f, dt=%d, latitude=%f, longitude=%f, dt=%d, rssi=%.2f\n",
-				(int)rx_packet.state,
+			printf("Received packet: %s state=%d, sensor_status=%x, altitude=%f, vspeed=%f, attitude=%f, dt=%d, p1=%f, p2=%f, dt=%d, latitude=%f, longitude=%f, dt=%d, rssi=%.2f\n",
+				(rx_packet.state & 0x80) ? "ARMED" : "DISARMED",
+				(int)rx_packet.state & 0x7f,
 				(int)rx_packet.sensor_status,
 				half_float::half_cast<float>(alt),
 				half_float::half_cast<float>(vsp),

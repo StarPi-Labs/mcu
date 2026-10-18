@@ -31,6 +31,7 @@ static int64_t setup_finished_time_ms;
 static bool imu_healthy = true;
 static bool baro_healthy = true;
 static bool airbrake_active = false;
+bool system_armed = true; // FIXME: SYSTEM SHOULD BE STARTED DISARMED
 
 // TX lora packet
 LoRaDataPacket lora_tx_packet;
@@ -529,17 +530,20 @@ TASK parachute_task(TaskDescriptor_t* self)
 
 		switch (state) {
 		case RS_IDLE:
-			// Detect motor ignition
-			if (z_acc >= Z_ACC_BOOST_THRESHOLD_G && z_speed >= Z_SPEED_BOOST_THRESHOLD_MPS) {
-				sample_count++;
-			} else {
-				sample_count = 0;
-			}
-
-			if (sample_count >= BOOST_DETECTION_SAMPLE_COUNT) {
-				last_state_change_time = millis();
-				state = RS_BOOST;
-				sample_count = 0;
+			// Only detect liftoff if the system is armed
+			if (system_armed) {
+				// Detect motor ignition
+				if (z_acc >= Z_ACC_BOOST_THRESHOLD_G && z_speed >= Z_SPEED_BOOST_THRESHOLD_MPS) {
+					sample_count++;
+				} else {
+					sample_count = 0;
+				}
+				
+				if (sample_count >= BOOST_DETECTION_SAMPLE_COUNT) {
+					last_state_change_time = millis();
+					state = RS_BOOST;
+					sample_count = 0;
+				}
 			}
 
 			// Check sensor health
@@ -742,6 +746,7 @@ TASK lora_formatter_task(TaskDescriptor_t* self)
 			}
 		}
 		// TODO: this should be better
+		lora_tx_packet.state |= system_armed << 7;
 		lora_tx_packet.sensor_status = imu_healthy << 0 | baro_healthy << 1;
 		xSemaphoreGive(lora_tx_packet_semaphore);
 	}
@@ -878,6 +883,14 @@ TASK cmd_handler_task(TaskDescriptor_t* self)
 				}
 				xSemaphoreGive(i2c_semaphore);
 			}
+			break;
+		case CMD_SYSTEM_ARM:
+			log(cmd.src, T_SYSLOG, "Received command: SYSTEM_ARM");
+			system_armed = true;
+			break;
+		case CMD_SYSTEM_DISARM:
+			log(cmd.src, T_SYSLOG, "Received command: SYSTEM_DISARM");
+			system_armed = false;
 			break;
 		default:
 			log(cmd.src, T_SYSLOG, "Received unknown command");

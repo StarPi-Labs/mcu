@@ -212,13 +212,13 @@ bool is_imu_healthy_ground(float ax, float ay, float az, float gx, float gy, flo
     static constexpr float acc_variance_threshold = (10 * 5.4f * 0.001f) * (10 *5.4f * 0.001f);// 5.4 mg rumore minimo
     static constexpr float gyro_variance_threshold = (10 * 75.0f * 0.001f) * (10 * 75.0f * 0.001f); //75 mdps rumore minimo
 
-    static float ax_samples[samples];
-    static float ay_samples[samples];
-    static float az_samples[samples];
+    static float ax_samples[samples] = {};
+    static float ay_samples[samples] = {};
+    static float az_samples[samples] = {};
     
-    static float gx_samples[samples];
-    static float gy_samples[samples];
-    static float gz_samples[samples];
+    static float gx_samples[samples] = {};
+    static float gy_samples[samples] = {};
+    static float gz_samples[samples] = {};
 
     static int sample_index = 0;
 

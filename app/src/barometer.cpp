@@ -204,7 +204,7 @@ bool is_baro_healthy_ground(float p1, float p2, float t1, float t2) {
 
 	static constexpr float variance_thr = 100.0f * 2.4f * 2.4f; 
 	static constexpr int samples = 10;
-	static float press_samples[samples];
+	static float press_samples[samples] = {};
 	static int sample_index = 0;
 
 	press_samples[sample_index] = pressure;

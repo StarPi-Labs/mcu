@@ -80,8 +80,8 @@ static void gs_command_enqueue(SourceSubsystem src, uint8_t command, uint64_t da
 bool lora_tx_cb(uint8_t* packet)
 {
 	xSemaphoreTake(lora_tx_packet_semaphore, portMAX_DELAY);
-	*((LoRaDataPacket*)packet) = lora_tx_packet;
 	u64_to_u48le(now_ms(), lora_tx_packet.header.tx_time);
+	*((LoRaDataPacket*)packet) = lora_tx_packet;
 	xSemaphoreGive(lora_tx_packet_semaphore);
 	return true;
 }

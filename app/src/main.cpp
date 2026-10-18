@@ -190,7 +190,7 @@ void setup(void)
 	              },
 	          .context = nullptr});
 
-	lora_setup(BAND_L, LORA_CHANNEL, TX_FORCE, LORA_FC_ID);
+	lora_setup(BAND_L, LORA_CHANNEL, TX_FORCE, LORA_FC_ID, false);
 	lora_set_tx_packet_cb(lora_tx_cb);
 	lora_set_rx_packet_cb(lora_rx_cb);
 

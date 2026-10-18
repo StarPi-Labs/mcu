@@ -31,6 +31,8 @@ inline float compute_altitude_real(float P){
 // double T = 6.89568815e-13 * P * P * P - 1.58358303e-07 * P * P + 1.25701144e-02 * P - 65.9121021;
 
 
+//3188
+
 class AirBrake {
 private:
 
@@ -52,12 +54,12 @@ private:
 	static constexpr float ROCKET_DIAMETER = 0.149f;
 	static constexpr float FRONTAL_AREA = 0.149f * 0.149f * 3.14159265358979323846f * 0.25f;
 	static constexpr float G0 = 9.80665f;
-	static constexpr float ROCKET_MASS = 32.41f; // FIXME: change mass
+	static constexpr float ROCKET_MASS = 34.417f; // FIXME: change mass
 	// const float R = 1.0f; // FIXME: change arm radius
 	// const float L = 1.0f; // FIXME: change arm radius
 
 	static constexpr float kp = 0;
-	static constexpr float ki = 0.05f;
+	static constexpr float ki = 0.02f;
 	static constexpr float kd = 0;
 
 	float error_int = 0.0f;
@@ -95,7 +97,7 @@ public:
 	float get_altitude_asl(float pressure);
 
 
-	float target_alt_asl = 2960; 
+	float target_alt_asl = 3188; 
 
 };
 

@@ -30,15 +30,15 @@ MS5611 baro2(BARO2_ADDRESS, &I2C1);
 float ground_pressure_pa_1 = 0.0; // memorizzo pressione misurata sulla rampa di lancio
 float ground_pressure_pa_2 = 0.0; // memorizzo pressione misurata sulla rampa di lancio
 float ground_temperature_k = 0.0;
-float ground_reference_altitude_m = 0.0f; // altitudine alla calibrazione calcolata con atmosfera standard dal livello del mare
+float ground_alt_1 = 0.0f; // altitudine alla calibrazione calcolata con atmosfera standard dal livello del mare
+float ground_alt_2 = 0.0f;
 
 
 // NOTE: cats vega as reference -> sea level temp and pressure are 15°C and 101250 Pa, respectively
 //       as such baro calibration is useless, this should be changed if we don't use cats vega as reference
 // https://www.mide.com/air-pressure-at-altitude-calculator
-float compute_altitude(float air_pressure, float ground_pressure)
+float isa_altitude(float air_pressure)
 {
-	(void)ground_pressure;
 	constexpr float ground_reference_temperature_k = 15.0f + 273.15f; // standard temperature at sea level
 	constexpr float ground_reference_pressure_pa = 101250.0f;
 
@@ -52,9 +52,15 @@ float compute_altitude(float air_pressure, float ground_pressure)
 	float temperature_rise = ground_reference_temperature_k / Lb;
 	float pressure_ratio = air_pressure / ground_reference_pressure_pa;
 
-	float altitude =  temperature_rise * (powf(pressure_ratio, exponent) - 1) - ground_reference_altitude_m;
+	float altitude =  temperature_rise * (powf(pressure_ratio, exponent) - 1);
 
 	return altitude;
+}
+
+
+float agl_altitude(float air_pressure, float ground_alt)
+{
+	return isa_altitude(air_pressure) - ground_alt;
 }
 
 
@@ -139,9 +145,8 @@ bool barometer_calibrate(unsigned int cal_time_ms)
 
 	ground_pressure_pa_1 = p1_median;
 	ground_pressure_pa_2 = p2_median;
-
-	float m = (ground_pressure_pa_1+ground_pressure_pa_2)/2.0f;
-	ground_reference_altitude_m = compute_altitude(m, m);
+	ground_alt_1 = isa_altitude(ground_pressure_pa_1);
+	ground_alt_2 = isa_altitude(ground_pressure_pa_2);
 
 	log(S_BARO, T_PRESSURE, ground_pressure_pa_1, ground_pressure_pa_2);
 	log(S_BARO, T_TEMPERATURE, t1_median, t2_median);
@@ -170,12 +175,12 @@ void barometer_read(BaroData *sample1, BaroData *sample2)
 	if (sample1->error_status == 0) {
 		sample1->temperature = baro1.getTemperature(); // temperatura in °C
 		sample1->pressure = baro1.getPressurePascal(); // pressione in Pa
-		sample1->altitude = compute_altitude(sample1->pressure, ground_pressure_pa_1); // altitudine in metri
+		sample1->altitude = agl_altitude(sample1->pressure, ground_alt_1); // altitudine in metri
 	}
 	if (sample2->error_status == 0) {
 		sample2->temperature = baro2.getTemperature(); // temperatura in °C
 		sample2->pressure = baro2.getPressurePascal(); // pressione in Pa
-		sample2->altitude = compute_altitude(sample2->pressure, ground_pressure_pa_2); // altitudine in metri
+		sample2->altitude = agl_altitude(sample2->pressure, ground_alt_2); // altitudine in metri
 	}
 }
 

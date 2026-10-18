@@ -858,6 +858,26 @@ TASK cmd_handler_task(TaskDescriptor_t* self)
 			break;
 		case CMD_SENSOR_CALIBRATION:
 			log(cmd.src, T_SYSLOG, "Received command: SENSOR_CALIBRATION");
+			// IMU calibration
+			// FIXME: since IMU is on the same bus as the lora radio, taking this 
+			//        semaphore for the whole calibration process disconnects the
+			//        telemetry link temporarely
+			if (xSemaphoreTake(spi_semaphore, portMAX_DELAY) == pdTRUE) {
+				float g_cal;
+				if (imu_calibrate(&g_cal, IMU_CALIBRATION_TIME) == true) {
+					altitude.setG(g_cal);
+				} else {
+					log(cmd.src, T_SYSLOG, "IMU Calibration Failed");
+				}
+				xSemaphoreGive(spi_semaphore);
+			}
+			// Barometer Calibration
+			if (xSemaphoreTake(i2c_semaphore, portMAX_DELAY) == pdTRUE) {
+				if (barometer_calibrate(BARO_CALIBRATION_TIME) == false) {
+					log(cmd.src, T_SYSLOG, "Baro Calibration Failed");
+				}
+				xSemaphoreGive(i2c_semaphore);
+			}
 			break;
 		default:
 			log(cmd.src, T_SYSLOG, "Received unknown command");

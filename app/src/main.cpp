@@ -879,7 +879,7 @@ TASK cmd_handler_task(TaskDescriptor_t* self)
 			log(cmd.src, T_SYSLOG, "Received command: SENSOR_CALIBRATION");
 			// Calibrate only on the ramp, in flight this would stop the IMU
 			// and barometer tasks and reset the ground references
-			if (rocket_state != RS_IDLE) {
+			if (rocket_state != RS_IDLE || system_armed) {
 				log(cmd.src, T_SYSLOG, "Calibration refused, rocket is not idle");
 				break;
 			}

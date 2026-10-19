@@ -93,6 +93,7 @@ typedef struct _TaskDescriptor_t {
 		desc->was_delayed = xTaskDelayUntil(&(desc->last_wake), pdMS_TO_TICKS(1000/freq)); \
 		if (desc->was_delayed == false) { \
 			desc->last_wake = xTaskGetTickCount(); \
+			vTaskDelay(1); \
 			/*WARN("[" TO_XSTR(__FILE__) ":" TO_XSTR(__LINE__) "]: task failed to meet deadline, took %ldms", pdTICKS_TO_MS(desc->last_wake - wake));*/ \
 		} \
 	} while (0)
@@ -103,6 +104,7 @@ typedef struct _TaskDescriptor_t {
 		desc->was_delayed = xTaskDelayUntil(&(desc->last_wake), pdMS_TO_TICKS(sec*1000)); \
 		if (desc->was_delayed == false) { \
 			desc->last_wake = xTaskGetTickCount(); \
+			vTaskDelay(1); \
 			/*WARN("[" TO_XSTR(__FILE__) ":" TO_XSTR(__LINE__) "]: task failed to meet deadline, took %ldms", pdTICKS_TO_MS(desc->last_wake - wake));*/ \
 		} \
 	} while (0)
@@ -114,6 +116,7 @@ typedef struct _TaskDescriptor_t {
 		desc->was_delayed = xTaskDelayUntil(&(desc->last_wake), pdMS_TO_TICKS(1000/freq)); \
 		if (desc->was_delayed == false) { \
 			desc->last_wake = xTaskGetTickCount(); \
+			vTaskDelay(1); \
 		} \
 	} while (0)
 
@@ -122,6 +125,7 @@ typedef struct _TaskDescriptor_t {
 		desc->was_delayed = xTaskDelayUntil(&(desc->last_wake), pdMS_TO_TICKS(sec*1000)); \
 		if (desc->was_delayed == false) { \
 			desc->last_wake = xTaskGetTickCount(); \
+			vTaskDelay(1); \
 		} \
 	} while (0)
 

@@ -23,7 +23,7 @@
 
 SPIClass SPI2(FSPI);
 TwoWire I2C1(0);
-//TwoWire I2C2(2);
+TwoWire I2C2(2);
 
 // State filter for orientation estimation, used in the IMU task
 Adafruit_Mahony orientation;
@@ -36,7 +36,7 @@ KalmanFilter altitude;
 Servo servo;
 
 // Current sensor
-//INA226 INA(0x40, &I2C2);
+INA226 INA(0x40, &I2C2);
 
 
 // Enables SD card writing
@@ -128,14 +128,19 @@ void setup(void)
 	//		delay(100);
 	//	}
 	Serial.println("Initialized");
+	pinMode(PIN_DBG_LED, OUTPUT);
+	digitalWrite(PIN_DBG_LED, HIGH);
+	delay(200);
+	digitalWrite(PIN_DBG_LED, LOW);
+
 
 	I2C1.setPins(I2C1_SDA, I2C1_SCL);
 	I2C1.begin();
 	I2C1.setClock(100000);
 
-//	I2C2.setPins(I2C2_SDA, I2C2_SCL);
-//	I2C2.begin();
-//	I2C2.setClock(100000);
+	I2C2.setPins(I2C2_SDA, I2C2_SCL);
+	I2C2.begin();
+	I2C2.setClock(100000);
 
 	// put all chip selects high, the individual setup calls will handle them later
 	pinMode(IMU_CS, OUTPUT);
@@ -245,7 +250,7 @@ void setup(void)
 
 	gps_setup();
 
-	//INA.begin();
+	INA.begin();
 
 	/* ======================== TASKS INITIALIZATION ======================== */
 	// Core 0 tasks
@@ -275,6 +280,12 @@ void setup(void)
 		}
 	}
 
+	Serial.println("Tasks created");
+	digitalWrite(PIN_DBG_LED, HIGH);
+	delay(200);
+	digitalWrite(PIN_DBG_LED, LOW);
+
+
 	// Register consumer tasks to the logger, these tasks will get notified when
 	// new data is ready to be read
 	logger_register_consumer(parachute_task_descriptor.handle, parachute_msg_queue, 0xffff, T_FILTER_STATE);
@@ -302,10 +313,11 @@ void setup(void)
 	digitalWrite(PINT6_LS, LOW);
 
 	/* ======================== SERVO INITIALIZATION ======================== */
-	//servo.attach(PIN_SERVO, SERVO_MIN_US, SERVO_MAX_US);
-	//servo.write(0);
+	servo.attach(PIN_SERVO, SERVO_MIN_US, SERVO_MAX_US);
+	servo.write(0);
 
 
+	Serial.println("Before blink");
 	// Blink to confirm end of setup
 	digitalWrite(PIN_DBG_LED, HIGH);
 	delay(200);
@@ -342,7 +354,7 @@ TASK ina_task(TaskDescriptor_t* self)
 {
 	self->last_wake = xTaskGetTickCount();
 	while (true) {
-		//log(S_OTHER, T_SYSLOG, INA.getBusVoltage(), INA.getCurrent());
+		log(S_OTHER, T_SYSLOG, INA.getBusVoltage(), INA.getCurrent());
 		delay(100);
 	}
 }
@@ -630,7 +642,7 @@ TASK parachute_task(TaskDescriptor_t* self)
 				float theta_pid_deg = petali.theta_update(z_alt, z_speed, _attitude_rad, _pressure);
 				//attuazione airbrake
 				log(S_PARA, T_SYSLOG, theta_pid_deg);
-				//servo.write(min(theta_pid_deg, 145.0f));
+				servo.write(min(theta_pid_deg, 145.0f));
 				airbrake_active = true;
 			}
 
@@ -663,8 +675,7 @@ TASK parachute_task(TaskDescriptor_t* self)
 			break;
 
 		case RS_DROGUE:
-			// TODO: retract airbrakes
-			//servo.write(0);
+			servo.write(0);
 			airbrake_active = false;
 
 			// Detect main parachute deployment
@@ -820,6 +831,7 @@ TASK lora_formatter_task(TaskDescriptor_t* self)
 TASK lora_transmitter_task(TaskDescriptor_t* self)
 {
 	self->last_wake = xTaskGetTickCount();
+	LoRaProtoState last_state = STATE_DISCONNECTED;
 
 	while (true) {
 		// Run the lora radio state machine
@@ -842,7 +854,11 @@ TASK lora_transmitter_task(TaskDescriptor_t* self)
 			str = "UNKNOWN";
 			break;
 		}
-		//Serial.printf("LORA: %s\n", str.c_str());
+		if (state != last_state) {
+			log(S_LORA, T_SYSLOG, state);
+			last_state = state;
+		}
+		vTaskDelay(1);
 	}
 }
 

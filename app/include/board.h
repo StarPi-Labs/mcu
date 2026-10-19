@@ -9,6 +9,8 @@
 // I2C1 Bus
 #define I2C1_SDA 42
 #define I2C1_SCL 45
+#define I2C2_SDA 16
+#define I2C2_SCL 21
 
 // IMU Pins
 #define IMU_CS    15
@@ -41,11 +43,13 @@
 #define PINT6_LS 37 // J14
 
 // Peripheral assignation
-#define PIN_CUTTER_1 PINT6_LS
-#define PIN_CUTTER_2 PINT2_LS
-#define PIN_EMATCH   PINT4_LS
+#define PIN_CUTTER_1 PINT2_LS
+#define PIN_CUTTER_2 PINT6_LS
 #define PIN_DBG_LED  PINT5_LS
-#define PIN_CAMERAS  PINT1_LS // FIXME: reassign this
+#define PIN_CAMERA1  PINT3_LS
+#define PIN_CAMERA2  PINT4_LS
+#define PIN_SERVO    PINT1_HS
+// J7 battery I2C, SCA2, SCL2
 
 
 // Task Timings
@@ -117,3 +121,5 @@
 // Others
 #define GROUND_CHECK_TIMER_MS            60*1000
 #define DBG_LED_PWM                      255/3
+#define SERVO_MIN_US  500
+#define SERVO_MAX_US 2500

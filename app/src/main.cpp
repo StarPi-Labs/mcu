@@ -1,7 +1,6 @@
 #include <Adafruit_AHRS.h>
 #include <Arduino.h>
 #include <FreeRTOS.h>
-#include <ESP32Servo.h>
 #include <INA226.h>
 
 #include "Bluetooth.hpp"
@@ -32,8 +31,29 @@ Adafruit_Mahony orientation;
 // the parachute
 KalmanFilter altitude;
 
-//servo
-Servo servo;
+// Airbrake servo, driven directly by LEDC (ESP32Servo hung in attach()).
+// Channel 0 / timer 0: analogWrite() allocates channels from the top (7, 6, ...)
+#define SERVO_LEDC_CHANNEL 0
+#define SERVO_LEDC_FREQ_HZ 50
+#define SERVO_LEDC_BITS    14
+static volatile bool servo_ready = false;
+
+static void servo_init(void)
+{
+	ledcSetup(SERVO_LEDC_CHANNEL, SERVO_LEDC_FREQ_HZ, SERVO_LEDC_BITS);
+	ledcAttachPin(PIN_SERVO, SERVO_LEDC_CHANNEL);
+	servo_ready = true;
+}
+
+// Same semantics as Servo::write(): 0-180 degrees mapped on SERVO_MIN_US..SERVO_MAX_US
+static void servo_write_deg(float deg)
+{
+	if (!servo_ready) return;
+	deg = constrain(deg, 0.0f, 180.0f);
+	uint32_t us = SERVO_MIN_US + (uint32_t)(deg / 180.0f * (SERVO_MAX_US - SERVO_MIN_US));
+	uint32_t period_us = 1000000 / SERVO_LEDC_FREQ_HZ;
+	ledcWrite(SERVO_LEDC_CHANNEL, (us << SERVO_LEDC_BITS) / period_us);
+}
 
 // Current sensor
 INA226 INA(0x40, &I2C2);
@@ -321,10 +341,10 @@ void setup(void)
 	Serial.println("DBG B6: PINT6 ok");
 
 	/* ======================== SERVO INITIALIZATION ======================== */
-	Serial.println("DBG C0: before servo.attach");
-	servo.attach(PIN_SERVO, SERVO_MIN_US, SERVO_MAX_US);
+	Serial.println("DBG C0: before servo_init");
+	servo_init();
 	Serial.println("DBG C: servo attached");
-	servo.write(0);
+	servo_write_deg(0);
 	Serial.println("DBG D: servo written");
 
 
@@ -654,7 +674,7 @@ TASK parachute_task(TaskDescriptor_t* self)
 				float theta_pid_deg = petali.theta_update(z_alt, z_speed, _attitude_rad, _pressure);
 				//attuazione airbrake
 				log(S_PARA, T_SYSLOG, theta_pid_deg);
-				servo.write(min(theta_pid_deg, 145.0f));
+				servo_write_deg(min(theta_pid_deg, 145.0f));
 				airbrake_active = true;
 			}
 
@@ -687,7 +707,7 @@ TASK parachute_task(TaskDescriptor_t* self)
 			break;
 
 		case RS_DROGUE:
-			servo.write(0);
+			servo_write_deg(0);
 			airbrake_active = false;
 
 			// Detect main parachute deployment

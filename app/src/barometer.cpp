@@ -64,6 +64,25 @@ float agl_altitude(float air_pressure, float ground_alt)
 }
 
 
+float compute_pressure_vega(float delta_altitude_vega, float ground_pressure)
+{
+	constexpr float ground_reference_temperature_k = 15.0f + 273.15f; // standard temperature at sea level
+	constexpr float ground_reference_pressure_pa = 101250.0f;
+
+	constexpr float Lb = -0.0065; // standard temperature lapse rate [K/m]
+	constexpr float M = 0.0289644; // Molar mass of air [kg/mol]
+	constexpr float R = 8.31432;  // Universal gas constant [N*m/mol*K]
+	constexpr float g0 = 9.80665; // Gravitational constant [m/s^2]
+
+
+	float ground_altitude_vega = isa_altitude(ground_pressure);
+
+	float pressure_vega_target = ground_reference_pressure_pa * powf(1/(1+Lb/ground_reference_temperature_k * (delta_altitude_vega + ground_altitude_vega)), (g0*M)/(R*Lb));
+
+	return pressure_vega_target;
+}
+
+
 /*scaletta: 1. reset del barometro;
 			2. qualche ciclo a vuoto per stabilizzarsi(Delta Sigma);
 			3. Salva il valore di pressione sulla rampa di lancio;

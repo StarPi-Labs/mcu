@@ -1,6 +1,8 @@
 #include <Adafruit_AHRS.h>
 #include <Arduino.h>
 #include <FreeRTOS.h>
+#include <ESP32Servo.h>
+#include <INA226.h>
 
 #include "Bluetooth.hpp"
 #include "KalmanFilter.hpp"
@@ -12,6 +14,7 @@
 #include "lora.h"
 #include "sdcard.h"
 #include "task.h"
+#include "airbrake.hpp"
 
 #if TEST_FAKE_DATA == 1
 #include "test_synthetic_data.h"
@@ -20,6 +23,7 @@
 
 SPIClass SPI2(FSPI);
 TwoWire I2C1(0);
+//TwoWire I2C2(2);
 
 // State filter for orientation estimation, used in the IMU task
 Adafruit_Mahony orientation;
@@ -27,6 +31,13 @@ Adafruit_Mahony orientation;
 // Altitude and veritcal velocity state filter, used to sense when to deploy
 // the parachute
 KalmanFilter altitude;
+
+//servo
+Servo servo;
+
+// Current sensor
+//INA226 INA(0x40, &I2C2);
+
 
 // Enables SD card writing
 static bool enable_sd_card = true;
@@ -38,6 +49,8 @@ static bool baro_healthy = true;
 static bool airbrake_active = false;
 bool system_armed = true; // FIXME: SYSTEM SHOULD BE STARTED DISARMED
 static RocketState rocket_state = RS_IDLE; // copy of the parachute task state, read by the command handler
+
+float _pressure = 0, _attitude_rad = 0;
 
 // calibration
 float gx_bias = 0;
@@ -63,6 +76,7 @@ DECLARE_STATIC_TASK(sd_formatter_task);
 DECLARE_STATIC_TASK_STACK(sd_writer_task, TASK_STACK_2K);
 DECLARE_STATIC_TASK(ble_formatter_task);
 DECLARE_STATIC_TASK_STACK(cmd_handler_task, TASK_STACK_2K);
+DECLARE_STATIC_TASK_STACK(ina_task, TASK_STACK_2K);
 
 DECLARE_STATIC_QUEUE(parachute_msg_queue, LogMessage, LOG_DEFAULT_QUEUE_SIZE);
 DECLARE_STATIC_QUEUE(sd_msg_queue, LogMessage, LOG_DEFAULT_QUEUE_SIZE);
@@ -118,7 +132,11 @@ void setup(void)
 	I2C1.setPins(I2C1_SDA, I2C1_SCL);
 	I2C1.begin();
 	I2C1.setClock(100000);
-	
+
+//	I2C2.setPins(I2C2_SDA, I2C2_SCL);
+//	I2C2.begin();
+//	I2C2.setClock(100000);
+
 	// put all chip selects high, the individual setup calls will handle them later
 	pinMode(IMU_CS, OUTPUT);
 	digitalWrite(IMU_CS, HIGH);
@@ -227,6 +245,7 @@ void setup(void)
 
 	gps_setup();
 
+	//INA.begin();
 
 	/* ======================== TASKS INITIALIZATION ======================== */
 	// Core 0 tasks
@@ -241,13 +260,15 @@ void setup(void)
 	INIT_STATIC_TASK(lora_transmitter_task, "lora transmitter", NULL, tskIDLE_PRIORITY + 7, 1);
 	INIT_STATIC_TASK(cmd_handler_task, "cmd handler", NULL, tskIDLE_PRIORITY + 6, 1);
 	INIT_STATIC_TASK(ble_formatter_task, "ble formatter", NULL, tskIDLE_PRIORITY + 5, 1);
+	INIT_STATIC_TASK(ina_task, "ina", NULL, tskIDLE_PRIORITY + 4, 1);
 	INIT_STATIC_TASK(uart_task, "logger", NULL, tskIDLE_PRIORITY, 1);
 
 	if (!TASK_IS_INITIALIZED(imu_task) || !TASK_IS_INITIALIZED(barometer_task) ||
 	    !TASK_IS_INITIALIZED(parachute_task) || !TASK_IS_INITIALIZED(gps_task) || !TASK_IS_INITIALIZED(uart_task) ||
 	    !TASK_IS_INITIALIZED(lora_transmitter_task) || !TASK_IS_INITIALIZED(lora_formatter_task) ||
 	    !TASK_IS_INITIALIZED(sd_formatter_task) || !TASK_IS_INITIALIZED(ble_formatter_task) ||
-	    !TASK_IS_INITIALIZED(cmd_handler_task) || !TASK_IS_INITIALIZED(sd_writer_task)) {
+	    !TASK_IS_INITIALIZED(cmd_handler_task) || !TASK_IS_INITIALIZED(sd_writer_task) ||
+	    !TASK_IS_INITIALIZED(ina_task)) {
 		while (true) {
 			Serial.println("Error creating tasks");
 			delay(500);
@@ -264,7 +285,7 @@ void setup(void)
 
 
 	/* ====================== PERIPHERAL INITIALIZATION ===================== */
-	pinMode(PINT1_HS, INPUT);
+	pinMode(PINT1_HS, OUTPUT);
 	pinMode(PINT1_LS, OUTPUT);
 	digitalWrite(PINT1_LS, LOW);
 	pinMode(PINT2_HS, INPUT);
@@ -279,6 +300,11 @@ void setup(void)
 	digitalWrite(PINT5_LS, LOW);
 	pinMode(PINT6_LS, OUTPUT);
 	digitalWrite(PINT6_LS, LOW);
+
+	/* ======================== SERVO INITIALIZATION ======================== */
+	//servo.attach(PIN_SERVO, SERVO_MIN_US, SERVO_MAX_US);
+	//servo.write(0);
+
 
 	// Blink to confirm end of setup
 	digitalWrite(PIN_DBG_LED, HIGH);
@@ -310,6 +336,17 @@ void loop(void)
 	digitalWrite(PIN_DBG_LED, LOW);
 	delay(1000);
 }
+
+
+TASK ina_task(TaskDescriptor_t* self)
+{
+	self->last_wake = xTaskGetTickCount();
+	while (true) {
+		//log(S_OTHER, T_SYSLOG, INA.getBusVoltage(), INA.getCurrent());
+		delay(100);
+	}
+}
+
 
 TASK imu_task(TaskDescriptor_t* self)
 {
@@ -353,6 +390,7 @@ TASK imu_task(TaskDescriptor_t* self)
 				float vertical_accel = 2*(qx*qz - qw*qy) * ax + 2*(qy*qz + qw*qx) * ay + (1 - 2*(qx*qx + qy*qy)) * az;
 				// TODO: airbrake trigger
 				if (xSemaphoreTake(altitude_semaphore, portMAX_DELAY) == pdTRUE) {
+					_attitude_rad = attitude_rad;
 					altitude.predict(vertical_accel, attitude_rad, airbrake_active, true);
 					xSemaphoreGive(altitude_semaphore);
 				}
@@ -400,6 +438,8 @@ TASK imu_task(TaskDescriptor_t* self)
 
 				log(S_BARO, T_PRESSURE, s.pressure, s.pressure);
 				log(S_IMU, T_FILTER_STATE, s.z_alt, s.z_speed, s.z_acc);
+				_pressure = s.pressure;
+				_attitude_rad = s.att;
 
 				// log real accelleration but under another type to not interfere with launch simulation
 				log(S_IMU, T_SYSLOG, ax, ay, az);
@@ -435,12 +475,16 @@ TASK barometer_task(TaskDescriptor_t* self)
 
 			// FIXME: is the median really the best way to fuse the two barometer readings?
 			float alt = 0;
+			float pres = 0;
 			if (sample1.error_status == 0 && sample2.error_status == 0) {
 				alt = (sample1.altitude + sample2.altitude) / 2.0f;
+				pres = (sample1.pressure + sample2.pressure) / 2.0f;
 			} else if (sample1.error_status == 0) {
 				alt = sample1.altitude;
+				pres = sample1.pressure;
 			} else if (sample2.error_status == 0) {
 				alt = sample2.altitude;
+				pres = sample2.pressure;
 			} else {
 				log(S_BARO, T_SYSLOG, "[ERR] Reading barometers");
 			}
@@ -449,6 +493,7 @@ TASK barometer_task(TaskDescriptor_t* self)
 			if (sample1.error_status == 0 || sample2.error_status == 0) {
 				if (xSemaphoreTake(altitude_semaphore, portMAX_DELAY) == pdTRUE) {
 					altitude.update(alt);
+					_pressure = pres;
 					xSemaphoreGive(altitude_semaphore);
 				}
 			}
@@ -458,6 +503,7 @@ TASK barometer_task(TaskDescriptor_t* self)
 			log(S_BARO, T_FILTER_STATE, fs[0], fs[1], fs[2]);
 			log(S_BARO, T_PRESSURE, sample1.pressure, sample2.pressure);
 			log(S_BARO, T_SYSLOG, sample1.altitude, sample2.altitude);
+			log(S_BARO, T_SYSLOG, sample1.temperature, sample2.temperature, -777.0f);
 #endif
 
 			xSemaphoreGive(i2c_semaphore);
@@ -534,11 +580,11 @@ TASK parachute_task(TaskDescriptor_t* self)
 			digitalWrite(PIN_CUTTER_2, 0);
 			cutter_2_active = false;
 		}
-		if (ematch_active && (millis() - ematch_fire_time) >= EMATCH_ON_TIME_MS) {
-			pinMode(PIN_EMATCH, OUTPUT);
-			digitalWrite(PIN_EMATCH, 0);
-			ematch_active = false;
-		}
+		//if (ematch_active && (millis() - ematch_fire_time) >= EMATCH_ON_TIME_MS) {
+		//	pinMode(PIN_EMATCH, OUTPUT);
+		//	digitalWrite(PIN_EMATCH, 0);
+		//	ematch_active = false;
+		//}
 
 		switch (state) {
 		case RS_IDLE:
@@ -580,8 +626,12 @@ TASK parachute_task(TaskDescriptor_t* self)
 
 		case RS_COAST:
 		if (z_alt > MIN_AIRBRAKE_ALT_M) {
-				// TODO: control aibrakes
-				// airbrake_active = true;
+				static AirBrake petali;
+				float theta_pid_deg = petali.theta_update(z_alt, z_speed, _attitude_rad, _pressure);
+				//attuazione airbrake
+				log(S_PARA, T_SYSLOG, theta_pid_deg);
+				//servo.write(min(theta_pid_deg, 145.0f));
+				airbrake_active = true;
 			}
 
 			// Detect apogee
@@ -614,7 +664,8 @@ TASK parachute_task(TaskDescriptor_t* self)
 
 		case RS_DROGUE:
 			// TODO: retract airbrakes
-			// airbrake_active = false;
+			//servo.write(0);
+			airbrake_active = false;
 
 			// Detect main parachute deployment
 			if (z_alt <= Z_ALT_MAIN_DEPLOYMENT_M) {
@@ -791,7 +842,7 @@ TASK lora_transmitter_task(TaskDescriptor_t* self)
 			str = "UNKNOWN";
 			break;
 		}
-		Serial.printf("LORA: %s\n", str.c_str());
+		//Serial.printf("LORA: %s\n", str.c_str());
 	}
 }
 
@@ -868,11 +919,13 @@ TASK cmd_handler_task(TaskDescriptor_t* self)
 			log(cmd.src, T_SYSLOG, "Received command: CUT_MAIN");
 			break;
 		case CMD_CAMERAS_ON:
-			digitalWrite(PIN_CAMERAS, HIGH);
+			digitalWrite(PIN_CAMERA1, HIGH);
+			digitalWrite(PIN_CAMERA2, HIGH);
 			log(cmd.src, T_SYSLOG, "Received command: CAMERAS_ON");
 			break;
 		case CMD_CAMERAS_OFF:
-			digitalWrite(PIN_CAMERAS, LOW);
+			digitalWrite(PIN_CAMERA1, LOW);
+			digitalWrite(PIN_CAMERA2, LOW);
 			log(cmd.src, T_SYSLOG, "Received command: CAMERAS_OFF");
 			break;
 		case CMD_SENSOR_CALIBRATION:

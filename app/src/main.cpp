@@ -128,6 +128,7 @@ void setup(void)
 	//		delay(100);
 	//	}
 	Serial.println("Initialized");
+	Serial.printf("DBG reset reason: %d\n", (int)esp_reset_reason());
 	pinMode(PIN_DBG_LED, OUTPUT);
 	digitalWrite(PIN_DBG_LED, HIGH);
 	delay(200);
@@ -293,28 +294,38 @@ void setup(void)
 	logger_register_consumer(sd_formatter_task_descriptor.handle, sd_msg_queue, 0xffff, 0xffff);
 	logger_register_consumer(uart_task_descriptor.handle, uart_msg_queue, 0xffff, 0xffff);
 	logger_register_consumer(ble_formatter_task_descriptor.handle, ble_msg_queue, 0xffff, 0xffff);
+	Serial.println("DBG A: consumers registered");
 
 
 	/* ====================== PERIPHERAL INITIALIZATION ===================== */
 	pinMode(PINT1_HS, OUTPUT);
 	pinMode(PINT1_LS, OUTPUT);
 	digitalWrite(PINT1_LS, LOW);
+	Serial.println("DBG B1: PINT1 ok");
 	pinMode(PINT2_HS, INPUT);
 	pinMode(PINT2_LS, OUTPUT);
 	digitalWrite(PINT2_LS, LOW);
+	Serial.println("DBG B2: PINT2 ok");
 	pinMode(PINT3_HS, INPUT);
 	pinMode(PINT3_LS, OUTPUT);
 	digitalWrite(PINT3_LS, LOW);
+	Serial.println("DBG B3: PINT3 ok");
 	pinMode(PINT4_LS, OUTPUT);
 	digitalWrite(PINT4_LS, LOW);
+	Serial.println("DBG B4: PINT4 ok");
 	pinMode(PINT5_LS, OUTPUT);
 	digitalWrite(PINT5_LS, LOW);
+	Serial.println("DBG B5: PINT5 ok");
 	pinMode(PINT6_LS, OUTPUT);
 	digitalWrite(PINT6_LS, LOW);
+	Serial.println("DBG B6: PINT6 ok");
 
 	/* ======================== SERVO INITIALIZATION ======================== */
+	Serial.println("DBG C0: before servo.attach");
 	servo.attach(PIN_SERVO, SERVO_MIN_US, SERVO_MAX_US);
+	Serial.println("DBG C: servo attached");
 	servo.write(0);
+	Serial.println("DBG D: servo written");
 
 
 	Serial.println("Before blink");
@@ -343,6 +354,7 @@ void setup(void)
 // Heartbeat
 void loop(void)
 {
+	Serial.printf("DBG loop alive %lu\n", millis());
 	digitalWrite(PIN_DBG_LED, HIGH);
 	delay(1000);
 	digitalWrite(PIN_DBG_LED, LOW);

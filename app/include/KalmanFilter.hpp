@@ -49,13 +49,23 @@ private:
 	static constexpr float g0 = 9.80665;
 
 	// Valore di a che separa la fase di boost da quella di coast
-	// !!! ancora da capire quanto vale !!! ancora da settare
-	const float a_boost = 15;
+	const float ACC_BOOST_THRESHOLD_G = 3.0f;
+
+	//====== FILTRO PASSA-BASSO SULL'ACCELERAZIONE ======
+	// Filtro IIR del primo ordine: a_f += alpha_lp*(a_in - a_f)
+	// con alpha_lp = dt/(RC + dt), RC = 1/(2*pi*f_cut).
+	// A 100 Hz di campionamento, f_cut = 20 Hz dà alpha_lp ~ 0.56 (filtro leggero).
+	// Più f_cut è basso, più il filtro è pesante (e più introduce ritardo).
+	const float f_cut_acc = 20.0;          // Frequenza di taglio, in Hz
+	float alpha_lp;                        // Coefficiente del filtro (calcolato nel costruttore)
+	float a_filt;                          // Accelerazione verticale filtrata (senza gravità)
 
 
 public:
 	KalmanFilter()
 	{
+		g = 1.0f; // valore di default, sovrascrivibile con setG()
+
 		x << 0, 0;
 		u << dt*dt/2.0, dt;
 
@@ -70,6 +80,13 @@ public:
 		Q_base(1,1) = dt*dt;
 
 		R = sigma_bar_boost;
+
+		// Coefficiente del filtro passa-basso
+		const float RC = 1.0f/(2.0f*PI*f_cut_acc);
+		alpha_lp = dt/(RC + dt);
+
+		// In rampa il razzo è fermo: a_misurata = g, quindi a - g = 0
+		a_filt = 0.0;
 	}
 
 	void setG(float g_cal)
@@ -79,9 +96,17 @@ public:
 
 	// ===== FUNZIONI PER LA SIMULAZIONE =====
 
-	// restituisce lo stato attuale (altitudine e velocità verticale)
-	//   Vector2f: x(0) = altitudine, x(1) = velocità verticale
-	Vector2f getState() const { return x; }
+	// restituisce lo stato attuale
+	//   Vector3f: [0] = altitudine, [1] = velocità verticale,
+	//             [2] = accelerazione verticale filtrata (senza gravità, cioè a - g)
+	// Nota: l'accelerazione NON fa parte dello stato del Kalman, è solo filtrata
+	// con un passa-basso e restituita in uscita.
+	Vector3f getState() const
+	{
+		Vector3f s;
+		s << x(0), x(1), a_filt;
+		return s;
+	}
 
 	void getSigmaConstants(float &sb, float &sc, float &sa, float &sf) const
 	{
@@ -102,41 +127,52 @@ public:
 
 	// predizione dello stato a partire dall'accelerazione misurata, dall'angolo
 	// di tilt e dallo stato attuale dell'airbrake (triggerato o no)
+	// Va chiamata a ogni ciclo (dt): aggiorna anche il filtro passa-basso
+	// sull'accelerazione.
 	//   a : accelerazione verticale misurata in G, rispetto l'asse normale alla scheda
 	//   alpha : angolo di tilt rispetto alla verticale (in radianti)
 	//   airbrake_trigger : se true, si è in fase di airbrakes
-	void predict(float a, float alpha, bool airbrake_trigger)
+	void predict(float a, float alpha, bool airbrake_trigger, bool imu_ok)
 	{
 		//alpha è l'angolo di tilt rispetto alla verticale
-		A(0,1) = dt * cos(alpha);
+		A(0,1) = dt;
 
-		if (!airbrake_trigger) {
-			if (a > a_boost) {
-				// Boost  !!! Bisogna valutare le condizioni per capire bene la logica del gain scheduling
-				Q = sigma_boost*Q_base;
-				R = sigma_bar_boost;
+		if (imu_ok) {
+			if (!airbrake_trigger) {
+				if (a > ACC_BOOST_THRESHOLD_G) {
+					// Boost  !!! Bisogna valutare le condizioni per capire bene la logica del gain scheduling
+					Q = sigma_boost*Q_base;
+					R = sigma_bar_boost;
+				} else {
+					// Coast
+					Q = sigma_coast*Q_base;
+					R = sigma_bar_coast;
+				}
 			} else {
-				// Coast
-				Q = sigma_coast*Q_base;
-				R = sigma_bar_coast;
+				// Airbrakes
+				if (x(1) > 0) {
+					// se la velocità verticale è positiva (cioè verso l'alto)
+					Q = sigma_airbrakes*Q_base;
+					R = sigma_bar_airbrake;
+				} else {
+					// Free fall
+					Q = sigma_freefall*Q_base;
+					R = sigma_bar_freefall;
+				}
 			}
 		} else {
-			// Airbrakes
-			if (x(1)*cos(alpha) > 0) {
-				// se la velocità verticale v=x(1)*cos(alpha) è positiva (cioè verso l'alto)
-				Q = sigma_airbrakes*Q_base;
-				R = sigma_bar_airbrake;
-			} else {
-				// Free fall
-				Q = sigma_freefall*Q_base;
-				R = sigma_bar_freefall;
-			}
+			// If IMU is not ok simply not calling predict does not work, so use
+			// a constant speed model and increase the uncertainty on the IMU value
+			// basically trusting only the barometer
+			a = g;
+			Q = (sigma_boost*10)*Q_base;
 		}
 
-		x = A*x + g0*(a*cos(alpha) - g*cos(alpha)*cos(alpha))*u;
-		//x = A*x;
+		x = A*x + (a - g)*g0*u;
 		P = A*P*A.transpose() + Q;
 
+		// Filtro passa-basso sull'accelerazione (senza gravità)
+		a_filt += alpha_lp*((a - g) - a_filt);
 	}
 
 	// aggiornamento dello stato a partire da una misura di altitudine
@@ -144,15 +180,16 @@ public:
 	void update(float h)
 	{
 		float S = H*P*H.transpose() + R;
-
 		Vector2f K = P*H.transpose()/S;
-
 		float z = h;
 
 		x = x + K*(z - H*x);
+
 		// Forma standard
 		// P = (Matrix2f::Identity() - K * H) * P;
-		// Forma di Joseph
-		P = (Matrix2f::Identity() - K*H) * P * (Matrix2f::Identity() - K*H).transpose() + K*R*K.transpose();
+
+		// Forma di Joseph per mantenere la covarianza simmetrica e definita positiva
+		Matrix2f I_KH = Matrix2f::Identity() - K*H;
+		P = I_KH * P * I_KH.transpose() + K*R*K.transpose();
 	}
 };

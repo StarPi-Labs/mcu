@@ -45,24 +45,24 @@ enum SourceSubsystem : uint8_t {
 /// @note Let @b n be the number of entries,
 /// then ceil(log2(n)) <= @a MESSAGE_TYPE_ENCODED_BITS
 enum MessageType : uint16_t {
-	T_ACCELLERATION = 1 << 0,
-	T_GYRO = 1 << 1,
-	T_ALT_SPEED = 1 << 2,
-	T_PRESSURE = 1 << 3,
-	T_TEMPERATURE = 1 << 4,
-	T_GPS = 1 << 5,
-	T_SYSLOG = 1 << 6,
-	T_ORIENTATION = 1 << 7,
-	T_ROCKET_STATE = 1 << 8,
+	T_ACCELLERATION = 1 << 0, // IMU acceleration
+	T_GYRO          = 1 << 1, // IMU gyroscope
+	T_FILTER_STATE  = 1 << 2, // Kalman filter state (altitude, vertical speed and acceleration)
+	T_PRESSURE      = 1 << 3, // Barometer pressure
+	T_TEMPERATURE   = 1 << 4, // Barometer temperature
+	T_GPS           = 1 << 5, // GPS latitude and longitude
+	T_SYSLOG        = 1 << 6,
+	T_ORIENTATION   = 1 << 7, // Mahony filter orientation (roll, pitch, yaw)
+	T_ROCKET_STATE  = 1 << 8, // Rocket state (idle, boost, coast, drogue, main, landed)
 };
 
 enum RocketState : uint8_t {
-	RS_IDLE,      // Idle state, on ramp
-	RS_BOOST,     // Motor burning, ascending
-	RS_COAST,     // Motor burnt out, still ascending
-	RS_DROGUE,    // Drogue deployed, falling
-	RS_MAIN,      // Main parachute deployed, falling
-	RS_TOUCHDOWN, // On ground
+	RS_IDLE      = 0, // Idle state, on ramp
+	RS_BOOST     = 1, // Motor burning, ascending
+	RS_COAST     = 2, // Motor burnt out, still ascending
+	RS_DROGUE    = 3, // Drogue deployed, falling
+	RS_MAIN      = 4, // Main parachute deployed, falling
+	RS_TOUCHDOWN = 5, // On ground
 };
 
 typedef struct {

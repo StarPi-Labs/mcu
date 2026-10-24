@@ -102,6 +102,7 @@ struct [[gnu::packed]] LoRaDataPacket
 		int16_t dt;
 	} gps;
 	uint8_t state;
+	uint8_t sensor_status;
 };
 
 // Ground station command ids. The same ids are the single byte written to the
@@ -109,13 +110,16 @@ struct [[gnu::packed]] LoRaDataPacket
 // (COMMAND_IDS), so this enum is append-only: never reorder or reuse a value.
 enum LoRaCommand : uint8_t
 {
-	CMD_NONE,
-	CMD_EJECT_A,
-	CMD_EJECT_C,
-	CMD_CUT_MAIN,
-	CMD_CAMERAS_ON,
-	CMD_CAMERAS_OFF,
-	CMD_SENSOR_CALIBRATION,
+	CMD_NONE               = 0,
+	CMD_EJECT_A            = 1,
+	CMD_EJECT_C            = 2,
+	CMD_CUT_MAIN           = 3,
+	CMD_CAMERAS_ON         = 4,
+	CMD_CAMERAS_OFF        = 5,
+	CMD_SENSOR_CALIBRATION = 6,
+	CMD_SYSTEM_ARM         = 7,
+	CMD_SYSTEM_DISARM      = 8,
+	CMD_SET_GROUND_TEMP    = 9,
 };
 
 struct [[gnu::packed]] LoRaCommandPacket
@@ -135,7 +139,7 @@ struct BandRequirements {
 };
 
 
-void lora_setup(FrequencyBands band, LoRaTxMode mode, uint8_t id, bool respect_power_limit = true);
+void lora_setup(FrequencyBands band, int channel, LoRaTxMode mode, uint8_t id, bool respect_power_limit = true);
 
 void lora_set_tx_packet_cb(bool (*cb)(uint8_t*)); // Set action that fetches a packet to be sent
 void lora_set_rx_packet_cb(void (*cb)(uint8_t*)); // Set action when a packet arrives

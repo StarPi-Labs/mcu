@@ -40,7 +40,7 @@
 //    tx_time_ms: flight computer clock when the packet was transmitted, in
 //                milliseconds (epoch once its GPS has set the clock)
 //    state:      RocketState ordinal (logger.h)
-//    altitude m, vspeed m/s, attitude degrees from vertical, p1/p2 mbar,
+//    altitude m, vspeed m/s, attitude degrees from vertical, p1/p2 Pa,
 //    latitude/longitude degrees: the float16 fields already converted. A value
 //    that is not finite is sent as null.
 //    dt_ms:      when the group was last updated, relative to tx_time_ms: the

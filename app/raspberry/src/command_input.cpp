@@ -189,6 +189,7 @@ bool CommandInput::parse_command(const std::string& json_str, LoRaCommandPacket&
 
 		// Parse command
 		if (j.contains("command")) {
+			// TODO: verify valid command
 			packet.command = static_cast<LoRaCommand>(j["command"].get<uint8_t>());
 		} else {
 			std::cerr << "[CommandInput] Missing required field: command" << std::endl;
